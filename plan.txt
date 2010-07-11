@@ -1,0 +1,15 @@
+
+Central "dispense" server
+- Accounting Section
+ > Linking to a static libary for the cokebank
+  + int AlterBalance(UID, int Delta)
+  + int GetBalance(UID)
+- Device Control Section
+ > Snack - Controls Vending Machine and accepts logins
+ > Coke - Controls Coke Machine
+ > Misc Server
+  - int Dispense(int ID, int UID)
+- Remote Control
+ > Accepts commands from dispense app.
+  - See `proto.txt`
+
