@@ -1,7 +1,8 @@
 # OpenDispense 2
 #
 
-OBJ := main.o logging.o dispense.o cokebank.o itemdb.o
+OBJ := main.o server.o logging.o
+OBJ += dispense.o cokebank.o itemdb.o
 BIN := ../dispsrv
 
 LINKFLAGS := 

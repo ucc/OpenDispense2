@@ -19,9 +19,9 @@ extern void	Server_Start(void);
 // === CODE ===
 int main(int argc, char *argv[])
 {
-	Cokebank_Init();
+	//Init_Cokebank();
 	
-	Load_Itemlist();
+	//Load_Itemlist();
 	
 	Server_Start();
 	

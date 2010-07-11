@@ -12,6 +12,10 @@
 // === CONSTANTS ===
 #define	DEFAULT_CONFIG_FILE	"/etc/opendispense/main.cfg"
 
+// === HELPER MACROS ===
+#define _EXPSTR(x)	#x
+#define EXPSTR(x)	_EXPSTR(x)
+
 // === STRUCTURES ===
 typedef struct sItem	tItem;
 struct sItem
@@ -54,5 +58,6 @@ extern void	Log_Info(const char *Format, ...);
 extern int	AlterBalance(int User, int Ammount);
 extern int	GetBalance(int User);
 extern char	*GetUserName(int User);
+extern int	GetUserID(const char *Username);
 
 #endif
