@@ -21,7 +21,7 @@ All server responses are on one line and are prefixed by a three digit response 
 === User Auth ===
 c	USER <username>\n
 s	100 SALT <string 4-8>\n
-c	PASS <SHA-512 Hash>\n	(Hash of <username><salt><password>)
+c	PASS <Hash>\n	(Hex-Encoded SHA-512 Hash of <username><salt><password>)
 s	200 Auth OK\n or 401 Auth Failure\n
 User is now authenticated
 
