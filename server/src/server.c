@@ -17,7 +17,7 @@
 #include <string.h>
 
 #define MAX_CONNECTION_QUEUE	5
-#define INPUT_BUFFER_SIZE	128
+#define INPUT_BUFFER_SIZE	256
 
 #define MSG_STR_TOO_LONG	"499 Command too long (limit "EXPSTR(INPUT_BUFFER_SIZE)")\n"
 
@@ -37,7 +37,11 @@ typedef struct sClient
 void	Server_Start(void);
 void	Server_HandleClient(int Socket);
 char	*Server_ParseClientCommand(tClient *Client, char *CommandString);
+// --- Commands ---
 char	*Server_Cmd_USER(tClient *Client, char *Args);
+char	*Server_Cmd_PASS(tClient *Client, char *Args);
+// --- Helpers ---
+void	HexBin(uint8_t *Dest, char *Src, int BufSize);
 
 // === GLOBALS ===
  int	giServer_Port = 1020;
@@ -47,7 +51,8 @@ struct sClientCommand {
 	char	*Name;
 	char	*(*Function)(tClient *Client, char *Arguments);
 }	gaServer_Commands[] = {
-	{"USER", Server_Cmd_USER}
+	{"USER", Server_Cmd_USER},
+	{"PASS", Server_Cmd_PASS}
 };
 #define NUM_COMMANDS	(sizeof(gaServer_Commands)/sizeof(gaServer_Commands[0]))
 
@@ -174,6 +179,10 @@ void Server_HandleClient(int Socket)
 		fprintf(stderr, "ERROR: Unable to recieve from client on socket %i\n", Socket);
 		return ;
 	}
+	
+	if(giDebugLevel >= 2) {
+		printf("Client %i disconnected\n", clientInfo.ID);
+	}
 }
 
 /**
@@ -228,7 +237,9 @@ char *Server_Cmd_USER(tClient *Client, char *Args)
 		free(Client->Username);
 	Client->Username = strdup(Args);
 	
+	#if USE_SALT
 	// Create a salt (that changes if the username is changed)
+	// Yes, I know, I'm a little paranoid, but who isn't?
 	Client->Salt[0] = 0x21 + (rand()&0x3F);
 	Client->Salt[1] = 0x21 + (rand()&0x3F);
 	Client->Salt[2] = 0x21 + (rand()&0x3F);
@@ -241,6 +252,65 @@ char *Server_Cmd_USER(tClient *Client, char *Args)
 	// "100 Salt xxxxXXXX\n"
 	ret = strdup("100 SALT xxxxXXXX\n");
 	sprintf(ret, "100 SALT %s\n", Client->Salt);
-	
+	#else
+	ret = strdup("100 User Set\n");
+	#endif
 	return ret;
+}
+/**
+ * \brief Authenticate as a user
+ * 
+ * Usage: PASS <hash>
+ */
+char *Server_Cmd_PASS(tClient *Client, char *Args)
+{
+	uint8_t	clienthash[64] = {0};
+	
+	// Read user's hash
+	HexBin(clienthash, Args, 64);
+	
+	if( giDebugLevel ) {
+		 int	i;
+		printf("Client %i: Password hash ", Client->ID);
+		for(i=0;i<64;i++)
+			printf("%02x", clienthash[i]&0xFF);
+		printf("\n");
+	}
+	
+	return strdup("401 Auth Failure\n");
+}
+
+// --- INTERNAL HELPERS ---
+// TODO: Move to another file
+void HexBin(uint8_t *Dest, char *Src, int BufSize)
+{
+	 int	i;
+	for( i = 0; i < BufSize; i ++ )
+	{
+		uint8_t	val = 0;
+		
+		if('0' <= *Src && *Src <= '9')
+			val |= (*Src-'0') << 4;
+		else if('A' <= *Src && *Src <= 'B')
+			val |= (*Src-'A'+10) << 4;
+		else if('a' <= *Src && *Src <= 'b')
+			val |= (*Src-'a'+10) << 4;
+		else
+			break;
+		Src ++;
+		
+		if('0' <= *Src && *Src <= '9')
+			val |= (*Src-'0');
+		else if('A' <= *Src && *Src <= 'B')
+			val |= (*Src-'A'+10);
+		else if('a' <= *Src && *Src <= 'b')
+			val |= (*Src-'a'+10);
+		else
+			break;
+		Src ++;
+		
+		Dest[i] = val;
+	}
+	for( ; i < BufSize; i++ )
+		Dest[i] = 0;
 }

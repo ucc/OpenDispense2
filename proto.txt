@@ -17,13 +17,22 @@ All server responses are on one line and are prefixed by a three digit response 
 406	Bad Item ID
 500	Unknown Dispense Failure
 
+== Item IDs ==
+<item_id> represents the item ID
+Item IDs are allowed to contain any non-whitespace character, but in
+general they will be limited to the standard alpha-numeric set
 
 === User Auth ===
 c	USER <username>\n
-s	100 SALT <string 4-8>\n
-c	PASS <Hash>\n	(Hex-Encoded SHA-512 Hash of <username><salt><password>)
+s	100 SALT <string>\n or 100 User Set\n	(If no salt used)
+c	PASS <hash>\n	(Hex-Encoded SHA-512 Hash of <username><salt><password>)
 s	200 Auth OK\n or 401 Auth Failure\n
 User is now authenticated
+--- Alternate Method (Implicit Trust Authentication) ---
+If the client is connecting from a trusted machine on a low port then
+automatic authentication is allowed
+c	AUTOAUTH <username>\n
+s	200 Auth OK\n or 401 Auth Failure\n or 401 Untrusted\n
 
 === Commands ===
 --- Get Item list ---

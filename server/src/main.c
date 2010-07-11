@@ -36,6 +36,9 @@ int main(int argc, char *argv[])
 			case 'p':
 				giServer_Port = atoi(argv[++i]);
 				break;
+			case 'd':
+				giDebugLevel = atoi(argv[++i]);
+				break;
 			default:
 				// Usage Error?
 				break;
