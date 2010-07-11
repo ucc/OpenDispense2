@@ -15,6 +15,7 @@
 extern void	Init_Cokebank(void);
 extern void	Load_Itemlist(void);
 extern void	Server_Start(void);
+extern int	giServer_Port;
 
 // === GLOBALS ===
  int	giDebugLevel = 0;
@@ -22,6 +23,29 @@ extern void	Server_Start(void);
 // === CODE ===
 int main(int argc, char *argv[])
 {
+	 int	i;
+	
+	// Parse Arguments
+	for( i = 1; i < argc; i++ )
+	{
+		char	*arg = argv[i];
+		if( arg[0] == '-' )
+		{
+			switch(arg[1])
+			{
+			case 'p':
+				giServer_Port = atoi(argv[++i]);
+				break;
+			default:
+				// Usage Error?
+				break;
+			}
+		}
+		else {
+			// Usage Error?
+		}
+	}
+	
 	//Init_Cokebank();
 	
 	//Load_Itemlist();

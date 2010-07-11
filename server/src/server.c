@@ -11,6 +11,9 @@
 #include <stdlib.h>
 #include "common.h"
 #include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
 #include <string.h>
 
 #define MAX_CONNECTION_QUEUE	5
@@ -54,11 +57,62 @@ struct sClientCommand {
  */
 void Server_Start(void)
 {
+	 int	server_socket, client_socket;
+	struct sockaddr_in	server_addr, client_addr;
+
 	// Create Server
+	server_socket = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+	if( server_socket < 0 ) {
+		fprintf(stderr, "ERROR: Unable to create server socket\n");
+		return ;
+	}
+	
+	// Make listen address
+	memset(&server_addr, 0, sizeof(server_addr));
+	server_addr.sin_family = AF_INET;	// Internet Socket
+	server_addr.sin_addr.s_addr = htonl(INADDR_ANY);	// Listen on all interfaces
+	server_addr.sin_port = htons(giServer_Port);	// Port
+
+	// Bind
+	if( bind(server_socket, (struct sockaddr *) &server_addr, sizeof(server_addr)) < 0 ) {
+		fprintf(stderr, "ERROR: Unable to bind to 0.0.0.0:%i\n", giServer_Port);
+		return ;
+	}
+	
+	// Listen
+	if( listen(server_socket, MAX_CONNECTION_QUEUE) < 0 ) {
+		fprintf(stderr, "ERROR: Unable to listen to socket\n");
+		return ;
+	}
+	
+	printf("Listening on 0.0.0.0:%i\n", giServer_Port);
+	
+	for(;;)
+	{
+		uint	len = sizeof(client_addr);
+		
+		client_socket = accept(server_socket, (struct sockaddr *) &client_addr, &len);
+		if(client_socket < 0) {
+			fprintf(stderr, "ERROR: Unable to accept client connection\n");
+			return ;
+		}
+		
+		if(giDebugLevel >= 2) {
+			char	ipstr[INET_ADDRSTRLEN];
+			inet_ntop(AF_INET, &client_addr.sin_addr, ipstr, INET_ADDRSTRLEN);
+			printf("Client connection from %s\n", ipstr);
+		}
+		
+		// TODO: Multithread this?
+		Server_HandleClient(client_socket);
+		
+		close(client_socket);
+	}
 }
 
 /**
  * \brief Reads from a client socket and parses the command strings
+ * \param Socket	Client socket number/handle
  */
 void Server_HandleClient(int Socket)
 {
@@ -125,6 +179,8 @@ void Server_HandleClient(int Socket)
 /**
  * \brief Parses a client command and calls the required helper function
  * \param Client	Pointer to client state structure
+ * \param CommandString	Command from client (single line of the command)
+ * \return Heap String to return to the client
  */
 char *Server_ParseClientCommand(tClient *Client, char *CommandString)
 {
@@ -156,6 +212,8 @@ char *Server_ParseClientCommand(tClient *Client, char *CommandString)
 // ---
 /**
  * \brief Set client username
+ * 
+ * Usage: USER <username>
  */
 char *Server_Cmd_USER(tClient *Client, char *Args)
 {
