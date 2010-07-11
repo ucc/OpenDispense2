@@ -21,6 +21,11 @@
 // === TYPES ===
 typedef struct sClient
 {
+	 int	ID;	// Client ID
+	
+	char	*Username;
+	char	Salt[9];
+	
 	 int	UID;
 	 int	bIsAuthed;
 }	tClient;
@@ -62,8 +67,18 @@ void Server_HandleClient(int Socket)
 	 int	remspace = INPUT_BUFFER_SIZE-1;
 	 int	bytes = -1;
 	tClient	clientInfo = {0};
+	
+	// Initialise Client info
+	clientInfo.ID = giServer_NextClientID ++;
 		
 	// Read from client
+	/*
+	 * Notes:
+	 * - The `buf` and `remspace` variables allow a line to span several
+	 *   calls to recv(), if a line is not completed in one recv() call
+	 *   it is saved to the beginning of `inbuf` and `buf` is updated to
+	 *   the end of it.
+	 */
 	while( (bytes = recv(Socket, buf, remspace, 0)) > 0 )
 	{
 		char	*eol, *start;
@@ -147,8 +162,8 @@ char *Server_Cmd_USER(tClient *Client, char *Args)
 	char	*ret;
 	
 	// Debug!
-	if( gbDebugLevel )
-		printf("Client %i authenticating as '%s'\n", Args);
+	if( giDebugLevel )
+		printf("Client %i authenticating as '%s'\n", Client->ID, Args);
 	
 	// Save username
 	if(Client->Username)
@@ -156,8 +171,6 @@ char *Server_Cmd_USER(tClient *Client, char *Args)
 	Client->Username = strdup(Args);
 	
 	// Create a salt (that changes if the username is changed)
-	if(!Client->Salt)
-		Client->Salt = malloc(9);
 	Client->Salt[0] = 0x21 + (rand()&0x3F);
 	Client->Salt[1] = 0x21 + (rand()&0x3F);
 	Client->Salt[2] = 0x21 + (rand()&0x3F);

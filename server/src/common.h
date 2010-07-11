@@ -48,6 +48,7 @@ struct sHandler
 extern tItem	*gaItems;
 extern int	giNumItems;
 extern tHandler	*gaHandlers;
+extern int	giDebugLevel;
 
 // === FUNCTIONS ===
 // --- Logging ---

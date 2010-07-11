@@ -16,6 +16,9 @@ extern void	Init_Cokebank(void);
 extern void	Load_Itemlist(void);
 extern void	Server_Start(void);
 
+// === GLOBALS ===
+ int	giDebugLevel = 0;
+
 // === CODE ===
 int main(int argc, char *argv[])
 {
