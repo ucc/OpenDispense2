@@ -19,12 +19,17 @@
 #define MAX_CONNECTION_QUEUE	5
 #define INPUT_BUFFER_SIZE	256
 
+#define HASH_TYPE	SHA512
+#define HASH_LENGTH	64
+
 #define MSG_STR_TOO_LONG	"499 Command too long (limit "EXPSTR(INPUT_BUFFER_SIZE)")\n"
 
 // === TYPES ===
 typedef struct sClient
 {
 	 int	ID;	// Client ID
+	 
+	 int	bIsTrusted;	// Is the connection from a trusted host/port
 	
 	char	*Username;
 	char	Salt[9];
@@ -35,11 +40,12 @@ typedef struct sClient
 
 // === PROTOTYPES ===
 void	Server_Start(void);
-void	Server_HandleClient(int Socket);
+void	Server_HandleClient(int Socket, int bTrusted);
 char	*Server_ParseClientCommand(tClient *Client, char *CommandString);
 // --- Commands ---
 char	*Server_Cmd_USER(tClient *Client, char *Args);
 char	*Server_Cmd_PASS(tClient *Client, char *Args);
+char	*Server_Cmd_AUTOAUTH(tClient *Client, char *Args);
 // --- Helpers ---
 void	HexBin(uint8_t *Dest, char *Src, int BufSize);
 
@@ -52,7 +58,8 @@ struct sClientCommand {
 	char	*(*Function)(tClient *Client, char *Arguments);
 }	gaServer_Commands[] = {
 	{"USER", Server_Cmd_USER},
-	{"PASS", Server_Cmd_PASS}
+	{"PASS", Server_Cmd_PASS},
+	{"AUTOAUTH", Server_Cmd_AUTOAUTH}
 };
 #define NUM_COMMANDS	(sizeof(gaServer_Commands)/sizeof(gaServer_Commands[0]))
 
@@ -95,6 +102,7 @@ void Server_Start(void)
 	for(;;)
 	{
 		uint	len = sizeof(client_addr);
+		 int	bTrusted = 0;
 		
 		client_socket = accept(server_socket, (struct sockaddr *) &client_addr, &len);
 		if(client_socket < 0) {
@@ -105,11 +113,29 @@ void Server_Start(void)
 		if(giDebugLevel >= 2) {
 			char	ipstr[INET_ADDRSTRLEN];
 			inet_ntop(AF_INET, &client_addr.sin_addr, ipstr, INET_ADDRSTRLEN);
-			printf("Client connection from %s\n", ipstr);
+			printf("Client connection from %s:%i\n",
+				ipstr, ntohs(client_addr.sin_port));
+		}
+		
+		// Trusted Connections
+		if( ntohs(client_addr.sin_port) < 1024 )
+		{
+			// TODO: Make this runtime configurable
+			switch( ntohl( client_addr.sin_addr.s_addr ) )
+			{
+			case 0x7F000001:	// 127.0.0.1	localhost
+			//case 0x825E0D00:	// 130.95.13.0
+			case 0x825E0D12:	// 130.95.13.18	mussel
+			case 0x825E0D17:	// 130.95.13.23	martello
+				bTrusted = 1;
+				break;
+			default:
+				break;
+			}
 		}
 		
 		// TODO: Multithread this?
-		Server_HandleClient(client_socket);
+		Server_HandleClient(client_socket, bTrusted);
 		
 		close(client_socket);
 	}
@@ -118,8 +144,9 @@ void Server_Start(void)
 /**
  * \brief Reads from a client socket and parses the command strings
  * \param Socket	Client socket number/handle
+ * \param bTrusted	Is the client trusted?
  */
-void Server_HandleClient(int Socket)
+void Server_HandleClient(int Socket, int bTrusted)
 {
 	char	inbuf[INPUT_BUFFER_SIZE];
 	char	*buf = inbuf;
@@ -129,7 +156,8 @@ void Server_HandleClient(int Socket)
 	
 	// Initialise Client info
 	clientInfo.ID = giServer_NextClientID ++;
-		
+	clientInfo.bIsTrusted = bTrusted;
+	
 	// Read from client
 	/*
 	 * Notes:
@@ -181,7 +209,7 @@ void Server_HandleClient(int Socket)
 	}
 	
 	if(giDebugLevel >= 2) {
-		printf("Client %i disconnected\n", clientInfo.ID);
+		printf("Client %i: Disconnected\n", clientInfo.ID);
 	}
 }
 
@@ -257,6 +285,7 @@ char *Server_Cmd_USER(tClient *Client, char *Args)
 	#endif
 	return ret;
 }
+
 /**
  * \brief Authenticate as a user
  * 
@@ -264,20 +293,51 @@ char *Server_Cmd_USER(tClient *Client, char *Args)
  */
 char *Server_Cmd_PASS(tClient *Client, char *Args)
 {
-	uint8_t	clienthash[64] = {0};
+	uint8_t	clienthash[HASH_LENGTH] = {0};
 	
 	// Read user's hash
-	HexBin(clienthash, Args, 64);
+	HexBin(clienthash, Args, HASH_LENGTH);
 	
 	if( giDebugLevel ) {
 		 int	i;
 		printf("Client %i: Password hash ", Client->ID);
-		for(i=0;i<64;i++)
+		for(i=0;i<HASH_LENGTH;i++)
 			printf("%02x", clienthash[i]&0xFF);
 		printf("\n");
 	}
 	
 	return strdup("401 Auth Failure\n");
+}
+
+/**
+ * \brief Authenticate as a user without a password
+ * 
+ * Usage: AUTOAUTH <user>
+ */
+char *Server_Cmd_AUTOAUTH(tClient *Client, char *Args)
+{
+	char	*spos = strchr(Args, ' ');
+	if(spos)	*spos = '\0';	// Remove characters after the ' '
+	
+	// Check if trusted
+	if( !Client->bIsTrusted ) {
+		if(giDebugLevel)
+			printf("Client %i: Untrusted client attempting to AUTOAUTH\n", Client->ID);
+		return strdup("401 Untrusted\n");
+	}
+	
+	// Get UID
+	Client->UID = GetUserID( Args );
+	if( Client->UID <= 0 ) {
+		if(giDebugLevel)
+			printf("Client %i: Unknown user '%s'\n", Client->ID, Args);
+		return strdup("401 Auth Failure\n");
+	}
+	
+	if(giDebugLevel)
+		printf("Client %i: Authenticated as '%s' (%i)\n", Client->ID, Args, Client->UID);
+	
+	return strdup("200 Auth OK\n");
 }
 
 // --- INTERNAL HELPERS ---
@@ -291,9 +351,9 @@ void HexBin(uint8_t *Dest, char *Src, int BufSize)
 		
 		if('0' <= *Src && *Src <= '9')
 			val |= (*Src-'0') << 4;
-		else if('A' <= *Src && *Src <= 'B')
+		else if('A' <= *Src && *Src <= 'F')
 			val |= (*Src-'A'+10) << 4;
-		else if('a' <= *Src && *Src <= 'b')
+		else if('a' <= *Src && *Src <= 'f')
 			val |= (*Src-'a'+10) << 4;
 		else
 			break;
@@ -301,9 +361,9 @@ void HexBin(uint8_t *Dest, char *Src, int BufSize)
 		
 		if('0' <= *Src && *Src <= '9')
 			val |= (*Src-'0');
-		else if('A' <= *Src && *Src <= 'B')
+		else if('A' <= *Src && *Src <= 'F')
 			val |= (*Src-'A'+10);
-		else if('a' <= *Src && *Src <= 'b')
+		else if('a' <= *Src && *Src <= 'f')
 			val |= (*Src-'a'+10);
 		else
 			break;

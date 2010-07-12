@@ -29,7 +29,7 @@ c	PASS <hash>\n	(Hex-Encoded SHA-512 Hash of <username><salt><password>)
 s	200 Auth OK\n or 401 Auth Failure\n
 User is now authenticated
 --- Alternate Method (Implicit Trust Authentication) ---
-If the client is connecting from a trusted machine on a low port then
+If the client is connecting from a trusted machine on a root port then
 automatic authentication is allowed
 c	AUTOAUTH <username>\n
 s	200 Auth OK\n or 401 Auth Failure\n or 401 Untrusted\n

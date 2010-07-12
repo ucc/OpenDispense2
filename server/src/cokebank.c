@@ -33,6 +33,9 @@ char *GetUserName(int User)
 	return NULL;
 }
 
+/**
+ * \brief Get the User ID of the named user
+ */
 int GetUserID(const char *Username)
 {
 	return 0;
