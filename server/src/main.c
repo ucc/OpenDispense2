@@ -49,7 +49,7 @@ int main(int argc, char *argv[])
 		}
 	}
 	
-	//Init_Cokebank();
+	Init_Cokebank();
 	
 	//Load_Itemlist();
 	

@@ -6,12 +6,32 @@
  *
  * This file is licenced under the 3-clause BSD Licence. See the file COPYING
  * for full details.
+ * 
+ * TODO: Make this a Dynamic Library and load it at runtime
  */
 #include <stdlib.h>
 #include <stdio.h>
 #include "common.h"
 
+// === PROTOTYPES ===
+void	Init_Cokebank(void);
+ int	AlterBalance(int User, int Delta);
+ int	GetBalance(int User);
+char	*GetUserName(int User);
+ int	GetUserID(const char *Username); 
+
 // === CODE ===
+/**
+ * \brief Load the cokebank database
+ */
+void Init_Cokebank(void)
+{
+	
+}
+
+/**
+ * \brief Alters a user's balance by \a Delta
+ */
 int AlterBalance(int User, int Delta)
 {
 	return 0;
