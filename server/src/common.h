@@ -11,6 +11,7 @@
 
 // === CONSTANTS ===
 #define	DEFAULT_CONFIG_FILE	"/etc/opendispense/main.cfg"
+#define	DEFAULT_ITEM_FILE	"/etc/opendispense/items.cfg"
 
 // === HELPER MACROS ===
 #define _EXPSTR(x)	#x

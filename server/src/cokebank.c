@@ -58,6 +58,6 @@ char *GetUserName(int User)
  */
 int GetUserID(const char *Username)
 {
-	return 0;
+	return -1;
 }
 

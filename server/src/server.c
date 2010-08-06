@@ -328,7 +328,7 @@ char *Server_Cmd_AUTOAUTH(tClient *Client, char *Args)
 	
 	// Get UID
 	Client->UID = GetUserID( Args );
-	if( Client->UID <= 0 ) {
+	if( Client->UID < 0 ) {
 		if(giDebugLevel)
 			printf("Client %i: Unknown user '%s'\n", Client->ID, Args);
 		return strdup("401 Auth Failure\n");
@@ -373,4 +373,47 @@ void HexBin(uint8_t *Dest, char *Src, int BufSize)
 	}
 	for( ; i < BufSize; i++ )
 		Dest[i] = 0;
+}
+
+/**
+ * \brief Decode a Base64 value
+ */
+int UnBase64(uint8_t *Dest, char *Src, int BufSize)
+{
+	uint32_t	val;
+	 int	i, j;
+	char	*start_src = Src;
+	
+	for( i = 0; i+2 < BufSize; i += 3 )
+	{
+		val = 0;
+		for( j = 0; j < 4; j++, Src ++ ) {
+			if('A' <= *Src && *Src <= 'Z')
+				val |= (*Src - 'A') << ((3-j)*6);
+			else if('a' <= *Src && *Src <= 'z')
+				val |= (*Src - 'a' + 26) << ((3-j)*6);
+			else if('0' <= *Src && *Src <= '9')
+				val |= (*Src - '0' + 52) << ((3-j)*6);
+			else if(*Src == '+')
+				val |= 62 << ((3-j)*6);
+			else if(*Src == '/')
+				val |= 63 << ((3-j)*6);
+			else if(!*Src)
+				break;
+			else if(*Src != '=')
+				j --;	// Ignore invalid characters
+		}
+		Dest[i  ] = (val >> 16) & 0xFF;
+		Dest[i+1] = (val >> 8) & 0xFF;
+		Dest[i+2] = val & 0xFF;
+		if(j != 4)	break;
+	}
+	
+	// Finish things off
+	if(i   < BufSize)
+		Dest[i] = (val >> 16) & 0xFF;
+	if(i+1 < BufSize)
+		Dest[i+1] = (val >> 8) & 0xFF;
+	
+	return Src - start_src;
 }

@@ -51,7 +51,7 @@ int main(int argc, char *argv[])
 	
 	Init_Cokebank();
 	
-	//Load_Itemlist();
+	Load_Itemlist();
 	
 	Server_Start();
 	

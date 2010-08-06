@@ -1,0 +1,24 @@
+== Item Database Format ==
+(Simple Version)
+
+Each line denotes a "slot"
+	<system>\t<code>\t<price>\t<description>
+Comments are denoted by '#' or ';' (with # usually being for info comments
+and ; for commenting out)
+comments are allowed anywhere on a line and act until the end of the line.
+
+
+For example, a coke could be
+	drink	06	96	Coke
+A pseudo-item could le
+	pseudo	01	10	Laserprint
+Or a snack
+	snack	64	128	Mars Bar
+
+The <system> denotes what controller plugin to use for the item.
+Currently there are only three:
+ "drink" is the drinks machine
+ "pseudo" is essentially a no-op, no action is taken on dispense (save
+ for logging)
+ "snack" controls the snack machine, dropping an item on dispense
+
