@@ -15,6 +15,7 @@
 
 // === IMPORTS ===
 extern void	Init_Cokebank(const char *Argument);	// cokebank.c
+extern void	Init_Handlers(void);
 extern void	Load_Itemlist(void);
 extern void	Server_Start(void);
 extern int	giServer_Port;
@@ -70,13 +71,16 @@ int main(int argc, char *argv[])
 		}
 	}
 	
-	Init_Cokebank(gsCokebankPath);
+	signal(SIGINT, sigint_handler);
 	
+	Init_Cokebank(gsCokebankPath);
+
+	Init_Handlers();
+
 	Load_Itemlist();
 	
 	Server_Start();
 	
-	signal(SIGINT, sigint_handler);
 
 	return 0;
 }

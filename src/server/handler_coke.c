@@ -9,6 +9,7 @@
  */
 #include "common.h"
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -36,27 +37,33 @@ regex_t	gCoke_StatusRegex;
 int Coke_InitHandler()
 {
 	giCoke_SerialFD = open(gsCoke_SerialPort, O_RDWR);
-	regcomp(&gCoke_StatusRegex, "^$", REG_EXTENDED);
+	regcomp(&gCoke_StatusRegex, "^slot\\s+(\\d)\\s+([^:]+):([a-zA-Z]+)\\s*", REG_EXTENDED);
 	return 0;
 }
 
 int Coke_CanDispense(int User, int Item)
 {
-	char	tmp[32];
+	char	tmp[32], *status;
 	regmatch_t	matches[4];
 
 	// Sanity please
 	if( Item < 0 || Item > 6 )	return -1;
 	
 	// Ask the coke machine
-	sprintf(tmp, "s%i", Item);
+	sprintf(tmp, "s%i\n", Item);
 	write(giCoke_SerialFD, tmp, 2);
 
 	// Read the response
 	read(giCoke_SerialFD, tmp, sizeof(tmp)-1);
 	regexec(&gCoke_StatusRegex, tmp, sizeof(matches)/sizeof(matches[0]), matches, 0);
 
-	printf("s%i response '%s'\n", Item, tmp);
+	tmp[ matches[3].rm_eo ] = '\0';
+	status = &tmp[ matches[3].rm_so ];
+
+	printf("Machine responded slot status '%s'\n", status);
+
+	if( strcmp(status, "full") == 0 )
+		return 1;
 
 	return 0;
 }
@@ -66,21 +73,24 @@ int Coke_CanDispense(int User, int Item)
  */
 int Coke_DoDispense(int User, int Item)
 {
-	char	tmp[32];
+	char	tmp[32], *status;
 	regmatch_t	matches[4];
 
 	// Sanity please
 	if( Item < 0 || Item > 6 )	return -1;
 
 	// Dispense
-	sprintf(tmp, "d%i", Item);
+	sprintf(tmp, "d%i\n", Item);
 	write(giCoke_SerialFD, tmp, 2);
 
 	// Get status
 	read(giCoke_SerialFD, tmp, sizeof(tmp)-1);
 	regexec(&gCoke_StatusRegex, tmp, sizeof(matches)/sizeof(matches[0]), matches, 0);
 	
-	printf("d%i response '%s'\n", Item, tmp);
+	tmp[ matches[3].rm_eo ] = '\0';
+	status = &tmp[ matches[3].rm_so ];
+
+	printf("Machine responded slot status '%s'\n", status);
 
 	return 0;
 }

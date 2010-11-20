@@ -30,6 +30,16 @@ tHandler	*gaHandlers[] = {&gPseudo_Handler, &gCoke_Handler};
 char	*gsItemListFile = DEFAULT_ITEM_FILE;
 
 // === CODE ===
+void Init_Handlers()
+{
+	 int	i;
+	for( i = 0; i < giNumHandlers; i ++ )
+	{
+		if( gaHandlers[i]->Init )
+			gaHandlers[i]->Init(0, NULL);	// TODO: Arguments
+	}
+}
+
 /**
  * \brief Read the item list from disk
  */
