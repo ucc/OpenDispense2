@@ -12,6 +12,7 @@
 #include <string.h>
 #include <ctype.h>
 #include "common.h"
+#include <regex.h>
 
 // === GLOBALS ===
  int	giNumItems = 0;
@@ -33,7 +34,22 @@ void Load_Itemlist(void)
 	char	buffer[BUFSIZ];
 	char	*line;
 	 int	lineNum = 0;
+	 int	i;
+	regex_t	regex;
+	regmatch_t	matches[5];
 	
+	i = regcomp(&regex, "^([a-zA-Z][a-zA-Z0-9]*)\\s+([0-9]+)\\s+([0-9]+)\\s+(.*)", REG_EXTENDED);
+	//i = regcomp(&regex, "\\(\\d+\\)", 0);//\\s+([0-9]+)\\s+([0-9]+)\\s+(.*)", 0);
+	if( i )
+	{
+		size_t	len = regerror(i, &regex, NULL, 0);
+		char	*errorStr = malloc(len);
+		regerror(i, &regex, errorStr, len);
+		fprintf(stderr, "Rexex compilation failed - %s\n", errorStr);
+		free(errorStr);
+		exit(-1);
+	}
+
 	// Error check
 	if(!fp) {
 		fprintf(stderr, "Unable to open item file '%s'\n", gsItemListFile);
@@ -43,8 +59,9 @@ void Load_Itemlist(void)
 	while( fgets(buffer, BUFSIZ, fp) )
 	{
 		char	*tmp;
-		char	*type, *num, *price, *desc;
-		
+		char	*type, *desc;
+		 int	num, price;
+
 		lineNum ++;
 
 		// Remove comments
@@ -56,31 +73,27 @@ void Load_Itemlist(void)
 		// Trim whitespace
 		line = trim(buffer);
 		
-		// Parse Line
-		// - Type
-		type = line;
-		// - Number
-		num = strchr(type, ' ');
-		if(num) {
-			while(*num == ' ' || *num == '\t')	num ++;
+		if(strlen(line) == 0)	continue;
+		
+		// Pass regex over line
+		if( (i = regexec(&regex, line, 5, matches, 0)) ) {
+			size_t  len = regerror(i, &regex, NULL, 0);
+			char    *errorStr = malloc(len);
+			regerror(i, &regex, errorStr, len);
+			fprintf(stderr, "Syntax error on line %i of item file '%s'\n%s", lineNum, gsItemListFile, errorStr);
+			free(errorStr);
+			exit(-1);
 		}
-		else {
-			fprintf(stderr, "Syntax error on line %i of item file\n", lineNum);
-			continue;
-		}
-		// - Price
-		price = strchr(num, ' ');
-		if( price ) {
-			while(*num == ' ' || *num == '\t')	num ++;
-		}
-		else {
-			fprintf(stderr, "Syntax error on line %i of item file\n", lineNum);
-			continue;
-		}
-		// - Name/Description
-		desc = strchr(price, ' ');
-	}
-	
+
+		// Read line data
+		type  = line + matches[1].rm_so;	line[ matches[1].rm_eo ] = '\0';
+		num   = atoi( line + matches[2].rm_so );
+		price = atoi( line + matches[3].rm_so );
+		desc  = line + matches[4].rm_so;
+		
+
+		printf("Item '%s' - %i cents, %s:%i\n", desc, price, type, num);
+	}	
 }
 
 char *trim(char *__str)

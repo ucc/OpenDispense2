@@ -5,9 +5,9 @@ OBJ := main.o server.o logging.o
 OBJ += dispense.o cokebank.o itemdb.o
 BIN := ../dispsrv
 
-LINKFLAGS := 
+LINKFLAGS := -g
 CPPFLAGS := 
-CFLAGS := -Wall
+CFLAGS := -Wall -g
 
 .PHONY: all clean
 

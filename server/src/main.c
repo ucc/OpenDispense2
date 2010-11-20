@@ -9,13 +9,15 @@
  */
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include "common.h"
 
 // === IMPORTS ===
-extern void	Init_Cokebank(void);
+extern void	Init_Cokebank(void);	// cokebank.c
 extern void	Load_Itemlist(void);
 extern void	Server_Start(void);
 extern int	giServer_Port;
+extern char    *gsItemListFile;
 
 // === GLOBALS ===
  int	giDebugLevel = 0;
@@ -29,7 +31,7 @@ int main(int argc, char *argv[])
 	for( i = 1; i < argc; i++ )
 	{
 		char	*arg = argv[i];
-		if( arg[0] == '-' )
+		if( arg[0] == '-' && arg[1] != '-')
 		{
 			switch(arg[1])
 			{
@@ -42,6 +44,14 @@ int main(int argc, char *argv[])
 			default:
 				// Usage Error?
 				break;
+			}
+		}
+		else if( arg[0] == '-' && arg[1] == '-' ) {
+			if( strcmp(arg, "--itemsfile") == 0 ) {
+				gsItemListFile = argv[++i];
+			}
+			else {
+				// Usage error?
 			}
 		}
 		else {

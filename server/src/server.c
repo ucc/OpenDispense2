@@ -241,7 +241,7 @@ char *Server_ParseClientCommand(tClient *Client, char *CommandString)
 			return gaServer_Commands[i].Function(Client, args);
 	}
 	
-	return strdup("400	Unknown Command\n");
+	return strdup("400 Unknown Command\n");
 }
 
 // ---
