@@ -29,7 +29,7 @@ int DispenseItem(int User, int Item)
 	if(!ret)	return ret;
 	
 	// Subtract the balance
-	ret = AlterBalance( User, -item->Price );
+	ret = Transfer( User, GetUserID(">sales"), item->Price, "" );
 	// What value should I use for this error?
 	// AlterBalance should return the final user balance
 	if(ret == 0)	return 1;
@@ -42,7 +42,7 @@ int DispenseItem(int User, int Item)
 	if(ret) {
 		Log_Error("Dispense failed after deducting cost (%s dispensing %s - %ic)",
 			username, item->Name, item->Price);
-		AlterBalance( User, item->Price );
+		Transfer( GetUserID(">sales"), User, item->Price, "rollback" );
 		free( username );
 		return 1;
 	}

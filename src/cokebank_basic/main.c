@@ -11,17 +11,21 @@
 #include <stdio.h>
 #include <pwd.h>
 #include <string.h>
+#include "common.h"
 
 // === IMPORTS ===
- int	Bank_GetMinAllowedBalance(int ID);
- int	Bank_GetUserBalance(int ID);
- int	Bank_AlterUserBalance(int ID, int Delta);
- int	Bank_GetUserByUnixID(int UnixID);
- int	Bank_GetUserByName(const char *Name);
- int	Bank_AddUser(int UnixID);
+extern int	Bank_GetMinAllowedBalance(int ID);
+extern int	Bank_GetUserBalance(int ID);
+extern int	Bank_AlterUserBalance(int ID, int Delta);
+extern int	Bank_GetUserByUnixID(int UnixID);
+extern int	Bank_GetUserUnixID(int ID);
+extern int	Bank_AddUser(int UnixID);
+extern FILE	*gBank_File;
+extern tUser	*gaBank_Users;
+extern int	giBank_NumUsers;
 
 // === PROTOTYPES ===
-void	Init_Cokebank(void);
+void	Init_Cokebank(const char *Argument);
  int	Transfer(int SourceUser, int DestUser, int Ammount, const char *Reason);
  int	GetBalance(int User);
 char	*GetUserName(int User);
@@ -32,9 +36,21 @@ char	*GetUserName(int User);
 /**
  * \brief Load the cokebank database
  */
-void Init_Cokebank(void)
+void Init_Cokebank(const char *Argument)
 {
-	
+	gBank_File = fopen(Argument, "rb+");
+	if( !gBank_File ) {
+		gBank_File = fopen(Argument, "wb+");
+	}
+	if( !gBank_File ) {
+		perror("Opening coke bank");
+	}
+
+	fseek(gBank_File, 0, SEEK_END);
+	giBank_NumUsers = ftell(gBank_File) / sizeof(gaBank_Users[0]);
+	fseek(gBank_File, 0, SEEK_SET);
+	gaBank_Users = malloc( giBank_NumUsers * sizeof(gaBank_Users[0]) );
+	fread(gaBank_Users, sizeof(gaBank_Users[0]), giBank_NumUsers, gBank_File);
 }
 
 /**
@@ -69,7 +85,19 @@ int GetBalance(int User)
  */
 char *GetUserName(int User)
 {
-	return NULL;
+	struct passwd	*pwd;
+	 int	unixid = Bank_GetUserUnixID(User);
+	
+	if( unixid == -1 )
+		return strdup(">sales");
+
+	if( unixid == -2 )
+		return strdup(">liability");
+
+	pwd = getpwuid(unixid);
+	if( !pwd )	return NULL;
+
+	return strdup(pwd->pw_name);
 }
 
 /**
@@ -77,19 +105,26 @@ char *GetUserName(int User)
  */
 int GetUserID(const char *Username)
 {
-	struct passwd	*pwd;
-	 int	ret;
+	 int	ret, uid;
 
-	// Get user ID
-	pwd = getpwnam(Username);
-	if( !pwd ) {
-		return -1;
+	if( strcmp(Username, ">sales") == 0 ) {	// Pseudo account that sales are made into
+		uid = -1;
+	}
+	else if( strcmp(Username, ">liability") == 0 ) {	// Pseudo acount that money is added from
+		uid = -2;
+	}
+	else {
+		struct passwd	*pwd;
+		// Get user ID
+		pwd = getpwnam(Username);
+		if( !pwd )	return -1;
+		uid = pwd->pw_uid;
 	}
 
 	// Get internal ID (or create new user)
-	ret = Bank_GetUserByUnixID(pwd->pw_uid);
+	ret = Bank_GetUserByUnixID(uid);
 	if( ret == -1 ) {
-		ret = Bank_AddUser(pwd->pw_uid);
+		ret = Bank_AddUser(uid);
 	}
 
 	return ret;
@@ -101,8 +136,10 @@ int GetUserID(const char *Username)
  */
 int GetUserAuth(const char *Username, const char *Password)
 {
-	if( strcmp(Username, "test") == 0 )
-		return Bank_GetUserByName("test");
+	#if HACK_TPG_NOAUTH
+	if( strcmp(Username, "tpg") == 0 )
+		return GetUserID("tpg");
+	#endif
 	return -1;
 }
 

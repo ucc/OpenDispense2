@@ -1,6 +1,6 @@
 
 BIN := ../../cokebank.so
-OBJ := main.o
+OBJ := main.o bank.o
 
 CPPFLAGS := 
 CFLAGS := -Wall -Werror -g -fPIC

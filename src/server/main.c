@@ -13,7 +13,7 @@
 #include "common.h"
 
 // === IMPORTS ===
-extern void	Init_Cokebank(void);	// cokebank.c
+extern void	Init_Cokebank(const char *Argument);	// cokebank.c
 extern void	Load_Itemlist(void);
 extern void	Server_Start(void);
 extern int	giServer_Port;
@@ -22,6 +22,7 @@ extern char*	gsCoke_SerialPort;
 
 // === GLOBALS ===
  int	giDebugLevel = 0;
+char	*gsCokebankPath = "cokebank.db";
 
 // === CODE ===
 int main(int argc, char *argv[])
@@ -63,7 +64,7 @@ int main(int argc, char *argv[])
 		}
 	}
 	
-	Init_Cokebank();
+	Init_Cokebank(gsCokebankPath);
 	
 	Load_Itemlist();
 	

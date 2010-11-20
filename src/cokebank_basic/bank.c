@@ -9,18 +9,27 @@
  * for full details.
  */
 #include <stdio.h>
+#include <stdlib.h>
+#include <limits.h>
+#include "common.h"
 
 enum {
 	FLAG_TYPEMASK    = 0x03,
-	USER_FLAG_NORMAL = 0x00,
-	USER_FLAG_COKE   = 0x01,
-	USER_FLAG_WHEEL  = 0x02,
-	USER_FLAG_GOD    = 0x03
+	USER_TYPE_NORMAL = 0x00,
+	USER_TYPE_COKE   = 0x01,
+	USER_TYPE_WHEEL  = 0x02,
+	USER_TYPE_GOD    = 0x03
 };
 
+// === GLOBALS ===
+tUser	*gaBank_Users;
+ int	giBank_NumUsers;
+FILE	*gBank_File;
+
 // === CODE ===
-int Bank_GetUserByUnixID(int UnixUID)
+int Bank_GetUserByUnixID(int UnixID)
 {
+	 int	i;
 	// Expensive search :(
 	for( i = 0; i < giBank_NumUsers; i ++ )
 	{
@@ -86,6 +95,14 @@ int Bank_GetMinAllowedBalance(int ID)
 	}
 }
 
+int Bank_GetUserUnixID(int ID)
+{
+	if( ID < 0 || ID >= giBank_NumUsers )
+		return -1;
+
+	return gaBank_Users[ID].UnixID;
+}
+
 /**
  * \brief Create a new user in our database
  */
@@ -105,7 +122,7 @@ int Bank_AddUser(int UnixID)
 	
 	// Commit to file
 	fseek(gBank_File, giBank_NumUsers*sizeof(gaBank_Users[0]), SEEK_SET);
-	fwrite(gaBank_Users[giBank_NumUsers], sizeof(gaBank_Users[0]), 1, gBank_File);
+	fwrite(&gaBank_Users[giBank_NumUsers], sizeof(gaBank_Users[0]), 1, gBank_File);
 
 	// Increment count
 	giBank_NumUsers ++;
