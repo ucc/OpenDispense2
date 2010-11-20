@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <signal.h>
 #include "common.h"
 
 // === IMPORTS ===
@@ -25,6 +26,11 @@ extern char*	gsCoke_SerialPort;
 char	*gsCokebankPath = "cokebank.db";
 
 // === CODE ===
+void sigint_handler()
+{
+	exit(0);
+}
+
 int main(int argc, char *argv[])
 {
 	 int	i;
@@ -70,6 +76,8 @@ int main(int argc, char *argv[])
 	
 	Server_Start();
 	
+	signal(SIGINT, sigint_handler);
+
 	return 0;
 }
 

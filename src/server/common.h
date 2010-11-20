@@ -62,6 +62,8 @@ extern int	giNumHandlers;
 extern int	giDebugLevel;
 
 // === FUNCTIONS ===
+extern int	DispenseItem(int User, tItem *Item);
+
 // --- Logging ---
 extern void	Log_Error(const char *Format, ...);
 extern void	Log_Info(const char *Format, ...);

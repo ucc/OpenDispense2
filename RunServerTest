@@ -1,3 +1,7 @@
 #!/bin/sh
 
-LD_LIBRARY_PATH=. ./dispsrv --itemsfile items.cfg -p 11020
+if [ "x$1" != "x" ]; then 
+	LD_LIBRARY_PATH=. gdb --args ./dispsrv --itemsfile items.cfg -p 11020
+else
+	LD_LIBRARY_PATH=. ./dispsrv --itemsfile items.cfg -p 11020	
+fi

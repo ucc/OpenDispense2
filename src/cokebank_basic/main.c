@@ -13,6 +13,8 @@
 #include <string.h>
 #include "common.h"
 
+#define HACK_TPG_NOAUTH	1
+
 // === IMPORTS ===
 extern int	Bank_GetMinAllowedBalance(int ID);
 extern int	Bank_GetUserBalance(int ID);

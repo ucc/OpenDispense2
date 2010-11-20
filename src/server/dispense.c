@@ -9,50 +9,47 @@
  * 
  * The core of the dispense system, I kinda like it :)
  */
-int DispenseItem(int User, int Item)
+int DispenseItem(int User, tItem *Item)
 {
 	 int	ret;
-	tItem	*item;
 	tHandler	*handler;
 	char	*username;
 	
-	// Sanity check please?
-	if(Item < 0 || Item >= giNumItems)
-		return -1;
-	
-	// Get item pointers
-	item = &gaItems[Item];
-	handler = item->Handler;
+	handler = Item->Handler;
 	
 	// Check if the dispense is possible
-	ret = handler->CanDispense( User, item->ID );
-	if(!ret)	return ret;
+	if( handler->CanDispense ) {
+		ret = handler->CanDispense( User, Item->ID );
+		if(!ret)	return 1;	// 1: Unknown Error
+	}
 	
 	// Subtract the balance
-	ret = Transfer( User, GetUserID(">sales"), item->Price, "" );
+	ret = Transfer( User, GetUserID(">sales"), Item->Price, "" );
 	// What value should I use for this error?
 	// AlterBalance should return the final user balance
-	if(ret == 0)	return 1;
+	if(ret != 0)	return 2;	// 2: No balance
 	
 	// Get username for debugging
 	username = GetUserName(User);
 	
 	// Actually do the dispense
-	ret = handler->DoDispense( User, item->ID );
-	if(ret) {
-		Log_Error("Dispense failed after deducting cost (%s dispensing %s - %ic)",
-			username, item->Name, item->Price);
-		Transfer( GetUserID(">sales"), User, item->Price, "rollback" );
-		free( username );
-		return 1;
+	if( handler->DoDispense ) {
+		ret = handler->DoDispense( User, Item->ID );
+		if(ret) {
+			Log_Error("Dispense failed after deducting cost (%s dispensing %s - %ic)",
+				username, Item->Name, Item->Price);
+			Transfer( GetUserID(">sales"), User, Item->Price, "rollback" );
+			free( username );
+			return -1;	// 1: Unkown Error again
+		}
 	}
 	
 	// And log that it happened
 	Log_Info("Dispensed %s (%i:%i) for %s [cost %i, balance %i cents]",
-		item->Name, handler->Name, item->ID,
-		username, item->Price, GetBalance(User)
+		Item->Name, handler->Name, Item->ID,
+		username, Item->Price, GetBalance(User)
 		);
 	
 	free( username );
-	return 0;
+	return 0;	// 0: EOK
 }

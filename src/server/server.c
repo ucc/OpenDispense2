@@ -48,6 +48,7 @@ char	*Server_Cmd_PASS(tClient *Client, char *Args);
 char	*Server_Cmd_AUTOAUTH(tClient *Client, char *Args);
 char	*Server_Cmd_ENUMITEMS(tClient *Client, char *Args);
 char	*Server_Cmd_ITEMINFO(tClient *Client, char *Args);
+char	*Server_Cmd_DISPENSE(tClient *Client, char *Args);
 // --- Helpers ---
 void	HexBin(uint8_t *Dest, char *Src, int BufSize);
 
@@ -63,7 +64,8 @@ struct sClientCommand {
 	{"PASS", Server_Cmd_PASS},
 	{"AUTOAUTH", Server_Cmd_AUTOAUTH},
 	{"ENUM_ITEMS", Server_Cmd_ENUMITEMS},
-	{"ITEM_INFO", Server_Cmd_ITEMINFO}
+	{"ITEM_INFO", Server_Cmd_ITEMINFO},
+	{"DISPENSE", Server_Cmd_DISPENSE}
 };
 #define NUM_COMMANDS	(sizeof(gaServer_Commands)/sizeof(gaServer_Commands[0]))
 
@@ -302,6 +304,15 @@ char *Server_Cmd_PASS(tClient *Client, char *Args)
 	// Read user's hash
 	HexBin(clienthash, Args, HASH_LENGTH);
 	
+	// TODO: Decrypt password passed
+	
+	Client->UID = GetUserAuth(Client->Username, "");
+
+	if( Client->UID != -1 ) {
+		Client->bIsAuthed = 1;
+		return strdup("200 Auth OK\n");
+	}
+
 	if( giDebugLevel ) {
 		 int	i;
 		printf("Client %i: Password hash ", Client->ID);
@@ -374,21 +385,15 @@ char *Server_Cmd_ENUMITEMS(tClient *Client, char *Args)
 	return ret;
 }
 
-/**
- * \brief Fetch information on a specific item
- */
-char *Server_Cmd_ITEMINFO(tClient *Client, char *Args)
+tItem *_GetItemFromString(char *String)
 {
-	 int	retLen = 0;
-	char	*ret;
-	tItem	*item;
 	tHandler	*handler;
-	char	*type = Args;
-	char	*colon = strchr(Args, ':');
+	char	*type = String;
+	char	*colon = strchr(String, ':');
 	 int	num, i;
 	
 	if( !colon ) {
-		return strdup("406 Bad Item ID\n");
+		return NULL;
 	}
 
 	num = atoi(colon+1);
@@ -404,7 +409,7 @@ char *Server_Cmd_ITEMINFO(tClient *Client, char *Args)
 		}
 	}
 	if( !handler ) {
-		return strdup("406 Bad Item ID\n");
+		return NULL;
 	}
 
 	// Find item
@@ -412,21 +417,52 @@ char *Server_Cmd_ITEMINFO(tClient *Client, char *Args)
 	{
 		if( gaItems[i].Handler != handler )	continue;
 		if( gaItems[i].ID != num )	continue;
-		item = &gaItems[i];
-		break;
+		return &gaItems[i];
 	}
+	return NULL;
+}
+
+/**
+ * \brief Fetch information on a specific item
+ */
+char *Server_Cmd_ITEMINFO(tClient *Client, char *Args)
+{
+	 int	retLen = 0;
+	char	*ret;
+	tItem	*item = _GetItemFromString(Args);
+	
 	if( !item ) {
 		return strdup("406 Bad Item ID\n");
 	}
 
 	// Create return
 	retLen = snprintf(NULL, 0, "202 Item %s:%i %i %s\n",
-		handler->Name, item->ID, item->Price, item->Name);
+		item->Handler->Name, item->ID, item->Price, item->Name);
 	ret = malloc(retLen+1);
 	sprintf(ret, "202 Item %s:%i %i %s\n",
-		handler->Name, item->ID, item->Price, item->Name);
+		item->Handler->Name, item->ID, item->Price, item->Name);
 
 	return ret;
+}
+
+char *Server_Cmd_DISPENSE(tClient *Client, char *Args)
+{
+	tItem	*item;
+	if( !Client->bIsAuthed )	return strdup("401 Not Authenticated\n");
+
+	item = _GetItemFromString(Args);
+	if( !item ) {
+		return strdup("406 Bad Item ID\n");
+	}
+
+	switch( DispenseItem( Client->UID, item ) )
+	{
+	case 0:	return strdup("200 Dispense OK\n");
+	case 1:	return strdup("501 Unable to dispense\n");
+	case 2:	return strdup("402 Poor You\n");
+	default:
+		return strdup("500 Dispense Error\n");
+	}
 }
 
 // --- INTERNAL HELPERS ---
