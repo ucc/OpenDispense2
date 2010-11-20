@@ -15,6 +15,7 @@ All server responses are on one line and are prefixed by a three digit response 
 403	User not allowed to perform this action
 404	Bad other username
 406	Bad Item ID
+407	Invalid arguments
 500	Unknown Dispense Failure
 501	Action Rejected
 

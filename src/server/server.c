@@ -465,6 +465,43 @@ char *Server_Cmd_DISPENSE(tClient *Client, char *Args)
 	}
 }
 
+char *Server_Cmd_GIVE(tClient *Client, char *Args)
+{
+	char	*recipient, *ammount, *reason;
+	 int	uid, iAmmount;
+	
+	if( !Client->bIsAuthed )	return strdup("401 Not Authenticated\n");
+
+	recipient = Args;
+
+	ammount = strchr(Args, ' ');
+	if( !ammount )	return strdup("407 Invalid Argument, expected 3 parameters, 1 encountered\n");
+	*ammount = '\0';
+	ammount ++;
+
+	reason = strchr(ammount, ' ');
+	if( !reason )	return strdup("407 Invalid Argument, expected 3 parameters, 2 encountered\n");
+	*reason = '\0';
+	reason ++;
+
+	// Get recipient
+	uid = GetUserID(recipient);
+	if( uid == -1 )	return strdup("404 Invalid target user");
+
+	// Parse ammount
+	iAmmount = atoi(ammount);
+	if( iAmmount <= 0 )	return strdup("407 Invalid Argument, ammount must be > zero\n");
+
+	// Do give
+	switch( Transfer(Client->UID, uid, iAmmount, reason) )
+	{
+	case 0:
+		return strdup("200 Give OK\n");
+	default:
+		return strdup("402 Poor You\n");
+	}
+}
+
 // --- INTERNAL HELPERS ---
 // TODO: Move to another file
 void HexBin(uint8_t *Dest, char *Src, int BufSize)

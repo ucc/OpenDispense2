@@ -79,7 +79,7 @@ int Transfer(int SourceUser, int DestUser, int Ammount, const char *Reason)
  */
 int GetBalance(int User)
 {
-	return 0;
+	return Bank_GetUserBalance(User);;
 }
 
 /**
