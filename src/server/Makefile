@@ -3,7 +3,7 @@
 
 OBJ := main.o server.o logging.o
 OBJ += dispense.o itemdb.o
-OBJ += handler_coke.o
+OBJ += handler_coke.o handler_snack.o
 BIN := ../../dispsrv
 
 LINKFLAGS := -g ../../cokebank.so
