@@ -14,6 +14,9 @@ all: $(BIN)
 clean:
 	$(RM) $(BIN) $(OBJ)
 
+$(BIN): $(OBJ)
+	$(CC) -o $(BIN) $(OBJ) $(LDFLAGS)
+
 %.o: %.c
 	$(CC) -c $< -o $@ $(CFLAGS) $(CPPFLAGS)
 	$(CC) -M -MT $@ -o $*.d $< $(CPPFLAGS)

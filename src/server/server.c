@@ -283,6 +283,7 @@ char *Server_Cmd_USER(tClient *Client, char *Args)
 	Client->Salt[6] = 0x21 + (rand()&0x3F);
 	Client->Salt[7] = 0x21 + (rand()&0x3F);
 	
+	// TODO: Also send hash type to use, (SHA1 or crypt according to [DAA])
 	// "100 Salt xxxxXXXX\n"
 	ret = strdup("100 SALT xxxxXXXX\n");
 	sprintf(ret, "100 SALT %s\n", Client->Salt);
