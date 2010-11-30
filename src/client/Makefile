@@ -1,6 +1,6 @@
 
 CFLAGS := -Wall -Werror -g
-LDFLAGS := -g
+LDFLAGS := -g -lncurses
 
 BIN := ../../dispense
 OBJ := main.o

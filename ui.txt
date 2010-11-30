@@ -3,6 +3,7 @@ Client UI Design
 Left/Right changes the item view (between Drink, Pseudo and Snack - and others if defined)
 
 Should the width of the display be fixed?
+> Current width is 34 characters
 Howabout the height?
 
 
@@ -33,7 +34,7 @@ Mockup:
  Snacks
  
  /----------- Dispense -----------\
- | 00 Smith's Salt+Vinegar     72 A
+ | 00 Smith's Salt+Vinegar    128 A
  | 01 Unused                    0 #
  | 02 Something                 0 |
  | 03 Something                 0 |

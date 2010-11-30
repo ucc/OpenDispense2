@@ -14,6 +14,7 @@
 #include <ctype.h>	// isspace
 #include <stdarg.h>
 #include <regex.h>
+#include <ncurses.h>
 
 #include <unistd.h>	// close
 #include <netdb.h>	// gethostbyname
@@ -30,6 +31,8 @@ typedef struct sItem {
 }	tItem;
 
 // === PROTOTYPES ===
+ int	ShowNCursesUI(void);
+
  int	sendf(int Socket, const char *Format, ...);
  int	OpenConnection(const char *Host, int Port);
 void	Authenticate(int Socket);
@@ -159,6 +162,10 @@ int main(int argc, char *argv[])
 	// - Hmm... that would require standardising the item ID to be <class>:<index>
 	// Oh, why not :)
 	
+	#if 1
+	i = ShowNCursesUI();
+	#else
+	
 	for(;;)
 	{
 		char	*buf;
@@ -181,36 +188,40 @@ int main(int argc, char *argv[])
 				printf("Bad item (should be between 0 and %i)\n", giNumItems);
 				continue;
 			}
-			
-			sendf(sock, "DISPENSE %s\n", gaItems[i].Ident);
-			
-			len = recv(sock, buffer, BUFSIZ-1, 0);
-			buffer[len] = '\0';
-			trim(buffer);
-			
-			responseCode = atoi(buffer);
-			switch( responseCode )
-			{
-			case 200:
-				printf("Dispense OK\n");
-				break;
-			case 401:
-				printf("Not authenticated\n");
-				break;
-			case 402:
-				printf("Insufficient balance\n");
-				break;
-			case 406:
-				printf("Bad item name, bug report\n");
-				break;
-			case 500:
-				printf("Item failed to dispense, is the slot empty?\n");
-				break;
-			default:
-				printf("Unknown response code %i\n", responseCode);
-				break;
-			}
-			
+			break;
+		}
+	}
+	#endif
+	
+	if( i >= 0 )
+	{	
+		// Dispense!
+		sendf(sock, "DISPENSE %s\n", gaItems[i].Ident);
+		
+		len = recv(sock, buffer, BUFSIZ-1, 0);
+		buffer[len] = '\0';
+		trim(buffer);
+		
+		responseCode = atoi(buffer);
+		switch( responseCode )
+		{
+		case 200:
+			printf("Dispense OK\n");
+			break;
+		case 401:
+			printf("Not authenticated\n");
+			break;
+		case 402:
+			printf("Insufficient balance\n");
+			break;
+		case 406:
+			printf("Bad item name, bug report\n");
+			break;
+		case 500:
+			printf("Item failed to dispense, is the slot empty?\n");
+			break;
+		default:
+			printf("Unknown response code %i\n", responseCode);
 			break;
 		}
 	}
@@ -218,6 +229,160 @@ int main(int argc, char *argv[])
 	close(sock);
 
 	return 0;
+}
+
+/**
+ */
+int ShowNCursesUI(void)
+{
+	 int	ch;
+	 int	i, times;
+	 int	xBase, yBase;
+	const int	displayMinWidth = 34;
+	const int	displayMinItems = 8;
+	char	*titleString = "Dispense";
+	 int	titleStringLen = strlen(titleString);
+	 int	itemCount = displayMinItems;
+	 int	itemBase = 0;
+	 
+	 int	height = itemCount + 3;
+	 int	width = displayMinWidth;
+	 
+	// Enter curses mode
+	initscr();
+	raw(); noecho();
+	
+	xBase = COLS/2 - width/2;
+	yBase = LINES/2 - height/2;
+	
+	for( ;; )
+	{
+		// Header
+		move( yBase, xBase );
+		addch('/');
+		times = width/2 - titleStringLen/2 - 2;
+		while(times --)	addch('-');
+		addch(' ');
+		addstr(titleString);
+		addch(' ');
+		times = width/2 - titleStringLen/2 - 2;
+		while(times --)	addch('-');
+		addch('\\');
+		
+		// Items
+		for( i = 0; i < itemCount; i ++ )
+		{
+			 int	_x, _y;
+			move( yBase + 1 + i, xBase );
+			addch('|');
+			addch(' ');
+			
+			// Check for ... row
+			if( i == 0 && itemBase > 0 ) {
+				printw("   ...");
+				times = width - 1 - 8;
+				while(times--)	addch(' ');
+			}
+			else if( i == itemCount - 1 && itemBase < giNumItems - itemCount ) {
+				printw("   ...");
+				times = width - 1 - 8;
+				while(times--)	addch(' ');
+			}
+			// Show an item
+			else {
+				if( itemBase + i < 0 || itemBase + i >= giNumItems ) {
+					printw("%02i %i OOR", itemBase + i, i);
+					continue ;
+				}
+				printw("%02i %s", itemBase + i, gaItems[itemBase + i].Desc);
+				
+				getyx(stdscr, _y, _x);
+				times = width - 6 - (_x - xBase);	// TODO: Better handling for large prices
+				while(times--)	addch(' ');
+				printw("%4i ", gaItems[itemBase + i].Price);
+			}
+			
+			// Scrollbar (if needed)
+			if( giNumItems > itemCount ) {
+				if( i == 0 ) {
+					addch('A');
+				}
+				else if( i == itemCount - 1 ) {
+					addch('V');
+				}
+				else {
+					 int	percentage = itemBase * 100 / (giNumItems-itemCount);
+					if( i-1 == percentage*(itemCount-3)/100 ) {
+						addch('#');
+					}
+					else {
+						addch('|');
+					}
+				}
+			}
+			else {
+				addch('|');
+			}
+		}
+		
+		// Footer
+		move( yBase + 1 + itemCount, xBase );
+		addch('\\');
+		times = width/2 - titleStringLen/2 - 2;
+		while(times --)	addch('-');
+		addch(' ');
+		addstr(titleString);
+		addch(' ');
+		times = width/2 - titleStringLen/2 - 2;
+		while(times --)	addch('-');
+		addch('/');
+		
+		move( yBase + 1 + itemCount + 1, xBase );
+		{
+			 int	count = itemCount-2;
+			 int	ofs = itemBase;
+			if( itemBase == 0 )	count ++;
+			else	ofs ++;
+			if( itemBase == giNumItems-itemCount) {
+				count ++;
+				ofs ++;
+			}
+			printw("%i - %i / %i items", itemBase, itemBase+count, giNumItems);
+		}
+		
+		ch = getch();
+		
+		if( ch == '\x1B' ) {
+			ch = getch();
+			if( ch == '[' ) {
+				ch = getch();
+				
+				switch(ch)
+				{
+				case 'B':
+					if( itemBase < giNumItems - (itemCount) )
+						itemBase ++;
+					break;
+				case 'A':
+					if( itemBase > 0 )
+						itemBase --;
+					break;
+				}
+			}
+			else {
+				
+			}
+		}
+		else {
+			break;
+		}
+		
+	}
+	
+	
+	// Leave
+	endwin();
+	return -1;
 }
 
 // === HELPERS ===
