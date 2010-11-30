@@ -17,6 +17,7 @@
 
 #include <unistd.h>	// close
 #include <netdb.h>	// gethostbyname
+#include <pwd.h>	// getpwuids
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -31,6 +32,7 @@ typedef struct sItem {
 // === PROTOTYPES ===
  int	sendf(int Socket, const char *Format, ...);
  int	OpenConnection(const char *Host, int Port);
+void	Authenticate(int Socket);
 char	*trim(char *string);
  int	RunRegex(regex_t *regex, const char *string, int nMatches, regmatch_t *matches, const char *errorMessage);
 void	CompileRegex(regex_t *regex, const char *pattern, int flags);
@@ -120,8 +122,7 @@ int main(int argc, char *argv[])
 		}
 	}
 	
-	
-	// Display the list for the user
+	// Get item information
 	for( i = 0; i < giNumItems; i ++ )
 	{
 		regmatch_t	matches[6];
@@ -151,8 +152,13 @@ int main(int argc, char *argv[])
 		printf("%3i %s\n", gaItems[i].Price, gaItems[i].Desc);
 	}
 	
+	Authenticate(sock);
 	
 	// and choose what to dispense
+	// TODO: ncurses interface (with separation between item classes)
+	// - Hmm... that would require standardising the item ID to be <class>:<index>
+	// Oh, why not :)
+	
 	for(;;)
 	{
 		char	*buf;
@@ -259,12 +265,58 @@ int OpenConnection(const char *Host, int Port)
 		return -1;
 	}
 	
+	#if USE_AUTOAUTH
+	{
+		struct sockaddr_in	localAddr;
+		memset(&localAddr, 0, sizeof(localAddr));
+		localAddr.sin_family = AF_INET;	// IPv4
+		localAddr.sin_port = 1023;	// IPv4
+		// Attempt to bind to low port for autoauth
+		bind(sock, &localAddr, sizeof(localAddr));
+	}
+	#endif
+	
 	if( connect(sock, (struct sockaddr *) &serverAddr, sizeof(serverAddr)) < 0 ) {
 		fprintf(stderr, "Failed to connect to server\n");
 		return -1;
 	}
 	
 	return sock;
+}
+
+void Authenticate(int Socket)
+{
+	struct passwd	*pwd;
+	char	buf[512];
+	 int	responseCode;
+	
+	// Get user name
+	pwd = getpwuid( getuid() );
+	
+	// Attempt automatic authentication
+	sendf(Socket, "AUTOAUTH %s\n", pwd->pw_name);
+	
+	// Check if it worked
+	recv(Socket, buf, 511, 0);
+	trim(buf);
+	
+	responseCode = atoi(buf);
+	switch( responseCode )
+	{
+	case 200:	// Authenticated, return :)
+		return ;
+	case 401:	// Untrusted, attempt password authentication
+		break;
+	case 404:	// Bad Username
+		fprintf(stderr, "Bad Username '%s'\n", pwd->pw_name);
+		exit(-1);
+	default:
+		fprintf(stderr, "Unkown response code %i from server\n", responseCode);
+		printf("%s\n", buf);
+		exit(-1);
+	}
+	
+	printf("%s\n", buf);
 }
 
 char *trim(char *string)

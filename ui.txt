@@ -1,0 +1,45 @@
+Client UI Design
+
+Left/Right changes the item view (between Drink, Pseudo and Snack - and others if defined)
+
+
+
+Mockup:
+ Drink Display
+
+ /----------- Dispense -----------\
+ |  0 Lemon Foo               72 |
+ |  1 Orange Foo              71 |
+ |  2 Solo                    73 |
+ |  3 Solo++                  75 |
+ |  4 V Black                 75 |
+ |  5 null Coke              101 |
+ |  6 Coke                    96 |
+ \-------------------------------/
+  [drink] -pseudo- -snack-
+ 
+ Pseudo Items
+ 
+ /----------- Dispense ----------\
+ |  0 Laserprint              10 |
+ |  1 Membership            2500 |
+ |  2 Clue                   128 |
+ |  3 Phone                   20 |
+ \-------------------------------/
+  -drink- [pseudo] -snack-
+  
+ Snacks
+ 
+ /----------- Dispense ----------\
+ | 00 Smith's Salt+Vinegar    72 A
+ | 01 Unused                   0 #
+ | 02 Something                0 |
+ | 03 Something                0 |
+ | 04 Something                0 |
+ | 05 Something                0 |
+ | 06 Something                0 |
+ | 07 Something                0 |
+ |    ---                    --- V
+ \-------------------------------/
+  [drink] -pseudo- -snack-
+
