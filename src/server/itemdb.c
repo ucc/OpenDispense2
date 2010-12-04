@@ -16,6 +16,7 @@
 
 // === IMPORTS ===
 extern tHandler	gCoke_Handler;
+extern tHandler	gSnack_Handler;
 
 // === PROTOTYPES ===
 void	Load_Itemlist(void);
@@ -25,7 +26,7 @@ char	*trim(char *__str);
  int	giNumItems = 0;
 tItem	*gaItems = NULL;
 tHandler	gPseudo_Handler = {Name:"pseudo"};
-tHandler	*gaHandlers[] = {&gPseudo_Handler, &gCoke_Handler};
+tHandler	*gaHandlers[] = {&gPseudo_Handler, &gCoke_Handler, &gSnack_Handler};
  int	giNumHandlers = sizeof(gaHandlers)/sizeof(gaHandlers[0]);
 char	*gsItemListFile = DEFAULT_ITEM_FILE;
 

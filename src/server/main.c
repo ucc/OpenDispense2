@@ -21,6 +21,7 @@ extern void	Server_Start(void);
 extern int	giServer_Port;
 extern char*	gsItemListFile;
 extern char*	gsCoke_SerialPort;
+extern char*	gsSnack_SerialPort;
 
 // === GLOBALS ===
  int	giDebugLevel = 0;
@@ -59,8 +60,11 @@ int main(int argc, char *argv[])
 			if( strcmp(arg, "--itemsfile") == 0 ) {
 				gsItemListFile = argv[++i];
 			}
-			if( strcmp(arg, "--cokeport") == 0 ) {
+			else if( strcmp(arg, "--cokeport") == 0 ) {
 				gsCoke_SerialPort = argv[++i];
+			}
+			else if( strcmp(arg, "--snackport") == 0 ) {
+				gsSnack_SerialPort = argv[++i];
 			}
 			else {
 				// Usage error?
