@@ -21,6 +21,8 @@
  int	Coke_InitHandler();
  int	Coke_CanDispense(int User, int Item);
  int	Coke_DoDispense(int User, int Item);
+void	WaitForColon();
+ int	ReadLine(int len, char *output);
 
 // === GLOBALS ===
 tHandler	gCoke_Handler = {
@@ -56,19 +58,26 @@ int Coke_CanDispense(int User, int Item)
 	// Sanity please
 	if( Item < 0 || Item > 6 )	return -1;	// -EYOURBAD
 	
+	write(giCoke_SerialFD, "\r\n", 2);
+	write(giCoke_SerialFD, "\r\n", 2);
+	write(giCoke_SerialFD, "\r\n", 2);
+	
+	WaitForColon();
+	
 	// Ask the coke machine
-	sprintf(tmp, "s%i\n", Item);
-	write(giCoke_SerialFD, tmp, 2);
+	sprintf(tmp, "s%i\r\n", Item);
+	write(giCoke_SerialFD, tmp, 4);
+	
+	WaitForColon();
 
-	// Wait a little
-	sleep(250);
-
-	// Read the response
-	tmp[0] = '\0';
-	ret = read(giCoke_SerialFD, tmp, sizeof(tmp)-1);
-	//printf("ret = %i\n", ret);
+	ret = ReadLine(sizeof(tmp)-1, tmp);
+	printf("ret = %i, tmp = '%s'\n", ret, tmp);
+	
 	if( ret <= 0 ) {
 		fprintf(stderr, "Coke machine is not being chatty (read = %i)\n", ret);
+		if( ret == -1 ) {
+			perror("Coke Machine");
+		}
 		return -1;
 	}
 	ret = RunRegex(&gCoke_StatusRegex, tmp, sizeof(matches)/sizeof(matches[0]), matches, "Bad Response");
@@ -98,16 +107,16 @@ int Coke_DoDispense(int User, int Item)
 	// Sanity please
 	if( Item < 0 || Item > 6 )	return -1;
 
+	WaitForColon();
+
 	// Dispense
-	sprintf(tmp, "d%i\n", Item);
-	write(giCoke_SerialFD, tmp, 2);
+	sprintf(tmp, "d%i\r\n", Item);
+	write(giCoke_SerialFD, tmp, 4);
 	
-	// Wait a little
-	sleep(250);
+	WaitForColon();
 
 	// Get status
-	read(giCoke_SerialFD, tmp, sizeof(tmp)-1);
-	regexec(&gCoke_StatusRegex, tmp, sizeof(matches)/sizeof(matches[0]), matches, 0);
+	ReadLine(sizeof(tmp)-1, tmp);
 	
 	tmp[ matches[3].rm_eo ] = '\0';
 	status = &tmp[ matches[3].rm_so ];
@@ -115,6 +124,64 @@ int Coke_DoDispense(int User, int Item)
 	printf("Machine responded slot status '%s'\n", status);
 
 	return 0;
+}
+
+char ReadChar()
+{
+	fd_set	readfs;
+	char	ch = 0;
+	 int	ret;
+	
+	FD_ZERO(&readfs);
+	FD_SET(giCoke_SerialFD, &readfs);
+	
+	ret = select(giCoke_SerialFD+1, &readfs, NULL, NULL, NULL);
+	if( ret != 1 ) {
+		printf("readchar return %i\n", ret);
+		return 0;
+	}
+	
+	ret = read(giCoke_SerialFD, &ch, 1);
+	if( ret != 1 ) {
+		printf("ret = %i\n", ret);
+		return 0;
+	}
+	
+	return ch;
+}
+
+void WaitForColon()
+{
+	fd_set	readfs;
+	char	ch = 0;
+	
+	FD_SET(giCoke_SerialFD, &readfs);
+	
+	while( (ch = ReadChar()) != ':' && ch != 0);
+}
+
+int ReadLine(int len, char *output)
+{
+	char	ch;
+	 int	i = 0;
+	
+	for(;;)
+	{
+		ch = ReadChar();
+		
+		
+		if( i < len )
+			output[i++] = ch;
+		
+		if( ch == '\0' ) {
+			return -1;
+		}
+		if( ch == '\n' || ch == '\r' ) {
+			if( i < len )
+				output[--i] = '\0';
+			return i;
+		}
+	}
 }
 
 

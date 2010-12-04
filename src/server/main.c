@@ -129,19 +129,22 @@ int InitSerial(const char *File, int BaudRate)
 	 int	baud;
 	 int	fd;
 	
-	
-	fd = open(File, O_RDWR | O_NOCTTY);
+	fd = open(File, O_RDWR | O_NOCTTY | O_NONBLOCK);
 	if( fd == -1 )	return -1;
 	
 	switch(BaudRate)
 	{
 	case 9600:	baud = B9600;	break;
-	default:	return ;
+	default:	close(fd);	return -1;
 	}
 	
-	cfmakeraw(&info);	// Sets 8N1
+	info.c_lflag = 0;	// Non-Canoical, No Echo
+	info.c_cflag = baud | CS8 | CLOCAL | CREAD;	// baud, 8N1
 	cfsetspeed(&info, baud);
+	info.c_cc[VTIME] = 0;	// No time limit
+	info.c_cc[VMIN] = 1;	// Block until 1 char
 	
+	tcflush(fd, TCIFLUSH);
 	tcsetattr(fd, TCSANOW, &info);
 	
 	return fd;
