@@ -1,6 +1,7 @@
 #!/bin/sh
 
-ARGS="--itemsfile items.cfg -p 11020 --cokeport /dev/ttyUSB0"
+ARGS="--itemsfile items.cfg -p 11020"
+ARGS=$ARGS" --cokeport /dev/ttyUSB0"
 
 if [ "x$1" != "x" ]; then 
 	LD_LIBRARY_PATH=. gdb --args ./dispsrv $ARGS

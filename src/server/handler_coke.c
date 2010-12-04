@@ -37,10 +37,13 @@ regex_t	gCoke_StatusRegex;
 int Coke_InitHandler()
 {
 	printf("connecting to coke machine...\n");
-	giCoke_SerialFD = open(gsCoke_SerialPort, O_RDWR);
+	giCoke_SerialFD = open(gsCoke_SerialPort, O_RDWR | O_NOCTTY | O_NONBLOCK);
 	if( giCoke_SerialFD == -1 ) {
 		fprintf(stderr, "ERROR: Unable to open coke serial port ('%s')\n", gsCoke_SerialPort);
 	}
+	
+	InitSerial(giCoke_SerialFD, 9600);
+	
 	CompileRegex(&gCoke_StatusRegex, "^slot\\s+(\\d)\\s+([^:]+):([a-zA-Z]+)\\s*", REG_EXTENDED);
 	return 0;
 }

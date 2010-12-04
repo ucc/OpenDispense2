@@ -12,6 +12,7 @@
 #include <string.h>
 #include <signal.h>
 #include "common.h"
+#include <termios.h>
 
 // === IMPORTS ===
 extern void	Init_Cokebank(const char *Argument);	// cokebank.c
@@ -116,6 +117,24 @@ void CompileRegex(regex_t *regex, const char *pattern, int flags)
 		fprintf(stderr, "Regex compilation failed - %s\n", errorStr);
 		exit(-1);
 	}
+}
+
+// Serial helper
+void InitSerial(int FD, int BaudRate)
+{
+	struct termios	info;
+	 int	baud;
+	
+	switch(BaudRate)
+	{
+	case 9600:	baud = B9600;	break;
+	default:	return ;
+	}
+	
+	cfmakeraw(&info);	// Sets 8N1
+	cfsetspeed(&info, baud);
+	
+	tcsetattr(FD, TCSANOW, &info);
 }
 
 
