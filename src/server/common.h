@@ -73,6 +73,5 @@ extern int	Transfer(int SourceUser, int DestUser, int Ammount, const char *Reaso
 extern int	GetBalance(int User);
 extern char	*GetUserName(int User);
 extern int	GetUserID(const char *Username);
-extern int	GetUserAuth(const char *Username, const char *Password);
 
 #endif

@@ -27,7 +27,7 @@ general they will be limited to the standard alpha-numeric set
 === User Auth ===
 c	USER <username>\n
 s	100 SALT <string>\n or 100 User Set\n	(If no salt used)
-c	PASS <hash>\n	(Hex-Encoded SHA-512 Hash of <username><salt><password>)
+c	PASS <hash>\n	(Hex-Encoded SHA-1 Hash of <username><salt><password>)
 s	200 Auth OK\n or 401 Auth Failure\n
 User is now authenticated
 --- Alternate Method (Implicit Trust Authentication) ---

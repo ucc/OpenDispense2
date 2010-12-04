@@ -22,6 +22,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <openssl/sha.h>	// SHA1
 
 // === TYPES ===
 typedef struct sItem {
@@ -46,8 +47,7 @@ char	*gsDispenseServer = "localhost";
  int	giDispensePort = 11020;
 tItem	*gaItems;
  int	giNumItems;
-regex_t	gArrayRegex;
-regex_t	gItemRegex;
+regex_t	gArrayRegex, gItemRegex, gSaltRegex;
 
 // === CODE ===
 int main(int argc, char *argv[])
@@ -61,6 +61,8 @@ int main(int argc, char *argv[])
 	CompileRegex(&gArrayRegex, "^([0-9]{3})\\s+([A-Za-z]+)\\s+([0-9]+)", REG_EXTENDED);	//
 	// > Code Type Ident Price Desc
 	CompileRegex(&gItemRegex, "^([0-9]{3})\\s+(.+?)\\s+(.+?)\\s+([0-9]+)\\s+(.+)$", REG_EXTENDED);
+	// > Code 'SALT' salt
+	CompileRegex(&gSaltRegex, "^([0-9]{3})\\s+(.+)\\s+(.+)$", REG_EXTENDED);
 	
 	// Connect to server
 	sock = OpenConnection(gsDispenseServer, giDispensePort);
@@ -156,8 +158,6 @@ int main(int argc, char *argv[])
 		printf("%3i %s\n", gaItems[i].Price, gaItems[i].Desc);
 	}
 	
-	Authenticate(sock);
-	
 	// and choose what to dispense
 	// TODO: ncurses interface (with separation between item classes)
 	// - Hmm... that would require standardising the item ID to be <class>:<index>
@@ -193,6 +193,8 @@ int main(int argc, char *argv[])
 		}
 	}
 	#endif
+	
+	Authenticate(sock);
 	
 	if( i >= 0 )
 	{	
@@ -483,6 +485,8 @@ void Authenticate(int Socket)
 	struct passwd	*pwd;
 	char	buf[512];
 	 int	responseCode;
+	char	salt[32];
+	regmatch_t	matches[4];
 	
 	// Get user name
 	pwd = getpwuid( getuid() );
@@ -500,6 +504,50 @@ void Authenticate(int Socket)
 	case 200:	// Authenticated, return :)
 		return ;
 	case 401:	// Untrusted, attempt password authentication
+		sendf(Socket, "USER %s\n", pwd->pw_name);
+		printf("Using username %s\n", pwd->pw_name);
+		
+		recv(Socket, buf, 511, 0);
+		trim(buf);
+		// TODO: Get Salt
+		// Expected format: 100 SALT <something> ...
+		// OR             : 100 User Set
+		printf("string = '%s'\n", buf);
+		RunRegex(&gSaltRegex, buf, 4, matches, "Malformed server response");
+		if( atoi(buf) != 100 ) {
+			exit(-1);	// ERROR
+		}
+		if( memcmp( buf+matches[2].rm_so, "SALT", matches[2].rm_eo - matches[2].rm_so) == 0) {
+			// Set salt
+			memcpy( salt, buf + matches[3].rm_so, matches[3].rm_eo - matches[3].rm_so );
+			salt[ matches[3].rm_eo - matches[3].rm_so ] = 0;
+			printf("Salt: '%s'\n", salt);
+		}
+		
+		fflush(stdout);
+		{
+			 int	ofs = strlen(pwd->pw_name)+strlen(salt);
+			char	tmp[ofs+20];
+			char	*pass = getpass("Password: ");
+			uint8_t	h[20];
+			
+			strcpy(tmp, pwd->pw_name);
+			strcat(tmp, salt);
+			SHA1( (unsigned char*)pass, strlen(pass), h );
+			memcpy(tmp+ofs, h, 20);
+			
+			// Hash all that
+			SHA1( (unsigned char*)tmp, ofs+20, h );
+			sprintf(buf, "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
+				h[ 0], h[ 1], h[ 2], h[ 3], h[ 4], h[ 5], h[ 6], h[ 7], h[ 8], h[ 9],
+				h[10], h[11], h[12], h[13], h[14], h[15], h[16], h[17], h[18], h[19]
+				);
+			printf("Final hash: '%s'\n", buf);
+			fflush(stdout);	// Debug
+		}
+		
+		sendf(Socket, "PASS %s\n", buf);
+		recv(Socket, buf, 511, 0);
 		break;
 	case 404:	// Bad Username
 		fprintf(stderr, "Bad Username '%s'\n", pwd->pw_name);

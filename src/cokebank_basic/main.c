@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <pwd.h>
 #include <string.h>
+#include <openssl/sha.h>
 #include "common.h"
 
 #define HACK_TPG_NOAUTH	1
@@ -130,18 +131,5 @@ int GetUserID(const char *Username)
 	}
 
 	return ret;
-}
-
-/**
- * \brief Authenticate a user
- * \return User ID, or -1 if authentication failed
- */
-int GetUserAuth(const char *Username, const char *Password)
-{
-	#if HACK_TPG_NOAUTH
-	if( strcmp(Username, "tpg") == 0 )
-		return GetUserID("tpg");
-	#endif
-	return -1;
 }
 

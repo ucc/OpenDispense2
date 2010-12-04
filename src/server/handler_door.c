@@ -57,11 +57,11 @@ int Door_CanDispense(int User, int Item)
  */
 int Door_DoDispense(int User, int Item)
 {
-	char	tmp[32], *status;
-	regmatch_t	matches[4];
 
 	// Sanity please
 	if( Item != 0 )	return -1;
+	
+	// Check if user is in door
 	
 	// llogin or other
 

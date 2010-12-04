@@ -50,6 +50,7 @@ char	*Server_Cmd_ENUMITEMS(tClient *Client, char *Args);
 char	*Server_Cmd_ITEMINFO(tClient *Client, char *Args);
 char	*Server_Cmd_DISPENSE(tClient *Client, char *Args);
 // --- Helpers ---
+ int	GetUserAuth(const char *Salt, const char *Username, const uint8_t *Hash);
 void	HexBin(uint8_t *Dest, char *Src, int BufSize);
 
 // === GLOBALS ===
@@ -307,7 +308,7 @@ char *Server_Cmd_PASS(tClient *Client, char *Args)
 	
 	// TODO: Decrypt password passed
 	
-	Client->UID = GetUserAuth(Client->Username, "");
+	Client->UID = GetUserAuth(Client->Salt, Client->Username, clienthash);
 
 	if( Client->UID != -1 ) {
 		Client->bIsAuthed = 1;
@@ -501,6 +502,43 @@ char *Server_Cmd_GIVE(tClient *Client, char *Args)
 	default:
 		return strdup("402 Poor You\n");
 	}
+}
+
+/**
+ * \brief Authenticate a user
+ * \return User ID, or -1 if authentication failed
+ */
+int GetUserAuth(const char *Salt, const char *Username, const uint8_t *ProvidedHash)
+{
+	#if 0
+	uint8_t	h[20];
+	 int	ofs = strlen(Username) + strlen(Salt);
+	char	input[ ofs + 40 + 1];
+	char	tmp[4 + strlen(Username) + 1];	// uid=%s
+	#endif
+	
+	#if HACK_TPG_NOAUTH
+	if( strcmp(Username, "tpg") == 0 )
+		return GetUserID("tpg");
+	#endif
+	
+	#if 0
+	//
+	strcpy(input, Username);
+	strcpy(input, Salt);
+	// TODO: Get user's SHA-1 hash
+	sprintf(tmp, "uid=%s", Username);
+	ldap_search_s(ld, "", LDAP_SCOPE_BASE, tmp, "userPassword", 0, res);
+	
+	sprintf(input+ofs, "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
+		h[ 0], h[ 1], h[ 2], h[ 3], h[ 4], h[ 5], h[ 6], h[ 7], h[ 8], h[ 9],
+		h[10], h[11], h[12], h[13], h[14], h[15], h[16], h[17], h[18], h[19]
+		);
+	// Then create the hash from the provided salt
+	// Compare that with the provided hash
+	#endif
+	
+	return -1;
 }
 
 // --- INTERNAL HELPERS ---
