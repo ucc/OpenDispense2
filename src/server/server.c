@@ -16,11 +16,15 @@
 #include <unistd.h>
 #include <string.h>
 
+// HACKS
+#define HACK_TPG_NOAUTH	1
+
+// Statistics
 #define MAX_CONNECTION_QUEUE	5
 #define INPUT_BUFFER_SIZE	256
 
-#define HASH_TYPE	SHA512
-#define HASH_LENGTH	64
+#define HASH_TYPE	SHA1
+#define HASH_LENGTH	20
 
 #define MSG_STR_TOO_LONG	"499 Command too long (limit "EXPSTR(INPUT_BUFFER_SIZE)")\n"
 
@@ -40,6 +44,7 @@ typedef struct sClient
 
 // === PROTOTYPES ===
 void	Server_Start(void);
+void	Server_Cleanup(void);
 void	Server_HandleClient(int Socket, int bTrusted);
 char	*Server_ParseClientCommand(tClient *Client, char *CommandString);
 // --- Commands ---
@@ -69,6 +74,7 @@ struct sClientCommand {
 	{"DISPENSE", Server_Cmd_DISPENSE}
 };
 #define NUM_COMMANDS	(sizeof(gaServer_Commands)/sizeof(gaServer_Commands[0]))
+ int	giServer_Socket;
 
 // === CODE ===
 /**
@@ -76,12 +82,14 @@ struct sClientCommand {
  */
 void Server_Start(void)
 {
-	 int	server_socket, client_socket;
+	 int	client_socket;
 	struct sockaddr_in	server_addr, client_addr;
 
+	atexit(Server_Cleanup);
+
 	// Create Server
-	server_socket = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
-	if( server_socket < 0 ) {
+	giServer_Socket = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+	if( giServer_Socket < 0 ) {
 		fprintf(stderr, "ERROR: Unable to create server socket\n");
 		return ;
 	}
@@ -93,14 +101,16 @@ void Server_Start(void)
 	server_addr.sin_port = htons(giServer_Port);	// Port
 
 	// Bind
-	if( bind(server_socket, (struct sockaddr *) &server_addr, sizeof(server_addr)) < 0 ) {
+	if( bind(giServer_Socket, (struct sockaddr *) &server_addr, sizeof(server_addr)) < 0 ) {
 		fprintf(stderr, "ERROR: Unable to bind to 0.0.0.0:%i\n", giServer_Port);
+		perror("Binding");
 		return ;
 	}
 	
 	// Listen
-	if( listen(server_socket, MAX_CONNECTION_QUEUE) < 0 ) {
+	if( listen(giServer_Socket, MAX_CONNECTION_QUEUE) < 0 ) {
 		fprintf(stderr, "ERROR: Unable to listen to socket\n");
+		perror("Listen");
 		return ;
 	}
 	
@@ -111,7 +121,7 @@ void Server_Start(void)
 		uint	len = sizeof(client_addr);
 		 int	bTrusted = 0;
 		
-		client_socket = accept(server_socket, (struct sockaddr *) &client_addr, &len);
+		client_socket = accept(giServer_Socket, (struct sockaddr *) &client_addr, &len);
 		if(client_socket < 0) {
 			fprintf(stderr, "ERROR: Unable to accept client connection\n");
 			return ;
@@ -146,6 +156,12 @@ void Server_Start(void)
 		
 		close(client_socket);
 	}
+}
+
+void Server_Cleanup(void)
+{
+	printf("Close(%i)\n", giServer_Socket);
+	close(giServer_Socket);
 }
 
 /**

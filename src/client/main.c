@@ -24,6 +24,8 @@
 #include <arpa/inet.h>
 #include <openssl/sha.h>	// SHA1
 
+#define	USE_NCURSES_INTERFACE	0
+
 // === TYPES ===
 typedef struct sItem {
 	char	*Ident;
@@ -159,11 +161,8 @@ int main(int argc, char *argv[])
 	}
 	
 	// and choose what to dispense
-	// TODO: ncurses interface (with separation between item classes)
-	// - Hmm... that would require standardising the item ID to be <class>:<index>
-	// Oh, why not :)
 	
-	#if 1
+	#if USE_NCURSES_INTERFACE
 	i = ShowNCursesUI();
 	#else
 	
@@ -224,7 +223,7 @@ int main(int argc, char *argv[])
 			printf("Item failed to dispense, is the slot empty?\n");
 			break;
 		default:
-			printf("Unknown response code %i\n", responseCode);
+			printf("Unknown response code %i ('%s')\n", responseCode, buffer);
 			break;
 		}
 	}
@@ -257,6 +256,9 @@ void ShowItemAt(int Row, int Col, int Width, int Index)
  */
 int ShowNCursesUI(void)
 {
+	// TODO: ncurses interface (with separation between item classes)
+	// - Hmm... that would require standardising the item ID to be <class>:<index>
+	// Oh, why not :)
 	 int	ch;
 	 int	i, times;
 	 int	xBase, yBase;
@@ -512,7 +514,6 @@ void Authenticate(int Socket)
 		// TODO: Get Salt
 		// Expected format: 100 SALT <something> ...
 		// OR             : 100 User Set
-		printf("string = '%s'\n", buf);
 		RunRegex(&gSaltRegex, buf, 4, matches, "Malformed server response");
 		if( atoi(buf) != 100 ) {
 			exit(-1);	// ERROR
@@ -521,7 +522,7 @@ void Authenticate(int Socket)
 			// Set salt
 			memcpy( salt, buf + matches[3].rm_so, matches[3].rm_eo - matches[3].rm_so );
 			salt[ matches[3].rm_eo - matches[3].rm_so ] = 0;
-			printf("Salt: '%s'\n", salt);
+//			printf("Salt: '%s'\n", salt);
 		}
 		
 		fflush(stdout);
@@ -542,7 +543,7 @@ void Authenticate(int Socket)
 				h[ 0], h[ 1], h[ 2], h[ 3], h[ 4], h[ 5], h[ 6], h[ 7], h[ 8], h[ 9],
 				h[10], h[11], h[12], h[13], h[14], h[15], h[16], h[17], h[18], h[19]
 				);
-			printf("Final hash: '%s'\n", buf);
+//			printf("Final hash: '%s'\n", buf);
 			fflush(stdout);	// Debug
 		}
 		

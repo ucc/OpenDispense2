@@ -9,6 +9,8 @@
 #ifndef _COMMON_H_
 #define _COMMON_H_
 
+#include <regex.h>
+
 // === CONSTANTS ===
 #define	DEFAULT_CONFIG_FILE	"/etc/opendispense/main.cfg"
 #define	DEFAULT_ITEM_FILE	"/etc/opendispense/items.cfg"
@@ -62,6 +64,11 @@ extern int	giNumHandlers;
 extern int	giDebugLevel;
 
 // === FUNCTIONS ===
+// --- Helpers --
+extern void	CompileRegex(regex_t *Regex, const char *Pattern, int Flags);
+extern int	RunRegex(regex_t *regex, const char *string, int nMatches, regmatch_t *matches, const char *errorMessage);
+
+// --- Dispense ---
 extern int	DispenseItem(int User, tItem *Item);
 
 // --- Logging ---
