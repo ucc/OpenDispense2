@@ -13,6 +13,9 @@
 #include <signal.h>
 #include "common.h"
 #include <termios.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 // === IMPORTS ===
 extern void	Init_Cokebank(const char *Argument);	// cokebank.c
@@ -120,10 +123,15 @@ void CompileRegex(regex_t *regex, const char *pattern, int flags)
 }
 
 // Serial helper
-void InitSerial(int FD, int BaudRate)
+int InitSerial(const char *File, int BaudRate)
 {
 	struct termios	info;
 	 int	baud;
+	 int	fd;
+	
+	
+	fd = open(File, O_RDWR | O_NOCTTY);
+	if( fd == -1 )	return -1;
 	
 	switch(BaudRate)
 	{
@@ -134,7 +142,9 @@ void InitSerial(int FD, int BaudRate)
 	cfmakeraw(&info);	// Sets 8N1
 	cfsetspeed(&info, baud);
 	
-	tcsetattr(FD, TCSANOW, &info);
+	tcsetattr(fd, TCSANOW, &info);
+	
+	return fd;
 }
 
 
