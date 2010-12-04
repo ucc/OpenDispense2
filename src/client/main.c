@@ -32,6 +32,7 @@ typedef struct sItem {
 
 // === PROTOTYPES ===
  int	ShowNCursesUI(void);
+void	PrintAlign(int Row, int Col, int Width, const char *Left, char Pad1, const char *Mid, char Pad2, const char *Right, ...);
 
  int	sendf(int Socket, const char *Format, ...);
  int	OpenConnection(const char *Host, int Port);
@@ -231,6 +232,25 @@ int main(int argc, char *argv[])
 	return 0;
 }
 
+void ShowItemAt(int Row, int Col, int Width, int Index)
+{
+	 int	_x, _y, times;
+	
+	move( Row, Col );
+	
+	if( Index < 0 || Index >= giNumItems ) {
+		printw("%02i OOR", Index);
+		return ;
+	}
+	printw("%02i %s", Index, gaItems[Index].Desc);
+	
+	getyx(stdscr, _y, _x);
+	// Assumes max 4 digit prices
+	times = Width - 4 - (_x - Col);	// TODO: Better handling for large prices
+	while(times--)	addch(' ');
+	printw("%4i", gaItems[Index].Price);
+}
+
 /**
  */
 int ShowNCursesUI(void)
@@ -241,7 +261,6 @@ int ShowNCursesUI(void)
 	const int	displayMinWidth = 34;
 	const int	displayMinItems = 8;
 	char	*titleString = "Dispense";
-	 int	titleStringLen = strlen(titleString);
 	 int	itemCount = displayMinItems;
 	 int	itemBase = 0;
 	 
@@ -258,21 +277,11 @@ int ShowNCursesUI(void)
 	for( ;; )
 	{
 		// Header
-		move( yBase, xBase );
-		addch('/');
-		times = width/2 - titleStringLen/2 - 2;
-		while(times --)	addch('-');
-		addch(' ');
-		addstr(titleString);
-		addch(' ');
-		times = width/2 - titleStringLen/2 - 2;
-		while(times --)	addch('-');
-		addch('\\');
+		PrintAlign(yBase, xBase, width, "/", '-', titleString, '-', "\\");
 		
 		// Items
 		for( i = 0; i < itemCount; i ++ )
 		{
-			 int	_x, _y;
 			move( yBase + 1 + i, xBase );
 			addch('|');
 			addch(' ');
@@ -290,16 +299,8 @@ int ShowNCursesUI(void)
 			}
 			// Show an item
 			else {
-				if( itemBase + i < 0 || itemBase + i >= giNumItems ) {
-					printw("%02i %i OOR", itemBase + i, i);
-					continue ;
-				}
-				printw("%02i %s", itemBase + i, gaItems[itemBase + i].Desc);
-				
-				getyx(stdscr, _y, _x);
-				times = width - 6 - (_x - xBase);	// TODO: Better handling for large prices
-				while(times--)	addch(' ');
-				printw("%4i ", gaItems[itemBase + i].Price);
+				ShowItemAt( yBase + 1 + i, xBase + 2, width - 4, itemBase + i);
+				addch(' ');
 			}
 			
 			// Scrollbar (if needed)
@@ -326,30 +327,9 @@ int ShowNCursesUI(void)
 		}
 		
 		// Footer
-		move( yBase + 1 + itemCount, xBase );
-		addch('\\');
-		times = width/2 - titleStringLen/2 - 2;
-		while(times --)	addch('-');
-		addch(' ');
-		addstr(titleString);
-		addch(' ');
-		times = width/2 - titleStringLen/2 - 2;
-		while(times --)	addch('-');
-		addch('/');
+		PrintAlign(yBase+height-2, xBase, width, "\\", '-', "", '-', "/");
 		
-		move( yBase + 1 + itemCount + 1, xBase );
-		{
-			 int	count = itemCount-2;
-			 int	ofs = itemBase;
-			if( itemBase == 0 )	count ++;
-			else	ofs ++;
-			if( itemBase == giNumItems-itemCount) {
-				count ++;
-				ofs ++;
-			}
-			printw("%i - %i / %i items", itemBase, itemBase+count, giNumItems);
-		}
-		
+		// Get input
 		ch = getch();
 		
 		if( ch == '\x1B' ) {
@@ -383,6 +363,55 @@ int ShowNCursesUI(void)
 	// Leave
 	endwin();
 	return -1;
+}
+
+void PrintAlign(int Row, int Col, int Width, const char *Left, char Pad1, const char *Mid, char Pad2, const char *Right, ...)
+{
+	 int	lLen, mLen, rLen;
+	 int	times;
+	
+	va_list	args;
+	
+	// Get the length of the strings
+	va_start(args, Right);
+	lLen = vsnprintf(NULL, 0, Left, args);
+	mLen = vsnprintf(NULL, 0, Mid, args);
+	rLen = vsnprintf(NULL, 0, Right, args);
+	va_end(args);
+	
+	// Sanity check
+	if( lLen + mLen/2 > Width/2 || mLen/2 + rLen > Width/2 ) {
+		return ;	// TODO: What to do?
+	}
+	
+	move(Row, Col);
+	
+	// Render strings
+	va_start(args, Right);
+	// - Left
+	{
+		char	tmp[lLen+1];
+		vsnprintf(tmp, lLen+1, Left, args);
+		addstr(tmp);
+	}
+	// - Left padding
+	times = Width/2 - mLen/2 - lLen;
+	while(times--)	addch(Pad1);
+	// - Middle
+	{
+		char	tmp[mLen+1];
+		vsnprintf(tmp, mLen+1, Mid, args);
+		addstr(tmp);
+	}
+	// - Right Padding
+	times = Width/2 - mLen/2 - rLen;
+	while(times--)	addch(Pad2);
+	// - Right
+	{
+		char	tmp[rLen+1];
+		vsnprintf(tmp, rLen+1, Right, args);
+		addstr(tmp);
+	}
 }
 
 // === HELPERS ===
