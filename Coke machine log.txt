@@ -1,0 +1,446 @@
+:Address ErroHello cruel world!
+
+UCC Coke Machine controller is alive!
+
+
+door1
+:s
+slot 0 b3M*
+
+
+
+
+�� :full  03 sold
+slot 1  :full  30 sold
+slot 2  :full  21 sold
+slot 3  :full  20 sold
+slot 4  :full  20 sold
+slot 5  :full  22 sold
+slot 6 `ludme
+              8 :full  28 sold
+
+:Min4
+:
+:
+:n6 foo
+ok
+
+:s
+slot 0 b3M*
+
+
+
+
+
+�� :full  03 sold
+slot 1  :full  30 sold
+slot 2  :full  21 sold
+slot 3  :full  20 sold
+slot 4  :full  20 sold
+slot 5  :full  22 sold
+slot 6 foo         :full  28 sold
+
+:Min4n0 fg
+:s
+slot 0 b3M*
+
+
+
+
+
+
+
+
+
+
+
+�� :full  03 sold
+slot 1  :full  30 sold
+slot 2  :full  21 sold
+slot 3  :full  20 sold
+slot 4  :full  20 sold
+slot 5  :full  22 sold
+slot 6 foo         :full  28 sold
+
+:Min4d7
+:s
+slot 0 b3M*
+
+
+
+
+
+
+
+
+
+
+
+�� :full  03 sold
+slot 1  :full  30 sold
+slot 2  :full  21 sold
+slot 3  :full  20 sold
+slot 4  :full  20 sold
+slot 5  :full  22 sold
+slot 6 foo         :full  28 sold
+
+:Min4d7
+:d7
+ok
+
+:s7
+ok
+
+:s
+slot 0 b3M*
+
+
+
+
+
+�� :full  03 sold
+slot 1  :full  30 sold
+slot 2  :full  21 sold
+slot 3  :full  20 sold
+slot 4  :full  20 sold
+slot 5  :full  22 sold
+slot 6 foo         :full  28 sold
+
+:Min4d7
+:d7
+ok
+
+:s
+slot 0 b3M*
+
+s+--------------------[Modem and dialing parameter setup]---------------------+
+s|                                                                            |
+s| A - Init string .........                                                  |
+s| B - Reset string ........ ^M~ATZ^M~                                        |
+s| C - Dialing prefix #1.... ATDT                                             |
+s| D - Dialing suffix #1.... ^M                                               |
+ | E - Dialing prefix #2.... ATDP                                             |
+:| F - Dialing suffix #2.... ^M                                               |
+slot 1  :full  30 sold                                                         
+slot 2  :full  21 sold                                                         
+slot 3  :full  20 sold                                                         
+slot 4  :full  20 sold                                                         
+slot 5  :full  22 sold                                                         
+slot 6 foo         :full  28 sold                                              
+                                                                               
+:Min4                                                                          
+                                                                               
+                                                                               
+                                                                               
+                                                                               
+                                                                               
+                                                                               
+                                                                               
+                                                                               
+                                                                               
+                                                                               
+                                                                               
+                                                                               
+                                                                               
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Hello cruel world!
+
+UCC Coke Machine controller is alive!
+
+
+door1
+:p
+                                                     
+                                                     
+                                                     
+                                                     
+
+
+
+
+
+
+
+
+
+
+ CTRL-A Z for help |  9600 8N1 | NOR | Minicom 2.4    | VT102 |      Offline   
+root@sonata:/home/tpg# picocom 
+No port given
+root@sonata:/home/tpg# picocom /dev/ttyUSB0 
+picocom v1.4
+
+port is        : /dev/ttyUSB0
+flowcontrol    : none
+baudrate is    : 9600
+parity is      : none
+databits are   : 8
+escape is      : C-a
+noinit is      : no
+noreset is     : no
+nolock is      : no
+send_cmd is    : ascii_xfr -s -v -l10
+receive_cmd is : rz -vv
+
+Terminal ready
+
+:
+:s
+slot 0 b3M*
+           �� :full  03 sold
+slot 1  :full  30 sold
+slot 2  :full  21 sold
+slot 3  :full  20 sold
+slot 4  :full  20 sold
+slot 5  :full  22 sold
+slot 6 foo         :full  28 sold
+
+:d7
+ok
+
+:s
+slot 0 b3M*
+           �� :full  03 sold
+slot 1  :full  30 sold
+slot 2  :full  21 sold
+slot 3  :full  20 sold
+slot 4  :full  20 sold
+slot 5  :full  22 sold
+slot 6 foo         :full  28 sold
+
+:Address Erro
+Thanks for using picocom
+root@sonata:/home/tpg# picocom /dev/ttyUSB0 
+picocom v1.4
+
+port is        : /dev/ttyUSB0
+flowcontrol    : none
+baudrate is    : 9600
+parity is      : none
+databits are   : 8
+escape is      : C-a
+noinit is      : no
+noreset is     : no
+nolock is      : no
+send_cmd is    : ascii_xfr -s -v -l10
+receive_cmd is : rz -vv
+
+Terminal ready
+
+:s
+slot 0  :full  00 sold
+slot 1 @�PY�" '  :full  10 sold
+slot 2  :full  00 sold
+slot 3  :full  00 sold
+slot 4  :full  00 sold
+slot 5  :full  02 sold
+slot 6 `lU�lngK8 :full  08 sold
+
+:d7
+ok
+
+:s
+slot 0  :full  00 sold
+slot 1 @�PY�" '  :full  10 sold
+slot 2  :full  00 sold
+slot 3  :full  00 sold
+slot 4  :full  00 sold
+slot 5  :full  02 sold
+slot 6 `lU�lngK8 :full  08 sold
+
+:d7
+ok
+
+:d7
+ok
+
+:d7
+ok
+
+:s
+slot 0  :full  00 sold
+slot 1 @�PY�" '  :full  10 sold
+slot 2  :full  00 sold
+slot 3  :full  00 sold
+slot 4  :full  00 sold
+slot 5  :full  02 sold
+slot 6 `lU�lngK8 :full  08 sold
+
+:n6 coke
+ok
+
+:s
+slot 0  :full  00 sold
+slot 1 @�PY�" '  :full  10 sold
+slot 2  :full  00 sold
+slot 3  :full  00 sold
+slot 4  :full  00 sold
+slot 5  :full  02 sold
+slot 6 coke        :full  08 sold
+
+:n0 screaming sofad
+ok
+
+:s
+slot 0 screaming sofad                                                                                                                                                                                                                                                           :full  00 sold
+slot 1 d                                                                                                                                                                                                                                                           :full  7F sold
+slot 2                                                                                                                                                                                                                                             :full  20 sold
+slot 3                                                                                                                                                                                                                             :full  20 sold
+slot 4                                                                                                                                                                                                             :full  20 sold
+slot 5                                                                                                                                                                                             :full  20 sold
+slot 6                                                                                                                                                                             :full  20 sold
+
+:n0 screaming soda
+ok
+
+:s
+slot 0 screaming soda                                                                                                                                                                                                                                                              :full  00 sold
+slot 1                                                                                                                                                                                                                                                             :full  20 sold
+slot 2                                                                                                                                                                                                                                             :full  20 sold
+slot 3                                                                                                                                                                                                                             :full  20 sold
+slot 4                                                                                                                                                                                                             :full  20 sold
+slot 5                                                                                                                                                                                             :full  20 sold
+slot 6                                                                                                                                                                             :full  20 sold
+
+:n0 soda
+ok
+
+:s
+slot 0 soda        :full  00 sold
+slot 1                                                                                                                                                                                                                                                             :full  20 sold
+slot 2                                                                                                                                                                                                                                             :full  20 sold
+slot 3                                                                                                                                                                                                                             :full  20 sold
+slot 4                                                                                                                                                                                                             :full  20 sold
+slot 5                                                                                                                                                                                             :full  20 sold
+slot 6                                                                                                                                                                             :full  20 sold
+
+:[5~d7
+:d7
+ok
+
+:d7
+ok
+
+:s
+slot 0 soda        :full  00 sold
+slot 1                                                                                                "                                                                                                                                                            :full  20 sold
+slot 2                                                                                "                                                                                                                                                            :full  20 sold
+slot 3                                                                "                                                                                                                                                            :full  20 sold
+slot 4                                                "                                                                                                                                                            :full  20 sold
+slot 5                                "                                                                                                                                                            :full  20 sold
+slot 6                "                                                                                                                                                            :full  20 sold
+
+:Address ErrHello cruel world!
+
+UCC Coke Machine controller is alive!
+
+
+door1
+:s
+slot 0 ��(�g�E :full  01 sold
+slot 1 @�PY� $'  :full  10 sold
+slot 2  :full  00 sold
+slot 3  :full  00 sold
+slot 4  :full  20 sold
+slot 5  @l�����A :full  02 sold
+slot 6 `lU�l~gK8 :full  08 sold
+
+:n0 sod
+ok
+
+:s
+slot 0 sod         :full  01 sold
+slot 1 @�PY� $'  :full  10 sold
+slot 2  :full  00 sold
+slot 3  :full  00 sold
+slot 4  :full  20 sold
+slot 5  @l�����A :full  02 sold
+slot 6 `lU�l~gK8 :full  08 sold
+
+:n1 green
+ok
+
+:s
+slot 0 sod         :full  01 sold
+slot 1 green       :full  10 sold
+slot 2  :full  00 sold
+slot 3  :full  00 sold
+slot 4  :full  20 sold
+slot 5  @l�����A :full  02 sold
+slot 6 `lU�l~gK8 :full  08 sold
+
+:n6 coke
+ok
+
+:s
+slot 0 sod         :full  01 sold
+slot 1 green       :full  10 sold
+slot 2  :full  00 sold
+slot 3  :full  00 sold
+slot 4  :full  20 sold
+slot 5  @l�����A :full  02 sold
+slot 6 coke        :full  08 sold
+
+:n5 null coke
+ok
+
+:s
+slot 0 sod         :full  01 sold
+slot 1 green       :full  10 sold
+slot 2  :full  00 sold
+slot 3  :full  00 sold
+slot 4  :full  20 sold
+slot 5 null coke   :full  02 sold
+slot 6 coke        :full  08 sold
+
+:n2 solo
+ok
+
+: 
+:n3 orange
+ok
+
+:n4 lemondae
+ok
+
+:n4 lemondde
+ok
+
+:n4 lemonade
+ok
+
+:s
+slot 0 sod         :full  01 sold
+slot 1 green       :full  10 sold
+slot 2 solo        :full  00 sold
+slot 3 orange      :full  00 sold
+slot 4 lemonade    :full  20 sold
+slot 5 null coke   :full  02 sold
+slot 6 coke        :full  08 sold
+
+:
+:
+Thanks for using picocom
+root@sonata:/home/tpg# man picocom
+root@sonata:/home/tpg# 
