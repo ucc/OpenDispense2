@@ -20,14 +20,14 @@ int DispenseItem(int User, tItem *Item)
 	// Check if the dispense is possible
 	if( handler->CanDispense ) {
 		ret = handler->CanDispense( User, Item->ID );
-		if(!ret)	return 1;	// 1: Unknown Error
+		if(ret)	return 1;	// 1: Unable to dispense
 	}
 	
 	// Subtract the balance
 	ret = Transfer( User, GetUserID(">sales"), Item->Price, "" );
 	// What value should I use for this error?
 	// AlterBalance should return the final user balance
-	if(ret != 0)	return 2;	// 2: No balance
+	if(ret)	return 2;	// 2: No balance
 	
 	// Get username for debugging
 	username = GetUserName(User);

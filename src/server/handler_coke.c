@@ -77,9 +77,9 @@ int Coke_CanDispense(int User, int Item)
 	printf("Machine responded slot status '%s'\n", status);
 
 	if( strcmp(status, "full") == 0 )
-		return 1;
+		return 0;
 
-	return 0;
+	return 1;
 }
 
 /**

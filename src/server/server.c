@@ -466,6 +466,7 @@ char *Server_Cmd_ITEMINFO(tClient *Client, char *Args)
 char *Server_Cmd_DISPENSE(tClient *Client, char *Args)
 {
 	tItem	*item;
+	 int	ret;
 	if( !Client->bIsAuthed )	return strdup("401 Not Authenticated\n");
 
 	item = _GetItemFromString(Args);
@@ -473,7 +474,7 @@ char *Server_Cmd_DISPENSE(tClient *Client, char *Args)
 		return strdup("406 Bad Item ID\n");
 	}
 
-	switch( DispenseItem( Client->UID, item ) )
+	switch( ret = DispenseItem( Client->UID, item ) )
 	{
 	case 0:	return strdup("200 Dispense OK\n");
 	case 1:	return strdup("501 Unable to dispense\n");

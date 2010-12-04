@@ -52,6 +52,10 @@ struct sHandler
 {
 	char	*Name;
 	 int	(*Init)(int NConfig, tConfigItem *Config);
+	/**
+	 * \brief Check if an item can be dispensed
+	 * \return Boolean Failure
+	 */
 	 int	(*CanDispense)(int User, int ID);
 	 int	(*DoDispense)(int User, int ID);
 };

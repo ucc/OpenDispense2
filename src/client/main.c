@@ -39,7 +39,7 @@ void	PrintAlign(int Row, int Col, int Width, const char *Left, char Pad1, const 
 
  int	sendf(int Socket, const char *Format, ...);
  int	OpenConnection(const char *Host, int Port);
-void	Authenticate(int Socket);
+ int	Authenticate(int Socket);
 char	*trim(char *string);
  int	RunRegex(regex_t *regex, const char *string, int nMatches, regmatch_t *matches, const char *errorMessage);
 void	CompileRegex(regex_t *regex, const char *pattern, int flags);
@@ -193,9 +193,8 @@ int main(int argc, char *argv[])
 	}
 	#endif
 	
-	Authenticate(sock);
-	
-	if( i >= 0 )
+	// Check for a valid item ID and if so, authenticate
+	if( i >= 0 && Authenticate(sock) )
 	{	
 		// Dispense!
 		sendf(sock, "DISPENSE %s\n", gaItems[i].Ident);
@@ -222,6 +221,9 @@ int main(int argc, char *argv[])
 		case 500:
 			printf("Item failed to dispense, is the slot empty?\n");
 			break;
+		case 501:
+			printf("Dispense not possible (slot empty/permissions)\n");
+			break;
 		default:
 			printf("Unknown response code %i ('%s')\n", responseCode, buffer);
 			break;
@@ -233,6 +235,10 @@ int main(int argc, char *argv[])
 	return 0;
 }
 
+/**
+ * \brief Show item \a Index at (\a Col, \a Row)
+ * \note Part of the NCurses UI
+ */
 void ShowItemAt(int Row, int Col, int Width, int Index)
 {
 	 int	_x, _y, times;
@@ -253,6 +259,7 @@ void ShowItemAt(int Row, int Col, int Width, int Index)
 }
 
 /**
+ * \brief Render the NCurses UI
  */
 int ShowNCursesUI(void)
 {
@@ -369,7 +376,19 @@ int ShowNCursesUI(void)
 	return -1;
 }
 
-void PrintAlign(int Row, int Col, int Width, const char *Left, char Pad1, const char *Mid, char Pad2, const char *Right, ...)
+/**
+ * \brief Print a three-part string at the specified position (formatted)
+ * \note NCurses UI Helper
+ * 
+ * Prints \a Left on the left of the area, \a Right on the righthand side
+ * and \a Mid in the middle of the area. These are padded with \a Pad1
+ * between \a Left and \a Mid, and \a Pad2 between \a Mid and \a Right.
+ * 
+ * ::printf style format codes are allowed in \a Left, \a Mid and \a Right,
+ * and the arguments to these are read in that order.
+ */
+void PrintAlign(int Row, int Col, int Width, const char *Left, char Pad1,
+	const char *Mid, char Pad2, const char *Right, ...)
 {
 	 int	lLen, mLen, rLen;
 	 int	times;
@@ -482,12 +501,17 @@ int OpenConnection(const char *Host, int Port)
 	return sock;
 }
 
-void Authenticate(int Socket)
+/**
+ * \brief Authenticate with the server
+ * \return Boolean Failure
+ */
+int Authenticate(int Socket)
 {
 	struct passwd	*pwd;
 	char	buf[512];
 	 int	responseCode;
 	char	salt[32];
+	 int	i;
 	regmatch_t	matches[4];
 	
 	// Get user name
@@ -504,7 +528,7 @@ void Authenticate(int Socket)
 	switch( responseCode )
 	{
 	case 200:	// Authenticated, return :)
-		return ;
+		return 0;
 	case 401:	// Untrusted, attempt password authentication
 		sendf(Socket, "USER %s\n", pwd->pw_name);
 		printf("Using username %s\n", pwd->pw_name);
@@ -515,23 +539,31 @@ void Authenticate(int Socket)
 		// Expected format: 100 SALT <something> ...
 		// OR             : 100 User Set
 		RunRegex(&gSaltRegex, buf, 4, matches, "Malformed server response");
-		if( atoi(buf) != 100 ) {
-			exit(-1);	// ERROR
-		}
-		if( memcmp( buf+matches[2].rm_so, "SALT", matches[2].rm_eo - matches[2].rm_so) == 0) {
-			// Set salt
-			memcpy( salt, buf + matches[3].rm_so, matches[3].rm_eo - matches[3].rm_so );
-			salt[ matches[3].rm_eo - matches[3].rm_so ] = 0;
-//			printf("Salt: '%s'\n", salt);
+		responseCode = atoi(buf);
+		if( responseCode != 100 ) {
+			fprintf(stderr, "Unknown repsonse code %i from server\n", responseCode);
+			return -1;	// ERROR
 		}
 		
+		// Check for salt
+		if( memcmp( buf+matches[2].rm_so, "SALT", matches[2].rm_eo - matches[2].rm_so) == 0) {
+			memcpy( salt, buf + matches[3].rm_so, matches[3].rm_eo - matches[3].rm_so );
+			salt[ matches[3].rm_eo - matches[3].rm_so ] = 0;
+		}
+		
+		// Get password
 		fflush(stdout);
+		
+		// Give three attempts
+		for( i = 0; i < 3; i ++ )
 		{
 			 int	ofs = strlen(pwd->pw_name)+strlen(salt);
 			char	tmp[ofs+20];
 			char	*pass = getpass("Password: ");
 			uint8_t	h[20];
 			
+			// Create hash string
+			// <username><salt><hash>
 			strcpy(tmp, pwd->pw_name);
 			strcat(tmp, salt);
 			SHA1( (unsigned char*)pass, strlen(pass), h );
@@ -543,23 +575,35 @@ void Authenticate(int Socket)
 				h[ 0], h[ 1], h[ 2], h[ 3], h[ 4], h[ 5], h[ 6], h[ 7], h[ 8], h[ 9],
 				h[10], h[11], h[12], h[13], h[14], h[15], h[16], h[17], h[18], h[19]
 				);
-//			printf("Final hash: '%s'\n", buf);
 			fflush(stdout);	// Debug
-		}
 		
-		sendf(Socket, "PASS %s\n", buf);
-		recv(Socket, buf, 511, 0);
-		break;
+			// Send password
+			sendf(Socket, "PASS %s\n", buf);
+			recv(Socket, buf, 511, 0);
+		
+			responseCode = atoi(buf);
+			// Auth OK?
+			if( responseCode == 200 )	break;
+			// Bad username/password
+			if( responseCode == 401 )	continue;
+			
+			fprintf(stderr, "Unknown repsonse code %i from server\n", responseCode);
+			return -1;
+		}
+		return 2;	// 2 = Bad Password
+	
 	case 404:	// Bad Username
 		fprintf(stderr, "Bad Username '%s'\n", pwd->pw_name);
-		exit(-1);
+		return 1;
+	
 	default:
 		fprintf(stderr, "Unkown response code %i from server\n", responseCode);
 		printf("%s\n", buf);
-		exit(-1);
+		return -1;
 	}
 	
 	printf("%s\n", buf);
+	return 0;	// Seems OK
 }
 
 char *trim(char *string)

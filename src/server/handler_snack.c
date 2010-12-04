@@ -49,7 +49,7 @@ int Snack_CanDispense(int User, int Item)
 	
 	// Hmm... could we implement slot statuses?
 	
-	return 1;
+	return 0;
 }
 
 /**
