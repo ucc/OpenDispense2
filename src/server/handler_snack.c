@@ -47,6 +47,8 @@ int Snack_CanDispense(int User, int Item)
 	// Sanity please
 	if( Item < 0 || Item > 99 )	return -1;
 	
+	// Hmm... could we implement slot statuses?
+	
 	return 1;
 }
 
@@ -71,5 +73,3 @@ int Snack_DoDispense(int User, int Item)
 
 	return 0;
 }
-
-
