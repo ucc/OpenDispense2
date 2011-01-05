@@ -21,7 +21,7 @@
  int	Coke_InitHandler();
  int	Coke_CanDispense(int User, int Item);
  int	Coke_DoDispense(int User, int Item);
-void	WaitForColon();
+ int	WaitForColon();
  int	ReadLine(int len, char *output);
 
 // === GLOBALS ===
@@ -58,11 +58,14 @@ int Coke_CanDispense(int User, int Item)
 	// Sanity please
 	if( Item < 0 || Item > 6 )	return -1;	// -EYOURBAD
 	
-	write(giCoke_SerialFD, "\r\n", 2);
-	write(giCoke_SerialFD, "\r\n", 2);
-	write(giCoke_SerialFD, "\r\n", 2);
+	write(giCoke_SerialFD, "d7\r\n", 4);
+	write(giCoke_SerialFD, "d7\r\n", 4);
+	write(giCoke_SerialFD, "d7\r\n", 4);
 	
-	WaitForColon();
+	if( WaitForColon() ) {
+		fprintf(stderr, "Coke machine timed out\n");
+		return -2;	// -EMYBAD
+	}
 	
 	// Ask the coke machine
 	sprintf(tmp, "s%i\r\n", Item);
@@ -131,11 +134,16 @@ char ReadChar()
 	fd_set	readfs;
 	char	ch = 0;
 	 int	ret;
+	struct timeval	timeout;
+	
+	timeout.tv_sec = 5;	// 5 second timeout
+	timeout.tv_usec = 0;
 	
 	FD_ZERO(&readfs);
 	FD_SET(giCoke_SerialFD, &readfs);
 	
-	ret = select(giCoke_SerialFD+1, &readfs, NULL, NULL, NULL);
+	ret = select(giCoke_SerialFD+1, &readfs, NULL, NULL, &timeout);
+	if( ret == 0 )	return 0;	// Timeout
 	if( ret != 1 ) {
 		printf("readchar return %i\n", ret);
 		return 0;
@@ -150,7 +158,7 @@ char ReadChar()
 	return ch;
 }
 
-void WaitForColon()
+int WaitForColon()
 {
 	fd_set	readfs;
 	char	ch = 0;
@@ -158,6 +166,10 @@ void WaitForColon()
 	FD_SET(giCoke_SerialFD, &readfs);
 	
 	while( (ch = ReadChar()) != ':' && ch != 0);
+	
+	if( ch == 0 )	return -1;	// Timeout
+	
+	return 0;
 }
 
 int ReadLine(int len, char *output)

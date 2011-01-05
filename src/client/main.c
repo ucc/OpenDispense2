@@ -179,6 +179,7 @@ int ShowNCursesUI(void)
 	 int	itemCount = displayMinItems;
 	 int	itemBase = 0;
 	 int	currentItem = 0;
+	 int	ret = -2;	// -2: Used for marking "no return yet"
 	 
 	 int	height, width;
 	 
@@ -186,6 +187,8 @@ int ShowNCursesUI(void)
 	initscr();
 	raw(); noecho();
 	
+	// Get item count
+	// - 6: randomly chosen (Need at least 3)
 	itemCount = LINES - 6;
 	if( itemCount > giNumItems )
 		itemCount = giNumItems;
@@ -292,7 +295,18 @@ int ShowNCursesUI(void)
 			}
 		}
 		else {
-			break;
+			switch(ch)
+			{
+			case '\n':
+				ret = currentItem;
+				break;
+			case 'q':
+				ret = -1;	// -1: Return with no dispense
+				break;
+			}
+			
+			// Check if the return value was changed
+			if( ret != -2 )	break;
 		}
 		
 	}
@@ -300,7 +314,7 @@ int ShowNCursesUI(void)
 	
 	// Leave
 	endwin();
-	return -1;
+	return ret;
 }
 
 /**

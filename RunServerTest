@@ -3,8 +3,8 @@
 ARGS="--itemsfile items.cfg -p 11020"
 ARGS=$ARGS" --cokeport /dev/ttyUSB0"
 
-if [ "x$1" == "xdbg" ]; then 
-	LD_LIBRARY_PATH=. gdb --args ./dispsrv $ARGS
-else
+#if [ "x$1" == "xdbg" ]; then 
+#	LD_LIBRARY_PATH=. gdb --args ./dispsrv $ARGS
+#else
 	LD_LIBRARY_PATH=. ./dispsrv $ARGS
-fi
+#fi
