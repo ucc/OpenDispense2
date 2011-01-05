@@ -24,7 +24,7 @@ enum {
 };
 
 // === PROTOTYPES ===
-static int	GetUnixID(const char *Name);
+static int	GetUnixID(const char *Username);
 
 // === GLOBALS ===
 tUser	*gaBank_Users;
@@ -32,13 +32,16 @@ tUser	*gaBank_Users;
 FILE	*gBank_File;
 
 // === CODE ===
-int Bank_GetUserByUnixID(int UnixID)
+int Bank_GetUserByName(const char *Username)
 {
-	 int	i;
+	 int	i, uid;
+	
+	uid = GetUnixID(Username);
+	
 	// Expensive search :(
 	for( i = 0; i < giBank_NumUsers; i ++ )
 	{
-		if( gaBank_Users[i].UnixID == UnixID )
+		if( gaBank_Users[i].UnixID == uid )
 			return i;
 	}
 

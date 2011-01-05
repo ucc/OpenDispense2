@@ -47,11 +47,29 @@ int DispenseItem(int User, tItem *Item)
 	}
 	
 	// And log that it happened
-	Log_Info("Dispensed %s (%s:%i) for %s [cost %i, balance %i cents]",
-		Item->Name, handler->Name, Item->ID,
-		username, Item->Price, GetBalance(User)
+	Log_Info("%s dispensed %s (%s:%i) [cost %i, balance %i cents]",
+		username, Item->Name, handler->Name, Item->ID,
+		Item->Price, GetBalance(User)
 		);
 	
 	free( username );
 	return 0;	// 0: EOK
+}
+
+/**
+ * \brief Give money from one user to another
+ */
+int DispenseGive(int SrcUser, int DestUser, int Ammount, const char *ReasonGiven)
+{
+	 int	ret;
+	if( Ammount < 0 )	return 1;	// Um... negative give? Not on my watch
+	
+	ret = Transfer( SrcUser, DestUser, Ammount, ReasonGiven );
+	if(ret)	return 2;	// No Balance
+	
+	Log_Info("%s gave %i to %s (%s)",
+		GetUserName(SrcUser), Ammount, GetUserName(DestUser), ReasonGiven
+		);
+	
+	return 0;
 }

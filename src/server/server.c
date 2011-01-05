@@ -379,7 +379,6 @@ char *Server_Cmd_AUTOAUTH(tClient *Client, char *Args)
  */
 char *Server_Cmd_ENUMITEMS(tClient *Client, char *Args)
 {
-//	 int	nItems = giNumItems;
 	 int	retLen;
 	 int	i;
 	char	*ret;
@@ -513,12 +512,14 @@ char *Server_Cmd_GIVE(tClient *Client, char *Args)
 	if( iAmmount <= 0 )	return strdup("407 Invalid Argument, ammount must be > zero\n");
 
 	// Do give
-	switch( Transfer(Client->UID, uid, iAmmount, reason) )
+	switch( DispenseGive(Client->UID, uid, iAmmount, reason) )
 	{
 	case 0:
 		return strdup("200 Give OK\n");
-	default:
+	case 2:
 		return strdup("402 Poor You\n");
+	default:
+		return strdup("500 Unknown error\n");
 	}
 }
 
