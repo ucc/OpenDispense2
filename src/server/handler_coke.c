@@ -6,6 +6,9 @@
  *
  * This file is licenced under the 3-clause BSD Licence. See the file
  * COPYING for full details.
+ *
+ * NOTES:
+ * - Remember, the coke machine echoes your text back to you!
  */
 #include "common.h"
 #include <stdio.h>
@@ -45,13 +48,13 @@ int Coke_InitHandler()
 		fprintf(stderr, "ERROR: Unable to open coke serial port ('%s')\n", gsCoke_SerialPort);
 	}
 	
-	CompileRegex(&gCoke_StatusRegex, "^slot\\s+(\\d)\\s+([^:]+):([a-zA-Z]+)\\s*", REG_EXTENDED);
+	CompileRegex(&gCoke_StatusRegex, "^slot\\s+([0-9]+)\\s+([^:]+):([a-zA-Z]+)\\s*", REG_EXTENDED);
 	return 0;
 }
 
 int Coke_CanDispense(int User, int Item)
 {
-	char	tmp[32], *status;
+	char	tmp[40], *status;
 	regmatch_t	matches[4];
 	 int	ret;
 
@@ -74,11 +77,13 @@ int Coke_CanDispense(int User, int Item)
 	sprintf(tmp, "s%i\r\n", Item);
 	write(giCoke_SerialFD, tmp, 4);
 
-	ret = ReadLine(sizeof(tmp)-1, tmp);
+	// Read from the machine (ignoring empty lines)
+	while( (ret = ReadLine(sizeof(tmp)-1, tmp)) == 0 );
 	printf("ret = %i, tmp = '%s'\n", ret, tmp);
-//	if( !ret )
-//		ret = ReadLine(sizeof(tmp)-1, tmp);
-	printf("ret = %i, tmp = '%s'\n", ret, tmp);
+	if( tmp[0] == ':' ) {
+		ret = ReadLine(sizeof(tmp)-1, tmp);
+		printf("ret = %i, tmp = '%s'\n", ret, tmp);
+	}
 
 	// Catch an error	
 	if( ret <= 0 ) {
@@ -88,6 +93,9 @@ int Coke_CanDispense(int User, int Item)
 		}
 		return -1;
 	}
+
+	// Eat rest of response
+	WaitForColon();
 
 	// Parse status response
 	ret = RunRegex(&gCoke_StatusRegex, tmp, sizeof(matches)/sizeof(matches[0]), matches, "Bad Response");
@@ -112,29 +120,47 @@ int Coke_CanDispense(int User, int Item)
  */
 int Coke_DoDispense(int User, int Item)
 {
-	char	tmp[32], *status;
-	regmatch_t	matches[4];
+	char	tmp[32];
+	 int	i, ret;
 
 	// Sanity please
 	if( Item < 0 || Item > 6 )	return -1;
 
-	WaitForColon();
+	// Wait for prompt
+	i = 0;
+	do {
+		write(Item, "d7\r\n", 4);
+	} while( WaitForColon() && i++ < 3 );
 
 	// Dispense
 	sprintf(tmp, "d%i\r\n", Item);
 	write(giCoke_SerialFD, tmp, 4);
 	
-	WaitForColon();
-
+	// Read empty lines
+	while( (ret = ReadLine(sizeof(tmp)-1, tmp)) == -1 );
+	if( ret == -1 )	return -1;
+	// Read d%i
+	while( tmp[0] == ':' ) {
+		ret = ReadLine(sizeof(tmp)-1, tmp);
+		if( ret == -1 )	return -1;
+	}
 	// Get status
-	ReadLine(sizeof(tmp)-1, tmp);
-	
-	tmp[ matches[3].rm_eo ] = '\0';
-	status = &tmp[ matches[3].rm_so ];
+	ret = ReadLine(sizeof(tmp)-1, tmp);
+	if( ret == -1 )	return -1;
 
-	printf("Machine responded slot status '%s'\n", status);
+	WaitForColon();	// Eat up rest of response
 
-	return 0;
+	// TODO: Regex
+	if( strcmp(tmp, "ok") == 0 ) {
+		// We think dispense worked
+		// - The machine returns 'ok' if an empty slot is dispensed, even if
+		//   it doesn't actually try to dispense (no sound)
+		return 0;
+	}
+
+	printf("Machine returned unknown value '%s'\n", tmp);	
+
+	return -1;
 }
 
 char ReadChar()
@@ -184,7 +210,6 @@ int ReadLine(int len, char *output)
 {
 	char	ch;
 	 int	i = 0;
-	 int	ret = 0;
 	
 	for(;;)
 	{
