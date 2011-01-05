@@ -38,8 +38,12 @@ typedef struct sItem {
 void	PrintAlign(int Row, int Col, int Width, const char *Left, char Pad1, const char *Mid, char Pad2, const char *Right, ...);
 
  int	sendf(int Socket, const char *Format, ...);
+
  int	OpenConnection(const char *Host, int Port);
  int	Authenticate(int Socket);
+void	PopulateItemList(int Socket);
+ int	DispenseItem(int Socket, int ItemID);
+
 char	*trim(char *string);
  int	RunRegex(regex_t *regex, const char *string, int nMatches, regmatch_t *matches, const char *errorMessage);
 void	CompileRegex(regex_t *regex, const char *pattern, int flags);
@@ -51,18 +55,20 @@ tItem	*gaItems;
  int	giNumItems;
 regex_t	gArrayRegex, gItemRegex, gSaltRegex;
 
+char	*gsOverrideUser;
+
 // === CODE ===
 int main(int argc, char *argv[])
 {
 	 int	sock;
-	 int	i, responseCode, len;
+	 int	i;
 	char	buffer[BUFSIZ];
 	
 	// -- Create regular expressions
 	// > Code Type Count ...
 	CompileRegex(&gArrayRegex, "^([0-9]{3})\\s+([A-Za-z]+)\\s+([0-9]+)", REG_EXTENDED);	//
 	// > Code Type Ident Price Desc
-	CompileRegex(&gItemRegex, "^([0-9]{3})\\s+(.+?)\\s+(.+?)\\s+([0-9]+)\\s+(.+)$", REG_EXTENDED);
+	CompileRegex(&gItemRegex, "^([0-9]{3})\\s+([A-Za-z]+)\\s+([A-Za-z0-9:]+?)\\s+([0-9]+)\\s+(.+)$", REG_EXTENDED);
 	// > Code 'SALT' salt
 	CompileRegex(&gSaltRegex, "^([0-9]{3})\\s+(.+)\\s+(.+)$", REG_EXTENDED);
 	
@@ -70,165 +76,73 @@ int main(int argc, char *argv[])
 	sock = OpenConnection(gsDispenseServer, giDispensePort);
 	if( sock < 0 )	return -1;
 
-	// Determine what to do
-	if( argc > 1 )
+	// Authenticate
+	Authenticate(sock);
+
+	// Parse Arguments
+	for( i = 1; i < argc; i ++ )
 	{
-		if( strcmp(argv[1], "acct") == 0 )
-		{
+		char	*arg = argv[i];
+		
+		if( arg[0] == '-' ) {
+					
+			switch(arg[1])
+			{
+			case 'u':	// Override User
+				gsOverrideUser = argv[++i];
+				break;
+			}
+
+			continue;
+		}
+		if( strcmp(argv[1], "acct") == 0 ) {
 			// Alter account
 			// List accounts
 			return 0;
 		}
+		else {
+			// Item name / pattern
+		}
 	}
 
-	// Ask server for stock list
-	send(sock, "ENUM_ITEMS\n", 11, 0);
-	len = recv(sock, buffer, BUFSIZ-1, 0);
-	buffer[len] = '\0';
-	
-	trim(buffer);
-	
-	printf("Output: %s\n", buffer);
-	
-	responseCode = atoi(buffer);
-	if( responseCode != 201 )
-	{
-		fprintf(stderr, "Unknown response from dispense server (Response Code %i)\n", responseCode);
-		return -1;
-	}
-	
-	// Get item list
-	{
-		char	*itemType, *itemStart;
-		 int	count;
-		regmatch_t	matches[4];
-		
-		// Expected format: 201 Items <count> <item1> <item2> ...
-		RunRegex(&gArrayRegex, buffer, 4, matches, "Malformed server response");
-		
-		itemType = &buffer[ matches[2].rm_so ];	buffer[ matches[2].rm_eo ] = '\0';
-		count = atoi( &buffer[ matches[3].rm_so ] );
-		
-		// Check array type
-		if( strcmp(itemType, "Items") != 0 ) {
-			// What the?!
-			fprintf(stderr, "Unexpected array type, expected 'Items', got '%s'\n",
-				itemType);
-			return -1;
-		}
-		
-		itemStart = &buffer[ matches[3].rm_eo ];
-		
-		gaItems = malloc( count * sizeof(tItem) );
-		
-		for( giNumItems = 0; giNumItems < count && itemStart; giNumItems ++ )
-		{
-			char	*next = strchr( ++itemStart, ' ' );
-			if( next )	*next = '\0';
-			gaItems[giNumItems].Ident = strdup(itemStart);
-			itemStart = next;
-		}
-	}
-	
-	// Get item information
-	for( i = 0; i < giNumItems; i ++ )
-	{
-		regmatch_t	matches[6];
-		
-		// Print item Ident
-		printf("%2i %s\t", i, gaItems[i].Ident);
-		
-		// Get item info
-		sendf(sock, "ITEM_INFO %s\n", gaItems[i].Ident);
-		len = recv(sock, buffer, BUFSIZ-1, 0);
-		buffer[len] = '\0';
-		trim(buffer);
-		
-		responseCode = atoi(buffer);
-		if( responseCode != 202 ) {
-			fprintf(stderr, "Unknown response from dispense server (Response Code %i)\n", responseCode);
-			return -1;
-		}
-		
-		RunRegex(&gItemRegex, buffer, 6, matches, "Malformed server response");
-		
-		buffer[ matches[3].rm_eo ] = '\0';
-		
-		gaItems[i].Price = atoi( buffer + matches[4].rm_so );
-		gaItems[i].Desc = strdup( buffer + matches[5].rm_so );
-		
-		printf("%3i %s\n", gaItems[i].Price, gaItems[i].Desc);
-	}
-	
-	// and choose what to dispense
+	// Get items
+	PopulateItemList(sock);
 	
 	#if USE_NCURSES_INTERFACE
-	i = ShowNCursesUI();
+		i = ShowNCursesUI();
 	#else
-	
-	for(;;)
-	{
-		char	*buf;
-		
-		fgets(buffer, BUFSIZ, stdin);
-		
-		buf = trim(buffer);
-		
-		if( buf[0] == 'q' )	break;
-		
-		i = atoi(buf);
-		
-		printf("buf = '%s', atoi(buf) = %i\n", buf, i);
-		
-		if( i != 0 || buf[0] == '0' )
-		{
-			printf("i = %i\n", i);
-			
-			if( i < 0 || i >= giNumItems ) {
-				printf("Bad item (should be between 0 and %i)\n", giNumItems);
-				continue;
-			}
-			break;
+		for( i = 0; i < giNumItems; i ++ ) {		
+			printf("%2i %s\t%3i %s\n", i, gaItems[i].Ident, gaItems[i].Price, gaItems[i].Desc);
 		}
-	}
+		printf(" q Quit\n");
+		for(;;)
+		{
+			char	*buf;
+			
+			i = -1;
+			
+			fgets(buffer, BUFSIZ, stdin);
+			
+			buf = trim(buffer);
+			
+			if( buf[0] == 'q' )	break;
+			
+			i = atoi(buf);
+			
+			if( i != 0 || buf[0] == '0' )
+			{
+				if( i < 0 || i >= giNumItems ) {
+					printf("Bad item %i (should be between 0 and %i)\n", i, giNumItems);
+					continue;
+				}
+				break;
+			}
+		}
 	#endif
 	
-	// Check for a valid item ID and if so, authenticate
-	if( i >= 0 && Authenticate(sock) )
-	{	
-		// Dispense!
-		sendf(sock, "DISPENSE %s\n", gaItems[i].Ident);
-		
-		len = recv(sock, buffer, BUFSIZ-1, 0);
-		buffer[len] = '\0';
-		trim(buffer);
-		
-		responseCode = atoi(buffer);
-		switch( responseCode )
-		{
-		case 200:
-			printf("Dispense OK\n");
-			break;
-		case 401:
-			printf("Not authenticated\n");
-			break;
-		case 402:
-			printf("Insufficient balance\n");
-			break;
-		case 406:
-			printf("Bad item name, bug report\n");
-			break;
-		case 500:
-			printf("Item failed to dispense, is the slot empty?\n");
-			break;
-		case 501:
-			printf("Dispense not possible (slot empty/permissions)\n");
-			break;
-		default:
-			printf("Unknown response code %i ('%s')\n", responseCode, buffer);
-			break;
-		}
-	}
+	// Check for a valid item ID
+	if( i >= 0 )
+		DispenseItem(sock, i);
 
 	close(sock);
 
@@ -269,7 +183,7 @@ int ShowNCursesUI(void)
 	 int	ch;
 	 int	i, times;
 	 int	xBase, yBase;
-	const int	displayMinWidth = 34;
+	const int	displayMinWidth = 40;
 	const int	displayMinItems = 8;
 	char	*titleString = "Dispense";
 	 int	itemCount = displayMinItems;
@@ -604,6 +518,125 @@ int Authenticate(int Socket)
 	
 	printf("%s\n", buf);
 	return 0;	// Seems OK
+}
+
+void PopulateItemList(int Socket)
+{
+	char	buffer[BUFSIZ];
+	 int	len;
+	 int	responseCode;
+	
+	char	*itemType, *itemStart;
+	 int	count, i;
+	regmatch_t	matches[4];
+	
+	// Ask server for stock list
+	send(Socket, "ENUM_ITEMS\n", 11, 0);
+	len = recv(Socket, buffer, BUFSIZ-1, 0);
+	buffer[len] = '\0';
+	
+	trim(buffer);
+	
+	//printf("Output: %s\n", buffer);
+	
+	responseCode = atoi(buffer);
+	if( responseCode != 201 ) {
+		fprintf(stderr, "Unknown response from dispense server (Response Code %i)\n", responseCode);
+		exit(-1);
+	}
+	
+	// - Get item list -
+	
+	// Expected format: 201 Items <count> <item1> <item2> ...
+	RunRegex(&gArrayRegex, buffer, 4, matches, "Malformed server response");
+		
+	itemType = &buffer[ matches[2].rm_so ];	buffer[ matches[2].rm_eo ] = '\0';
+	count = atoi( &buffer[ matches[3].rm_so ] );
+		
+	// Check array type
+	if( strcmp(itemType, "Items") != 0 ) {
+		// What the?!
+		fprintf(stderr, "Unexpected array type, expected 'Items', got '%s'\n",
+			itemType);
+		exit(-1);
+	}
+		
+	itemStart = &buffer[ matches[3].rm_eo ];
+		
+	gaItems = malloc( count * sizeof(tItem) );
+		
+	for( giNumItems = 0; giNumItems < count && itemStart; giNumItems ++ )
+	{
+		char	*next = strchr( ++itemStart, ' ' );
+		if( next )	*next = '\0';
+		gaItems[giNumItems].Ident = strdup(itemStart);
+		itemStart = next;
+	}
+	
+	// Fetch item information
+	for( i = 0; i < giNumItems; i ++ )
+	{
+		regmatch_t	matches[6];
+		
+		// Get item info
+		sendf(Socket, "ITEM_INFO %s\n", gaItems[i].Ident);
+		len = recv(Socket, buffer, BUFSIZ-1, 0);
+		buffer[len] = '\0';
+		trim(buffer);
+		
+		responseCode = atoi(buffer);
+		if( responseCode != 202 ) {
+			fprintf(stderr, "Unknown response from dispense server (Response Code %i)\n", responseCode);
+			exit(-1);
+		}
+		
+		RunRegex(&gItemRegex, buffer, 6, matches, "Malformed server response");
+		
+		buffer[ matches[3].rm_eo ] = '\0';
+		
+		gaItems[i].Price = atoi( buffer + matches[4].rm_so );
+		gaItems[i].Desc = strdup( buffer + matches[5].rm_so );
+	}
+}
+
+int DispenseItem(int Socket, int ItemID)
+{
+	 int	len, responseCode;
+	char	buffer[BUFSIZ];
+	
+	if( ItemID < 0 || ItemID > giNumItems )	return -1;
+	
+	// Dispense!
+	sendf(Socket, "DISPENSE %s\n", gaItems[ItemID].Ident);
+	len = recv(Socket, buffer, BUFSIZ-1, 0);
+	buffer[len] = '\0';
+	trim(buffer);
+	
+	responseCode = atoi(buffer);
+	switch( responseCode )
+	{
+	case 200:
+		printf("Dispense OK\n");
+		return 0;
+	case 401:
+		printf("Not authenticated\n");
+		return 1;
+	case 402:
+		printf("Insufficient balance\n");
+		return 1;
+	case 406:
+		printf("Bad item name, bug report\n");
+		return 1;
+	case 500:
+		printf("Item failed to dispense, is the slot empty?\n");
+		return 1;
+	case 501:
+		printf("Dispense not possible (slot empty/permissions)\n");
+		return 1;
+	default:
+		printf("Unknown response code %i ('%s')\n", responseCode, buffer);
+		return -2;
+	}
 }
 
 char *trim(char *string)

@@ -33,6 +33,9 @@ char	*GetUserName(int User);
  int	GetUserID(const char *Username); 
  int	GetUserAuth(const char *Username, const char *Password);
 
+// === GLOBALS ===
+FILE	*gBank_LogFile;
+
 // === CODE ===
 /**
  * \brief Load the cokebank database
@@ -46,6 +49,9 @@ void Init_Cokebank(const char *Argument)
 	if( !gBank_File ) {
 		perror("Opening coke bank");
 	}
+
+	gBank_LogFile = fopen("cokebank.log", "a");
+	if( !gBank_LogFile )	gBank_LogFile = stdout;
 
 	fseek(gBank_File, 0, SEEK_END);
 	giBank_NumUsers = ftell(gBank_File) / sizeof(gaBank_Users[0]);
@@ -64,12 +70,16 @@ void Init_Cokebank(const char *Argument)
  */
 int Transfer(int SourceUser, int DestUser, int Ammount, const char *Reason)
 {
-	if( Bank_GetUserBalance(SourceUser) - Ammount < Bank_GetMinAllowedBalance(SourceUser) )
+	 int	srcBal = Bank_GetUserBalance(SourceUser);
+	 int	dstBal = Bank_GetUserBalance(DestUser);
+	if( srcBal - Ammount < Bank_GetMinAllowedBalance(SourceUser) )
 		return 1;
-	if( Bank_GetUserBalance(DestUser) + Ammount < Bank_GetMinAllowedBalance(DestUser) )
+	if( dstBal + Ammount < Bank_GetMinAllowedBalance(DestUser) )
 		return 1;
 	Bank_AlterUserBalance(DestUser, Ammount);
 	Bank_AlterUserBalance(SourceUser, -Ammount);
+	fprintf(gBank_LogFile, "ACCT #%i{%i} -= %ic [to #%i] (%s)\n", SourceUser, srcBal, Ammount, DestUser, Reason);
+	fprintf(gBank_LogFile, "ACCT #%i{%i} += %ic [from #%i] (%s)\n", DestUser, dstBal, Ammount, SourceUser, Reason);
 	return 0;
 }
 

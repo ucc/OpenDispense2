@@ -72,6 +72,7 @@ extern int	giDebugLevel;
 extern void	CompileRegex(regex_t *Regex, const char *Pattern, int Flags);
 extern int	RunRegex(regex_t *regex, const char *string, int nMatches, regmatch_t *matches, const char *errorMessage);
 extern int	InitSerial(const char *Path, int BaudRate);
+extern char	*mkstr(const char *Format, ...);
 
 // --- Dispense ---
 extern int	DispenseItem(int User, tItem *Item);

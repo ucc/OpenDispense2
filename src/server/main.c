@@ -16,6 +16,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <stdarg.h>
 
 // === IMPORTS ===
 extern void	Init_Cokebank(const char *Argument);	// cokebank.c
@@ -150,4 +151,27 @@ int InitSerial(const char *File, int BaudRate)
 	return fd;
 }
 
+
+/**
+ * \brief Create a formatted heap string
+ */
+char *mkstr(const char *Format, ...)
+{
+	va_list	args;
+	 int	len;
+	char	*ret;
+
+	va_start(args, Format);
+	len = vsnprintf(NULL, 0, Format, args);
+	va_end(args);
+
+	ret = malloc( len + 1 );
+	if(!ret)	return NULL;
+
+	va_start(args, Format);
+	vsprintf(ret, Format, args);
+	va_end(args);
+	
+	return ret;
+}
 

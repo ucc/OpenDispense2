@@ -14,6 +14,7 @@ int DispenseItem(int User, tItem *Item)
 	 int	ret;
 	tHandler	*handler;
 	char	*username;
+	char	*reason;
 	
 	handler = Item->Handler;
 	
@@ -22,11 +23,12 @@ int DispenseItem(int User, tItem *Item)
 		ret = handler->CanDispense( User, Item->ID );
 		if(ret)	return 1;	// 1: Unable to dispense
 	}
-	
+
 	// Subtract the balance
-	ret = Transfer( User, GetUserID(">sales"), Item->Price, "" );
-	// What value should I use for this error?
-	// AlterBalance should return the final user balance
+	reason = mkstr("Dispense - %s:%i %s", handler->Name, Item->ID, Item->Name);
+	if( !reason )	reason = Item->Name;	// TODO: Should I instead return an error?
+	ret = Transfer( User, GetUserID(">sales"), Item->Price, reason);
+	free(reason);
 	if(ret)	return 2;	// 2: No balance
 	
 	// Get username for debugging
@@ -45,7 +47,7 @@ int DispenseItem(int User, tItem *Item)
 	}
 	
 	// And log that it happened
-	Log_Info("Dispensed %s (%i:%i) for %s [cost %i, balance %i cents]",
+	Log_Info("Dispensed %s (%s:%i) for %s [cost %i, balance %i cents]",
 		Item->Name, handler->Name, Item->ID,
 		username, Item->Price, GetBalance(User)
 		);
