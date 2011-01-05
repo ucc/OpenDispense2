@@ -77,6 +77,7 @@ extern char	*mkstr(const char *Format, ...);
 // --- Dispense ---
 extern int	DispenseItem(int User, tItem *Item);
 extern int	DispenseGive(int SrcUser, int DestUser, int Ammount, const char *ReasonGiven);
+extern int	DispenseAdd(int User, int ByUser, int Ammount, const char *ReasonGiven);
 
 // --- Logging ---
 extern void	Log_Error(const char *Format, ...);

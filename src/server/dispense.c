@@ -47,9 +47,9 @@ int DispenseItem(int User, tItem *Item)
 	}
 	
 	// And log that it happened
-	Log_Info("%s dispensed %s (%s:%i) [cost %i, balance %i cents]",
-		username, Item->Name, handler->Name, Item->ID,
-		Item->Price, GetBalance(User)
+	Log_Info("dispense %s (%s:%i) by %s [cost %i, balance %i cents]",
+		Item->Name, handler->Name, Item->ID,
+		username, Item->Price, GetBalance(User)
 		);
 	
 	free( username );
@@ -62,13 +62,28 @@ int DispenseItem(int User, tItem *Item)
 int DispenseGive(int SrcUser, int DestUser, int Ammount, const char *ReasonGiven)
 {
 	 int	ret;
-	if( Ammount < 0 )	return 1;	// Um... negative give? Not on my watch
+	if( Ammount < 0 )	return 1;	// Um... negative give? Not on my watch!
 	
 	ret = Transfer( SrcUser, DestUser, Ammount, ReasonGiven );
 	if(ret)	return 2;	// No Balance
 	
-	Log_Info("%s gave %i to %s (%s)",
-		GetUserName(SrcUser), Ammount, GetUserName(DestUser), ReasonGiven
+	Log_Info("give %i to %s from %s (%s)",
+		Ammount, GetUserName(DestUser), GetUserName(SrcUser), ReasonGiven
+		);
+	
+	return 0;
+}
+
+int DispenseAdd(int User, int ByUser, int Ammount, const char *ReasonGiven)
+{
+	 int	ret;
+	
+	ret = Transfer( GetUserID(">liability"), User, Ammount, ReasonGiven );
+	
+	if(ret)	return 2;
+	
+	Log_Info("add %i to %s by %s (%s)",
+		Ammount, GetUserName(User), GetUserName(ByUser), ReasonGiven
 		);
 	
 	return 0;

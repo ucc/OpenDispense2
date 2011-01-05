@@ -55,6 +55,8 @@ char	*Server_Cmd_AUTOAUTH(tClient *Client, char *Args);
 char	*Server_Cmd_ENUMITEMS(tClient *Client, char *Args);
 char	*Server_Cmd_ITEMINFO(tClient *Client, char *Args);
 char	*Server_Cmd_DISPENSE(tClient *Client, char *Args);
+char	*Server_Cmd_GIVE(tClient *Client, char *Args);
+char	*Server_Cmd_ADD(tClient *Client, char *Args);
 // --- Helpers ---
  int	GetUserAuth(const char *Salt, const char *Username, const uint8_t *Hash);
 void	HexBin(uint8_t *Dest, char *Src, int BufSize);
@@ -72,7 +74,9 @@ struct sClientCommand {
 	{"AUTOAUTH", Server_Cmd_AUTOAUTH},
 	{"ENUM_ITEMS", Server_Cmd_ENUMITEMS},
 	{"ITEM_INFO", Server_Cmd_ITEMINFO},
-	{"DISPENSE", Server_Cmd_DISPENSE}
+	{"DISPENSE", Server_Cmd_DISPENSE},
+	{"GIVE", Server_Cmd_GIVE},
+	{"ADD", Server_Cmd_ADD}
 };
 #define NUM_COMMANDS	(sizeof(gaServer_Commands)/sizeof(gaServer_Commands[0]))
  int	giServer_Socket;
@@ -518,6 +522,45 @@ char *Server_Cmd_GIVE(tClient *Client, char *Args)
 		return strdup("200 Give OK\n");
 	case 2:
 		return strdup("402 Poor You\n");
+	default:
+		return strdup("500 Unknown error\n");
+	}
+}
+
+char *Server_Cmd_ADD(tClient *Client, char *Args)
+{
+	char	*user, *ammount, *reason;
+	 int	uid, iAmmount;
+	
+	if( !Client->bIsAuthed )	return strdup("401 Not Authenticated\n");
+
+	user = Args;
+
+	ammount = strchr(Args, ' ');
+	if( !ammount )	return strdup("407 Invalid Argument, expected 3 parameters, 1 encountered\n");
+	*ammount = '\0';
+	ammount ++;
+
+	reason = strchr(ammount, ' ');
+	if( !reason )	return strdup("407 Invalid Argument, expected 3 parameters, 2 encountered\n");
+	*reason = '\0';
+	reason ++;
+
+	// Get recipient
+	uid = GetUserID(user);
+	if( uid == -1 )	return strdup("404 Invalid user");
+
+	// Parse ammount
+	iAmmount = atoi(ammount);
+	if( iAmmount == 0 && ammount[0] != '0' )	return strdup("407 Invalid Argument, ammount must be > zero\n");
+
+	// Do give
+	switch( DispenseAdd(uid, Client->UID, iAmmount, reason) )
+	{
+	case 0:
+		return strdup("200 Add OK\n");
+	case 2:
+		return strdup("402 Poor Guy\n");
 	default:
 		return strdup("500 Unknown error\n");
 	}
