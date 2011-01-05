@@ -34,16 +34,17 @@ typedef struct sItem {
 }	tItem;
 
 // === PROTOTYPES ===
+// --- GUI ---
  int	ShowNCursesUI(void);
+void	ShowItemAt(int Row, int Col, int Width, int Index);
 void	PrintAlign(int Row, int Col, int Width, const char *Left, char Pad1, const char *Mid, char Pad2, const char *Right, ...);
-
- int	sendf(int Socket, const char *Format, ...);
-
+// --- Coke Server Communication ---
  int	OpenConnection(const char *Host, int Port);
  int	Authenticate(int Socket);
 void	PopulateItemList(int Socket);
  int	DispenseItem(int Socket, int ItemID);
-
+// --- Helpers ---
+ int	sendf(int Socket, const char *Format, ...);
 char	*trim(char *string);
  int	RunRegex(regex_t *regex, const char *string, int nMatches, regmatch_t *matches, const char *errorMessage);
 void	CompileRegex(regex_t *regex, const char *pattern, int flags);
@@ -55,7 +56,8 @@ tItem	*gaItems;
  int	giNumItems;
 regex_t	gArrayRegex, gItemRegex, gSaltRegex;
 
-char	*gsOverrideUser;
+char	*gsOverrideUser;	//!< '-u' argument (dispense as another user)
+ int	gbUseNCurses = 0;	//!< '-G' Use the NCurses GUI?
 
 // === CODE ===
 int main(int argc, char *argv[])
@@ -84,17 +86,22 @@ int main(int argc, char *argv[])
 	{
 		char	*arg = argv[i];
 		
-		if( arg[0] == '-' ) {
-					
+		if( arg[0] == '-' )
+		{			
 			switch(arg[1])
 			{
 			case 'u':	// Override User
 				gsOverrideUser = argv[++i];
 				break;
+			
+			case 'G':	// Use GUI
+				gbUseNCurses = 1;
+				break;
 			}
 
 			continue;
 		}
+		
 		if( strcmp(argv[1], "acct") == 0 ) {
 			// Alter account
 			// List accounts
@@ -108,9 +115,12 @@ int main(int argc, char *argv[])
 	// Get items
 	PopulateItemList(sock);
 	
-	#if USE_NCURSES_INTERFACE
+	if( gbUseNCurses )
+	{
 		i = ShowNCursesUI();
-	#else
+	}
+	else
+	{
 		for( i = 0; i < giNumItems; i ++ ) {		
 			printf("%2i %s\t%3i %s\n", i, gaItems[i].Ident, gaItems[i].Price, gaItems[i].Desc);
 		}
@@ -138,7 +148,7 @@ int main(int argc, char *argv[])
 				break;
 			}
 		}
-	#endif
+	}
 	
 	// Check for a valid item ID
 	if( i >= 0 )
@@ -149,29 +159,9 @@ int main(int argc, char *argv[])
 	return 0;
 }
 
-/**
- * \brief Show item \a Index at (\a Col, \a Row)
- * \note Part of the NCurses UI
- */
-void ShowItemAt(int Row, int Col, int Width, int Index)
-{
-	 int	_x, _y, times;
-	
-	move( Row, Col );
-	
-	if( Index < 0 || Index >= giNumItems ) {
-		printw("%02i OOR", Index);
-		return ;
-	}
-	printw("%02i %s", Index, gaItems[Index].Desc);
-	
-	getyx(stdscr, _y, _x);
-	// Assumes max 4 digit prices
-	times = Width - 4 - (_x - Col);	// TODO: Better handling for large prices
-	while(times--)	addch(' ');
-	printw("%4i", gaItems[Index].Price);
-}
-
+// -------------------
+// --- NCurses GUI ---
+// -------------------
 /**
  * \brief Render the NCurses UI
  */
@@ -188,14 +178,23 @@ int ShowNCursesUI(void)
 	char	*titleString = "Dispense";
 	 int	itemCount = displayMinItems;
 	 int	itemBase = 0;
+	 int	currentItem = 0;
 	 
-	 int	height = itemCount + 3;
-	 int	width = displayMinWidth;
+	 int	height, width;
 	 
 	// Enter curses mode
 	initscr();
 	raw(); noecho();
 	
+	itemCount = LINES - 6;
+	if( itemCount > giNumItems )
+		itemCount = giNumItems;
+	
+	// Get dimensions
+	height = itemCount + 3;
+	width = displayMinWidth;
+	
+	// Get positions
 	xBase = COLS/2 - width/2;
 	yBase = LINES/2 - height/2;
 	
@@ -208,23 +207,29 @@ int ShowNCursesUI(void)
 		for( i = 0; i < itemCount; i ++ )
 		{
 			move( yBase + 1 + i, xBase );
-			addch('|');
-			addch(' ');
+			
+			if( currentItem == itemBase + i ) {
+				printw("| -> ");
+			}
+			else {
+				printw("|    ");
+			}
 			
 			// Check for ... row
+			// - Oh god, magic numbers!
 			if( i == 0 && itemBase > 0 ) {
 				printw("   ...");
-				times = width - 1 - 8;
+				times = width-1 - 8 - 3;
 				while(times--)	addch(' ');
 			}
 			else if( i == itemCount - 1 && itemBase < giNumItems - itemCount ) {
 				printw("   ...");
-				times = width - 1 - 8;
+				times = width-1 - 8 - 3;
 				while(times--)	addch(' ');
 			}
 			// Show an item
 			else {
-				ShowItemAt( yBase + 1 + i, xBase + 2, width - 4, itemBase + i);
+				ShowItemAt( yBase + 1 + i, xBase + 5, width - 7, itemBase + i);
 				addch(' ');
 			}
 			
@@ -265,11 +270,19 @@ int ShowNCursesUI(void)
 				switch(ch)
 				{
 				case 'B':
-					if( itemBase < giNumItems - (itemCount) )
+					//if( itemBase < giNumItems - (itemCount) )
+					//	itemBase ++;
+					if( currentItem < giNumItems - 1 )
+						currentItem ++;
+					if( itemBase + itemCount - 1 <= currentItem && itemBase + itemCount < giNumItems )
 						itemBase ++;
 					break;
 				case 'A':
-					if( itemBase > 0 )
+					//if( itemBase > 0 )
+					//	itemBase --;
+					if( currentItem > 0 )
+						currentItem --;
+					if( itemBase + 1 > currentItem && itemBase > 0 )
 						itemBase --;
 					break;
 				}
@@ -288,6 +301,36 @@ int ShowNCursesUI(void)
 	// Leave
 	endwin();
 	return -1;
+}
+
+/**
+ * \brief Show item \a Index at (\a Col, \a Row)
+ * \note Part of the NCurses UI
+ */
+void ShowItemAt(int Row, int Col, int Width, int Index)
+{
+	 int	_x, _y, times;
+	char	*name;
+	 int	price;
+	
+	move( Row, Col );
+	
+	if( Index < 0 || Index >= giNumItems ) {
+		name = "OOR";
+		price = 0;
+	}
+	else {
+		name = gaItems[Index].Desc;
+		price = gaItems[Index].Price;
+	}
+
+	printw("%02i %s", Index, name);
+	
+	getyx(stdscr, _y, _x);
+	// Assumes max 4 digit prices
+	times = Width - 4 - (_x - Col);	// TODO: Better handling for large prices
+	while(times--)	addch(' ');
+	printw("%4i", price);
 }
 
 /**
@@ -351,26 +394,9 @@ void PrintAlign(int Row, int Col, int Width, const char *Left, char Pad1,
 	}
 }
 
-// === HELPERS ===
-int sendf(int Socket, const char *Format, ...)
-{
-	va_list	args;
-	 int	len;
-	
-	va_start(args, Format);
-	len = vsnprintf(NULL, 0, Format, args);
-	va_end(args);
-	
-	{
-		char	buf[len+1];
-		va_start(args, Format);
-		vsnprintf(buf, len+1, Format, args);
-		va_end(args);
-		
-		return send(Socket, buf, len, 0);
-	}
-}
-
+// ---------------------
+// --- Coke Protocol ---
+// ---------------------
 int OpenConnection(const char *Host, int Port)
 {
 	struct hostent	*host;
@@ -636,6 +662,28 @@ int DispenseItem(int Socket, int ItemID)
 	default:
 		printf("Unknown response code %i ('%s')\n", responseCode, buffer);
 		return -2;
+	}
+}
+
+// ---------------
+// --- Helpers ---
+// ---------------
+int sendf(int Socket, const char *Format, ...)
+{
+	va_list	args;
+	 int	len;
+	
+	va_start(args, Format);
+	len = vsnprintf(NULL, 0, Format, args);
+	va_end(args);
+	
+	{
+		char	buf[len+1];
+		va_start(args, Format);
+		vsnprintf(buf, len+1, Format, args);
+		va_end(args);
+		
+		return send(Socket, buf, len, 0);
 	}
 }
 
