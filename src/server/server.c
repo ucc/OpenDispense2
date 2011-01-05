@@ -18,6 +18,7 @@
 
 // HACKS
 #define HACK_TPG_NOAUTH	1
+#define HACK_ROOT_NOAUTH	1
 
 // Statistics
 #define MAX_CONNECTION_QUEUE	5
@@ -537,6 +538,10 @@ int GetUserAuth(const char *Salt, const char *Username, const uint8_t *ProvidedH
 	#if HACK_TPG_NOAUTH
 	if( strcmp(Username, "tpg") == 0 )
 		return GetUserID("tpg");
+	#endif
+	#if HACK_TPG_ROOT
+	if( strcmp(Username, "root") == 0 )
+		return GetUserID("root");
 	#endif
 	
 	#if 0
