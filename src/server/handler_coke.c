@@ -70,11 +70,6 @@ int Coke_CanDispense(int User, int Item)
 	// Ask the coke machine
 	sprintf(tmp, "s%i\r\n", Item);
 	write(giCoke_SerialFD, tmp, 4);
-	
-	if( WaitForColon() ) {
-		fprintf(stderr, "Coke machine timed out (after initial)\n");
-		return -2;	// -EMYBAD
-	}
 
 	ret = ReadLine(sizeof(tmp)-1, tmp);
 	printf("ret = %i, tmp = '%s'\n", ret, tmp);
