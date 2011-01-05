@@ -58,14 +58,17 @@ int Coke_CanDispense(int User, int Item)
 	// Sanity please
 	if( Item < 0 || Item > 6 )	return -1;	// -EYOURBAD
 	
-	write(giCoke_SerialFD, "d7\r\n", 4);
-	write(giCoke_SerialFD, "d7\r\n", 4);
-	write(giCoke_SerialFD, "d7\r\n", 4);
-	
-	if( WaitForColon() ) {
+	ret = 0;
+	do {
+		write(giCoke_SerialFD, "d7\r\n", 4);
+	} while( WaitForColon() && ret++ < 3 );
+
+	if( ret == 3 ) {
 		fprintf(stderr, "Coke machine timed out\n");
 		return -2;	// -EMYBAD
 	}
+
+	// TODO: Handle "not ok" response to D7
 	
 	// Ask the coke machine
 	sprintf(tmp, "s%i\r\n", Item);
@@ -73,7 +76,11 @@ int Coke_CanDispense(int User, int Item)
 
 	ret = ReadLine(sizeof(tmp)-1, tmp);
 	printf("ret = %i, tmp = '%s'\n", ret, tmp);
-	
+//	if( !ret )
+//		ret = ReadLine(sizeof(tmp)-1, tmp);
+	printf("ret = %i, tmp = '%s'\n", ret, tmp);
+
+	// Catch an error	
 	if( ret <= 0 ) {
 		fprintf(stderr, "Coke machine is not being chatty (read = %i)\n", ret);
 		if( ret == -1 ) {
@@ -81,11 +88,14 @@ int Coke_CanDispense(int User, int Item)
 		}
 		return -1;
 	}
+
+	// Parse status response
 	ret = RunRegex(&gCoke_StatusRegex, tmp, sizeof(matches)/sizeof(matches[0]), matches, "Bad Response");
 	if( ret ) {
 		return -1;
 	}
 
+	// Get slot status
 	tmp[ matches[3].rm_eo ] = '\0';
 	status = &tmp[ matches[3].rm_so ];
 
@@ -174,24 +184,29 @@ int ReadLine(int len, char *output)
 {
 	char	ch;
 	 int	i = 0;
+	 int	ret = 0;
 	
 	for(;;)
 	{
 		ch = ReadChar();
-		
-		
+			
 		if( i < len )
 			output[i++] = ch;
 		
 		if( ch == '\0' ) {
-			return -1;
+			break;
 		}
 		if( ch == '\n' || ch == '\r' ) {
 			if( i < len )
 				output[--i] = '\0';
-			return i;
+			break;
 		}
 	}
+
+	//printf("ReadLine: output=%s\n", output);
+
+	if( !ch ) 	return -1;
+	return i;
 }
 
 
