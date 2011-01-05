@@ -10,7 +10,9 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <limits.h>
+#include <pwd.h>
 #include "common.h"
 
 enum {
@@ -20,6 +22,9 @@ enum {
 	USER_TYPE_WHEEL  = 0x02,
 	USER_TYPE_GOD    = 0x03
 };
+
+// === PROTOTYPES ===
+static int	GetUnixID(const char *Name);
 
 // === GLOBALS ===
 tUser	*gaBank_Users;
@@ -95,20 +100,13 @@ int Bank_GetMinAllowedBalance(int ID)
 	}
 }
 
-int Bank_GetUserUnixID(int ID)
-{
-	if( ID < 0 || ID >= giBank_NumUsers )
-		return -1;
-
-	return gaBank_Users[ID].UnixID;
-}
-
 /**
  * \brief Create a new user in our database
  */
-int Bank_AddUser(int UnixID)
+int Bank_AddUser(const char *Username)
 {
 	void	*tmp;
+	 int	uid = GetUnixID(Username);
 
 	// Can has moar space plz?
 	tmp = realloc(gaBank_Users, (giBank_NumUsers+1)*sizeof(gaBank_Users[0]));
@@ -116,7 +114,7 @@ int Bank_AddUser(int UnixID)
 	gaBank_Users = tmp;
 
 	// Crete new user
-	gaBank_Users[giBank_NumUsers].UnixID = UnixID;
+	gaBank_Users[giBank_NumUsers].UnixID = uid;
 	gaBank_Users[giBank_NumUsers].Balance = 0;
 	gaBank_Users[giBank_NumUsers].Flags = 0;
 	
@@ -128,4 +126,47 @@ int Bank_AddUser(int UnixID)
 	giBank_NumUsers ++;
 
 	return 0;
+}
+
+// ---
+// Unix user dependent code
+// TODO: Modify to keep its own list of usernames
+// ---
+char *Bank_GetUserName(int ID)
+{
+	struct passwd	*pwd;
+	
+	if( ID < 0 || ID >= giBank_NumUsers )
+		return NULL;
+	
+	if( gaBank_Users[ID].UnixID == -1 )
+		return strdup(">sales");
+
+	if( gaBank_Users[ID].UnixID == -2 )
+		return strdup(">liability");
+
+	pwd = getpwuid(gaBank_Users[ID].UnixID);
+	if( !pwd )	return NULL;
+
+	return strdup(pwd->pw_name);
+}
+
+static int GetUnixID(const char *Username)
+{
+	 int	uid;
+
+	if( strcmp(Username, ">sales") == 0 ) {	// Pseudo account that sales are made into
+		uid = -1;
+	}
+	else if( strcmp(Username, ">liability") == 0 ) {	// Pseudo acount that money is added from
+		uid = -2;
+	}
+	else {
+		struct passwd	*pwd;
+		// Get user ID
+		pwd = getpwnam(Username);
+		if( !pwd )	return -1;
+		uid = pwd->pw_uid;
+	}
+	return uid;
 }

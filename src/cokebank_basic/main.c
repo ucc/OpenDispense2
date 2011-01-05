@@ -9,21 +9,9 @@
  */
 #include <stdlib.h>
 #include <stdio.h>
-#include <pwd.h>
 #include <string.h>
 #include <openssl/sha.h>
 #include "common.h"
-
-// === IMPORTS ===
-extern int	Bank_GetMinAllowedBalance(int ID);
-extern int	Bank_GetUserBalance(int ID);
-extern int	Bank_AlterUserBalance(int ID, int Delta);
-extern int	Bank_GetUserByUnixID(int UnixID);
-extern int	Bank_GetUserUnixID(int ID);
-extern int	Bank_AddUser(int UnixID);
-extern FILE	*gBank_File;
-extern tUser	*gaBank_Users;
-extern int	giBank_NumUsers;
 
 // === PROTOTYPES ===
 void	Init_Cokebank(const char *Argument);
@@ -96,19 +84,7 @@ int GetBalance(int User)
  */
 char *GetUserName(int User)
 {
-	struct passwd	*pwd;
-	 int	unixid = Bank_GetUserUnixID(User);
-	
-	if( unixid == -1 )
-		return strdup(">sales");
-
-	if( unixid == -2 )
-		return strdup(">liability");
-
-	pwd = getpwuid(unixid);
-	if( !pwd )	return NULL;
-
-	return strdup(pwd->pw_name);
+	return Bank_GetUserName(User);
 }
 
 /**
@@ -116,26 +92,12 @@ char *GetUserName(int User)
  */
 int GetUserID(const char *Username)
 {
-	 int	ret, uid;
-
-	if( strcmp(Username, ">sales") == 0 ) {	// Pseudo account that sales are made into
-		uid = -1;
-	}
-	else if( strcmp(Username, ">liability") == 0 ) {	// Pseudo acount that money is added from
-		uid = -2;
-	}
-	else {
-		struct passwd	*pwd;
-		// Get user ID
-		pwd = getpwnam(Username);
-		if( !pwd )	return -1;
-		uid = pwd->pw_uid;
-	}
+	 int	ret;
 
 	// Get internal ID (or create new user)
-	ret = Bank_GetUserByUnixID(uid);
+	ret = Bank_GetUserByName(Username);
 	if( ret == -1 ) {
-		ret = Bank_AddUser(uid);
+		ret = Bank_AddUser(Username);
 	}
 
 	return ret;
