@@ -539,7 +539,7 @@ int GetUserAuth(const char *Salt, const char *Username, const uint8_t *ProvidedH
 	if( strcmp(Username, "tpg") == 0 )
 		return GetUserID("tpg");
 	#endif
-	#if HACK_TPG_ROOT
+	#if HACK_ROOT_NOAUTH
 	if( strcmp(Username, "root") == 0 )
 		return GetUserID("root");
 	#endif
