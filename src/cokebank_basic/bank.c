@@ -95,7 +95,7 @@ int Bank_GetMinAllowedBalance(int ID)
 
 //	printf("gaBank_Users[%i].Flags = 0x%x\n", ID, gaBank_Users[ID].Flags);
 
-	switch( gaBank_Users[ID].Flags & FLAG_TYPEMASK )
+	switch( gaBank_Users[ID].Flags & USER_FLAG_TYPEMASK )
 	{
 	case USER_TYPE_NORMAL:	return     0;
 	case USER_TYPE_COKE:	return  -2000;

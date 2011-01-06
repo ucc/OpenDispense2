@@ -52,18 +52,18 @@ typedef struct sClient
 void	Server_Start(void);
 void	Server_Cleanup(void);
 void	Server_HandleClient(int Socket, int bTrusted);
-char	*Server_ParseClientCommand(tClient *Client, char *CommandString);
+void	Server_ParseClientCommand(tClient *Client, char *CommandString);
 // --- Commands ---
-char	*Server_Cmd_USER(tClient *Client, char *Args);
-char	*Server_Cmd_PASS(tClient *Client, char *Args);
-char	*Server_Cmd_AUTOAUTH(tClient *Client, char *Args);
-char	*Server_Cmd_ENUMITEMS(tClient *Client, char *Args);
-char	*Server_Cmd_ITEMINFO(tClient *Client, char *Args);
-char	*Server_Cmd_DISPENSE(tClient *Client, char *Args);
-char	*Server_Cmd_GIVE(tClient *Client, char *Args);
-char	*Server_Cmd_ADD(tClient *Client, char *Args);
-char	*Server_Cmd_ENUMUSERS(tClient *Client, char *Args);
-char	*Server_Cmd_USERINFO(tClient *Client, char *Args);
+void	Server_Cmd_USER(tClient *Client, char *Args);
+void	Server_Cmd_PASS(tClient *Client, char *Args);
+void	Server_Cmd_AUTOAUTH(tClient *Client, char *Args);
+void	Server_Cmd_ENUMITEMS(tClient *Client, char *Args);
+void	Server_Cmd_ITEMINFO(tClient *Client, char *Args);
+void	Server_Cmd_DISPENSE(tClient *Client, char *Args);
+void	Server_Cmd_GIVE(tClient *Client, char *Args);
+void	Server_Cmd_ADD(tClient *Client, char *Args);
+void	Server_Cmd_ENUMUSERS(tClient *Client, char *Args);
+void	Server_Cmd_USERINFO(tClient *Client, char *Args);
 // --- Helpers ---
  int	sendf(int Socket, const char *Format, ...);
  int	GetUserAuth(const char *Salt, const char *Username, const uint8_t *Hash);
@@ -75,7 +75,7 @@ void	HexBin(uint8_t *Dest, char *Src, int BufSize);
 // - Commands
 struct sClientCommand {
 	char	*Name;
-	char	*(*Function)(tClient *Client, char *Arguments);
+	void	(*Function)(tClient *Client, char *Arguments);
 }	gaServer_Commands[] = {
 	{"USER", Server_Cmd_USER},
 	{"PASS", Server_Cmd_PASS},
@@ -214,17 +214,10 @@ void Server_HandleClient(int Socket, int bTrusted)
 		start = inbuf;
 		while( (eol = strchr(start, '\n')) )
 		{
-			char	*ret;
 			*eol = '\0';
-			ret = Server_ParseClientCommand(&clientInfo, start);
 			
-			#if DEBUG_TRACE_CLIENT
-			printf("send : %s", ret);
-			#endif
+			Server_ParseClientCommand(&clientInfo, start);
 			
-			// `ret` is a string on the heap
-			send(Socket, ret, strlen(ret), 0);
-			free(ret);
 			start = eol + 1;
 		}
 		
@@ -263,7 +256,7 @@ void Server_HandleClient(int Socket, int bTrusted)
  * \param CommandString	Command from client (single line of the command)
  * \return Heap String to return to the client
  */
-char *Server_ParseClientCommand(tClient *Client, char *CommandString)
+void Server_ParseClientCommand(tClient *Client, char *CommandString)
 {
 	char	*space, *args;
 	 int	i;
@@ -281,11 +274,13 @@ char *Server_ParseClientCommand(tClient *Client, char *CommandString)
 	// Find command
 	for( i = 0; i < NUM_COMMANDS; i++ )
 	{
-		if(strcmp(CommandString, gaServer_Commands[i].Name) == 0)
-			return gaServer_Commands[i].Function(Client, args);
+		if(strcmp(CommandString, gaServer_Commands[i].Name) == 0) {
+			gaServer_Commands[i].Function(Client, args);
+			return ;
+		}
 	}
 	
-	return strdup("400 Unknown Command\n");
+	sendf(Client->Socket, "400 Unknown Command\n");
 }
 
 // ---
@@ -296,10 +291,8 @@ char *Server_ParseClientCommand(tClient *Client, char *CommandString)
  * 
  * Usage: USER <username>
  */
-char *Server_Cmd_USER(tClient *Client, char *Args)
-{
-	char	*ret;
-	
+void Server_Cmd_USER(tClient *Client, char *Args)
+{	
 	// Debug!
 	if( giDebugLevel )
 		printf("Client %i authenticating as '%s'\n", Client->ID, Args);
@@ -322,11 +315,10 @@ char *Server_Cmd_USER(tClient *Client, char *Args)
 	Client->Salt[7] = 0x21 + (rand()&0x3F);
 	
 	// TODO: Also send hash type to use, (SHA1 or crypt according to [DAA])
-	ret = mkstr("100 SALT %s\n", Client->Salt);
+	sendf(Client->Socket, "100 SALT %s\n", Client->Salt);
 	#else
-	ret = strdup("100 User Set\n");
+	sendf(Client->Socket, "100 User Set\n");
 	#endif
-	return ret;
 }
 
 /**
@@ -334,7 +326,7 @@ char *Server_Cmd_USER(tClient *Client, char *Args)
  * 
  * Usage: PASS <hash>
  */
-char *Server_Cmd_PASS(tClient *Client, char *Args)
+void Server_Cmd_PASS(tClient *Client, char *Args)
 {
 	uint8_t	clienthash[HASH_LENGTH] = {0};
 	
@@ -347,7 +339,8 @@ char *Server_Cmd_PASS(tClient *Client, char *Args)
 
 	if( Client->UID != -1 ) {
 		Client->bIsAuthed = 1;
-		return strdup("200 Auth OK\n");
+		sendf(Client->Socket, "200 Auth OK\n");
+		return ;
 	}
 
 	if( giDebugLevel ) {
@@ -358,7 +351,7 @@ char *Server_Cmd_PASS(tClient *Client, char *Args)
 		printf("\n");
 	}
 	
-	return strdup("401 Auth Failure\n");
+	sendf(Client->Socket, "401 Auth Failure\n");
 }
 
 /**
@@ -366,7 +359,7 @@ char *Server_Cmd_PASS(tClient *Client, char *Args)
  * 
  * Usage: AUTOAUTH <user>
  */
-char *Server_Cmd_AUTOAUTH(tClient *Client, char *Args)
+void Server_Cmd_AUTOAUTH(tClient *Client, char *Args)
 {
 	char	*spos = strchr(Args, ' ');
 	if(spos)	*spos = '\0';	// Remove characters after the ' '
@@ -375,7 +368,8 @@ char *Server_Cmd_AUTOAUTH(tClient *Client, char *Args)
 	if( !Client->bIsTrusted ) {
 		if(giDebugLevel)
 			printf("Client %i: Untrusted client attempting to AUTOAUTH\n", Client->ID);
-		return strdup("401 Untrusted\n");
+		sendf(Client->Socket, "401 Untrusted\n");
+		return ;
 	}
 	
 	// Get UID
@@ -383,42 +377,30 @@ char *Server_Cmd_AUTOAUTH(tClient *Client, char *Args)
 	if( Client->UID < 0 ) {
 		if(giDebugLevel)
 			printf("Client %i: Unknown user '%s'\n", Client->ID, Args);
-		return strdup("401 Auth Failure\n");
+		sendf(Client->Socket, "401 Auth Failure\n");
+		return ;
 	}
 	
 	if(giDebugLevel)
 		printf("Client %i: Authenticated as '%s' (%i)\n", Client->ID, Args, Client->UID);
 	
-	return strdup("200 Auth OK\n");
+	sendf(Client->Socket, "200 Auth OK\n");
 }
 
 /**
  * \brief Enumerate the items that the server knows about
  */
-char *Server_Cmd_ENUMITEMS(tClient *Client, char *Args)
+void Server_Cmd_ENUMITEMS(tClient *Client, char *Args)
 {
-	 int	retLen;
 	 int	i;
-	char	*ret;
 
-	retLen = snprintf(NULL, 0, "201 Items %i", giNumItems);
-
-	for( i = 0; i < giNumItems; i ++ )
-	{
-		retLen += snprintf(NULL, 0, " %s:%i", gaItems[i].Handler->Name, gaItems[i].ID);
-	}
-
-	ret = malloc(retLen+1);
-	retLen = 0;
-	retLen += sprintf(ret+retLen, "201 Items %i", giNumItems);
+	sendf(Client->Socket, "201 Items %i", giNumItems);
 
 	for( i = 0; i < giNumItems; i ++ ) {
-		retLen += sprintf(ret+retLen, " %s:%i", gaItems[i].Handler->Name, gaItems[i].ID);
+		sendf(Client->Socket, " %s:%i", gaItems[i].Handler->Name, gaItems[i].ID);
 	}
 
-	strcat(ret, "\n");
-
-	return ret;
+	sendf(Client->Socket, "\n");
 }
 
 tItem *_GetItemFromString(char *String)
@@ -461,102 +443,129 @@ tItem *_GetItemFromString(char *String)
 /**
  * \brief Fetch information on a specific item
  */
-char *Server_Cmd_ITEMINFO(tClient *Client, char *Args)
+void Server_Cmd_ITEMINFO(tClient *Client, char *Args)
 {
-	 int	retLen = 0;
-	char	*ret;
 	tItem	*item = _GetItemFromString(Args);
 	
 	if( !item ) {
-		return strdup("406 Bad Item ID\n");
+		sendf(Client->Socket, "406 Bad Item ID\n");
+		return ;
 	}
-
-	// Create return
-	retLen = snprintf(NULL, 0, "202 Item %s:%i %i %s\n",
-		item->Handler->Name, item->ID, item->Price, item->Name);
-	ret = malloc(retLen+1);
-	sprintf(ret, "202 Item %s:%i %i %s\n",
-		item->Handler->Name, item->ID, item->Price, item->Name);
-
-	return ret;
+	
+	sendf(Client->Socket,
+		"202 Item %s:%i %i %s\n",
+		 item->Handler->Name, item->ID, item->Price, item->Name
+		 );
 }
 
-char *Server_Cmd_DISPENSE(tClient *Client, char *Args)
+void Server_Cmd_DISPENSE(tClient *Client, char *Args)
 {
 	tItem	*item;
 	 int	ret;
-	if( !Client->bIsAuthed )	return strdup("401 Not Authenticated\n");
+	if( !Client->bIsAuthed ) {
+		sendf(Client->Socket, "401 Not Authenticated\n");
+		return ;
+	}
 
 	item = _GetItemFromString(Args);
 	if( !item ) {
-		return strdup("406 Bad Item ID\n");
+		sendf(Client->Socket, "406 Bad Item ID\n");
+		return ;
 	}
 
 	switch( ret = DispenseItem( Client->UID, item ) )
 	{
-	case 0:	return strdup("200 Dispense OK\n");
-	case 1:	return strdup("501 Unable to dispense\n");
-	case 2:	return strdup("402 Poor You\n");
+	case 0:	sendf(Client->Socket, "200 Dispense OK\n");	return ;
+	case 1:	sendf(Client->Socket, "501 Unable to dispense\n");	return ;
+	case 2:	sendf(Client->Socket, "402 Poor You\n");	return ;
 	default:
-		return strdup("500 Dispense Error\n");
+		sendf(Client->Socket, "500 Dispense Error\n");
+		return ;
 	}
 }
 
-char *Server_Cmd_GIVE(tClient *Client, char *Args)
+void Server_Cmd_GIVE(tClient *Client, char *Args)
 {
 	char	*recipient, *ammount, *reason;
 	 int	uid, iAmmount;
 	
-	if( !Client->bIsAuthed )	return strdup("401 Not Authenticated\n");
+	if( !Client->bIsAuthed ) {
+		sendf(Client->Socket, "401 Not Authenticated\n");
+		return ;
+	}
 
 	recipient = Args;
 
 	ammount = strchr(Args, ' ');
-	if( !ammount )	return strdup("407 Invalid Argument, expected 3 parameters, 1 encountered\n");
+	if( !ammount ) {
+		sendf(Client->Socket, "407 Invalid Argument, expected 3 parameters, 1 encountered\n");
+		return ;
+	}
 	*ammount = '\0';
 	ammount ++;
 
 	reason = strchr(ammount, ' ');
-	if( !reason )	return strdup("407 Invalid Argument, expected 3 parameters, 2 encountered\n");
+	if( !reason ) {
+		sendf(Client->Socket, "407 Invalid Argument, expected 3 parameters, 2 encountered\n");
+		return ;
+	}
 	*reason = '\0';
 	reason ++;
 
 	// Get recipient
 	uid = GetUserID(recipient);
-	if( uid == -1 )	return strdup("404 Invalid target user");
+	if( uid == -1 ) {
+		sendf(Client->Socket, "404 Invalid target user");
+		return ;
+	}
 
 	// Parse ammount
 	iAmmount = atoi(ammount);
-	if( iAmmount <= 0 )	return strdup("407 Invalid Argument, ammount must be > zero\n");
+	if( iAmmount <= 0 ) {
+		sendf(Client->Socket, "407 Invalid Argument, ammount must be > zero\n");
+		return ;
+	}
 
 	// Do give
 	switch( DispenseGive(Client->UID, uid, iAmmount, reason) )
 	{
 	case 0:
-		return strdup("200 Give OK\n");
+		sendf(Client->Socket, "200 Give OK\n");
+		return ;
 	case 2:
-		return strdup("402 Poor You\n");
+		sendf(Client->Socket, "402 Poor You\n");
+		return ;
 	default:
-		return strdup("500 Unknown error\n");
+		sendf(Client->Socket, "500 Unknown error\n");
+		return ;
 	}
 }
 
-char *Server_Cmd_ADD(tClient *Client, char *Args)
+void Server_Cmd_ADD(tClient *Client, char *Args)
 {
 	char	*user, *ammount, *reason;
 	 int	uid, iAmmount;
 	
-	if( !Client->bIsAuthed )	return strdup("401 Not Authenticated\n");
+	if( !Client->bIsAuthed ) {
+		sendf(Client->Socket, "401 Not Authenticated\n");
+		return ;
+	}
 
 	user = Args;
 
 	ammount = strchr(Args, ' ');
-	if( !ammount )	return strdup("407 Invalid Argument, expected 3 parameters, 1 encountered\n");
+	if( !ammount ) {
+		sendf(Client->Socket, "407 Invalid Argument, expected 3 parameters, 1 encountered\n");
+		return ;
+	}
 	*ammount = '\0';
 	ammount ++;
 
 	reason = strchr(ammount, ' ');
-	if( !reason )	return strdup("407 Invalid Argument, expected 3 parameters, 2 encountered\n");
+	if( !reason ) {
+		sendf(Client->Socket, "407 Invalid Argument, expected 3 parameters, 2 encountered\n");
+		return ;
+	}
 	*reason = '\0';
 	reason ++;
 
@@ -564,26 +573,34 @@ char *Server_Cmd_ADD(tClient *Client, char *Args)
 
 	// Get recipient
 	uid = GetUserID(user);
-	if( uid == -1 )	return strdup("404 Invalid user");
+	if( uid == -1 ) {
+		sendf(Client->Socket, "404 Invalid user");
+		return ;
+	}
 
 	// Parse ammount
 	iAmmount = atoi(ammount);
-	if( iAmmount == 0 && ammount[0] != '0' )
-		return strdup("407 Invalid Argument\n");
+	if( iAmmount == 0 && ammount[0] != '0' ) {
+		sendf(Client->Socket, "407 Invalid Argument\n");
+		return ;
+	}
 
 	// Do give
 	switch( DispenseAdd(uid, Client->UID, iAmmount, reason) )
 	{
 	case 0:
-		return strdup("200 Add OK\n");
+		sendf(Client->Socket, "200 Add OK\n");
+		return ;
 	case 2:
-		return strdup("402 Poor Guy\n");
+		sendf(Client->Socket, "402 Poor Guy\n");
+		return ;
 	default:
-		return strdup("500 Unknown error\n");
+		sendf(Client->Socket, "500 Unknown error\n");
+		return ;
 	}
 }
 
-char *Server_Cmd_ENUMUSERS(tClient *Client, char *Args)
+void Server_Cmd_ENUMUSERS(tClient *Client, char *Args)
 {
 	 int	i, numRet = 0;
 	 int	maxBal = INT_MAX, minBal = INT_MIN;
@@ -621,10 +638,10 @@ char *Server_Cmd_ENUMUSERS(tClient *Client, char *Args)
 		sendf(Client->Socket, "202 User %s %i user\n", GetUserName(i), GetBalance(i));
 	}
 	
-	return strdup("200 List End\n");
+	sendf(Client->Socket, "200 List End\n");
 }
 
-char *Server_Cmd_USERINFO(tClient *Client, char *Args)
+void Server_Cmd_USERINFO(tClient *Client, char *Args)
 {
 	 int	uid;
 	char	*user = Args;
@@ -635,10 +652,13 @@ char *Server_Cmd_USERINFO(tClient *Client, char *Args)
 	
 	// Get recipient
 	uid = GetUserID(user);
-	if( uid == -1 )	return strdup("404 Invalid user");
+	if( uid == -1 ) {
+		sendf(Client->Socket, "404 Invalid user");
+		return ;
+	}
 
 	// TODO: User flags/type
-	return mkstr("202 User %s %i user\n", user, GetBalance(uid));
+	sendf(Client->Socket, "202 User %s %i user\n", user, GetBalance(uid));
 }
 
 /**
