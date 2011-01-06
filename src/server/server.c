@@ -516,7 +516,7 @@ void Server_Cmd_GIVE(tClient *Client, char *Args)
 	// Get recipient
 	uid = GetUserID(recipient);
 	if( uid == -1 ) {
-		sendf(Client->Socket, "404 Invalid target user");
+		sendf(Client->Socket, "404 Invalid target user\n");
 		return ;
 	}
 
@@ -571,11 +571,15 @@ void Server_Cmd_ADD(tClient *Client, char *Args)
 	reason ++;
 
 	// TODO: Check if the current user is in coke/higher
+	if( (GetFlags(Client->UID) & USER_FLAG_TYPEMASK) < USER_TYPE_COKE ) {
+		sendf(Client->Socket, "403 Not in coke\n");
+		return ;
+	}
 
 	// Get recipient
 	uid = GetUserID(user);
 	if( uid == -1 ) {
-		sendf(Client->Socket, "404 Invalid user");
+		sendf(Client->Socket, "404 Invalid user\n");
 		return ;
 	}
 

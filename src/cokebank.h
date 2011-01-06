@@ -20,7 +20,8 @@ enum eCokebank_Flags {
 	USER_TYPE_WHEEL  = 0x02,
 	USER_TYPE_GOD    = 0x03,
 	
-	USER_FLAG_DISABLED = 0x80
+	USER_FLAG_DOORGROUP = 0x40,
+	USER_FLAG_DISABLED  = 0x80
 };
 
 // --- Cokebank Functions ---
