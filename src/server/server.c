@@ -615,7 +615,23 @@ void Server_Cmd_ENUMUSERS(tClient *Client, char *Args)
 	 int	numUsr = GetMaxID();
 	
 	// Parse arguments
-	//minBal = atoi(Args);
+	if( Args && strlen(Args) )
+	{
+		char	*min = Args, *max;
+		
+		max = strchr(Args, ' ');
+		if( max ) {
+			*max = '\0';
+			max ++;
+		}
+		
+		// If <minBal> != "-"
+		if( strcmp(min, "-") != 0 )
+			minBal = atoi(min);
+		// If <maxBal> != "-"
+		if( max && strcmp(max, "-") != 0 )
+			maxBal = atoi(max);
+	}
 	
 	// Get return number
 	for( i = 0; i < numUsr; i ++ )

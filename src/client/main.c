@@ -15,6 +15,7 @@
 #include <stdarg.h>
 #include <regex.h>
 #include <ncurses.h>
+#include <limits.h>
 
 #include <unistd.h>	// close
 #include <netdb.h>	// gethostbyname
@@ -67,9 +68,10 @@ tItem	*gaItems;
 regex_t	gArrayRegex, gItemRegex, gSaltRegex, gUserInfoRegex;
  int	gbIsAuthenticated = 0;
 
-char	*gsOverrideUser;	//!< '-u' argument (dispense as another user)
+char	*gsOverrideUser;	//!< '-u' Dispense as another user
  int	gbUseNCurses = 0;	//!< '-G' Use the NCurses GUI?
- int	giSocket = -1;
+ int	giMinimumBalance = INT_MIN;	//!< '-m' Minumum balance for `dispense acct`
+ int	giMaximumBalance = INT_MAX;	//!< '-M' Maximum balance for `dispense acct`
 
 // === CODE ===
 int main(int argc, char *argv[])
@@ -102,6 +104,13 @@ int main(int argc, char *argv[])
 				ShowUsage();
 				return 0;
 			
+			case 'm':	// Minimum balance
+				giMinimumBalance = atoi(argv[++i]);
+				break;
+			case 'M':	// Maximum balance
+				giMaximumBalance = atoi(argv[++i]);
+				break;
+			
 			case 'u':	// Override User
 				gsOverrideUser = argv[++i];
 				break;
@@ -130,8 +139,8 @@ int main(int argc, char *argv[])
 			// argv[i+1]: Username
 			
 			// Alter account?
-			if( i + 2 < argc ) {
-				
+			if( i + 2 < argc )
+			{	
 				if( i + 3 >= argc ) {
 					fprintf(stderr, "Error: `dispense acct' needs a reason\n");
 					exit(1);
@@ -241,6 +250,9 @@ void ShowUsage(void)
 		"\t\tShow help text\n"
 		"\t-G\n"
 		"\t\tUse alternate GUI\n"
+		"\t-m <min balance>\n"
+		"\t-M <max balance>\n"
+		"\t\tSet the Maximum/Minimum balances shown in `dispense acct`\n"
 		);
 }
 
@@ -869,7 +881,22 @@ int Dispense_EnumUsers(int Socket)
 	 int	nUsers;
 	regmatch_t	matches[4];
 	
-	sendf(Socket, "ENUM_USERS\n");
+	if( giMinimumBalance != INT_MIN ) {
+		if( giMaximumBalance != INT_MAX ) {
+			sendf(Socket, "ENUM_USERS %i %i\n", giMinimumBalance, giMaximumBalance);
+		}
+		else {
+			sendf(Socket, "ENUM_USERS %i\n", giMinimumBalance);
+		}
+	}
+	else {
+		if( giMaximumBalance != INT_MAX ) {
+			sendf(Socket, "ENUM_USERS - %i\n", giMaximumBalance);
+		}
+		else {
+			sendf(Socket, "ENUM_USERS\n");
+		}
+	}
 	buf = ReadLine(Socket);
 	responseCode = atoi(buf);
 	
