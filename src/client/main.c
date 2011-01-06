@@ -686,7 +686,9 @@ void PopulateItemList(int Socket)
 	
 	// - Get item list -
 	
-	// Expected format: 201 Items <count> <item1> <item2> ...
+	// Expected format:
+	//  201 Items <count>
+	//  202 Item <count>
 	RunRegex(&gArrayRegex, buf, 4, matches, "Malformed server response");
 		
 	itemType = &buf[ matches[2].rm_so ];	buf[ matches[2].rm_eo ] = '\0';
@@ -701,18 +703,11 @@ void PopulateItemList(int Socket)
 	}
 		
 	itemStart = &buf[ matches[3].rm_eo ];
-		
-	gaItems = malloc( count * sizeof(tItem) );
-		
-	for( giNumItems = 0; giNumItems < count && itemStart; giNumItems ++ )
-	{
-		char	*next = strchr( ++itemStart, ' ' );
-		if( next )	*next = '\0';
-		gaItems[giNumItems].Ident = strdup(itemStart);
-		itemStart = next;
-	}
 	
 	free(buf);
+	
+	giNumItems = count;
+	gaItems = malloc( giNumItems * sizeof(tItem) );
 	
 	// Fetch item information
 	for( i = 0; i < giNumItems; i ++ )
@@ -720,10 +715,9 @@ void PopulateItemList(int Socket)
 		regmatch_t	matches[6];
 		
 		// Get item info
-		sendf(Socket, "ITEM_INFO %s\n", gaItems[i].Ident);
 		buf = ReadLine(Socket);
-		
 		responseCode = atoi(buf);
+		
 		if( responseCode != 202 ) {
 			fprintf(stderr, "Unknown response from dispense server (Response Code %i)\n", responseCode);
 			exit(-1);
@@ -733,11 +727,25 @@ void PopulateItemList(int Socket)
 		
 		buf[ matches[3].rm_eo ] = '\0';
 		
+		gaItems[i].Ident = strdup( buf + matches[3].rm_so );
 		gaItems[i].Price = atoi( buf + matches[4].rm_so );
 		gaItems[i].Desc = strdup( buf + matches[5].rm_so );
 		
 		free(buf);
 	}
+	
+	// Read end of list
+	buf = ReadLine(Socket);
+	responseCode = atoi(buf);
+		
+	if( responseCode != 200 ) {
+		fprintf(stderr, "Unknown response from dispense server %i\n'%s'",
+			responseCode, buf
+			);
+		exit(-1);
+	}
+	
+	free(buf);
 }
 
 /**

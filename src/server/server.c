@@ -395,13 +395,16 @@ void Server_Cmd_ENUMITEMS(tClient *Client, char *Args)
 {
 	 int	i;
 
-	sendf(Client->Socket, "201 Items %i", giNumItems);
+	sendf(Client->Socket, "201 Items %i\n", giNumItems);
 
 	for( i = 0; i < giNumItems; i ++ ) {
-		sendf(Client->Socket, " %s:%i", gaItems[i].Handler->Name, gaItems[i].ID);
+		sendf(Client->Socket,
+			"202 Item %s:%i %i %s\n",
+			 gaItems[i].Handler->Name, gaItems[i].ID, gaItems[i].Price, gaItems[i].Name
+			 );
 	}
 
-	sendf(Client->Socket, "\n");
+	sendf(Client->Socket, "200 List end\n");
 }
 
 tItem *_GetItemFromString(char *String)

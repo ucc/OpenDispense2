@@ -52,7 +52,10 @@ s	200 Set OK\n or 403 Not Coke\n or 404 Bad User\n
 
 --- Get Item list ---
 c	ENUM_ITEMS\n
-s	201 Items <count> <item_id> <item_id> ...\n
+s	201 Items <count>\n
+s	202 Item <item_id> <price> <description>\n
+    ...
+s   200 List End\n
 --- Get Item Information ---
 c	ITEM_INFO <item_id>\n
 s	202 Item <item_id> <price> <description>\n
