@@ -22,7 +22,7 @@
 #define HACK_TPG_NOAUTH	1
 #define HACK_ROOT_NOAUTH	1
 
-#define	DEBUG_TRACE_CLIENT	1
+#define	DEBUG_TRACE_CLIENT	0
 
 // Statistics
 #define MAX_CONNECTION_QUEUE	5
@@ -64,6 +64,7 @@ void	Server_Cmd_GIVE(tClient *Client, char *Args);
 void	Server_Cmd_ADD(tClient *Client, char *Args);
 void	Server_Cmd_ENUMUSERS(tClient *Client, char *Args);
 void	Server_Cmd_USERINFO(tClient *Client, char *Args);
+void	_SendUserInfo(tClient *Client, int UserID);
 // --- Helpers ---
  int	sendf(int Socket, const char *Format, ...);
  int	GetUserAuth(const char *Salt, const char *Username, const uint8_t *Hash);
@@ -635,7 +636,7 @@ void Server_Cmd_ENUMUSERS(tClient *Client, char *Args)
 		if( bal > maxBal )	continue;
 		
 		// TODO: User flags
-		sendf(Client->Socket, "202 User %s %i user\n", GetUserName(i), GetBalance(i));
+		_SendUserInfo(Client, i);
 	}
 	
 	sendf(Client->Socket, "200 List End\n");
@@ -656,9 +657,33 @@ void Server_Cmd_USERINFO(tClient *Client, char *Args)
 		sendf(Client->Socket, "404 Invalid user");
 		return ;
 	}
+	
+	_SendUserInfo(Client, uid);
+}
 
+void _SendUserInfo(tClient *Client, int UserID)
+{
+	char	*type, *disabled="";
+	 int	flags = GetFlags(UserID);
+	
+	switch( flags & USER_FLAG_TYPEMASK )
+	{
+	default:
+	case USER_TYPE_NORMAL:	type = "user";	break;
+	case USER_TYPE_COKE:	type = "coke";	break;
+	case USER_TYPE_WHEEL:	type = "wheel";	break;
+	case USER_TYPE_GOD:	type = "meta";	break;
+	}
+	
+	if( flags & USER_FLAG_DISABLED )
+		disabled = ",disabled";
+	
 	// TODO: User flags/type
-	sendf(Client->Socket, "202 User %s %i user\n", user, GetBalance(uid));
+	sendf(
+		Client->Socket, "202 User %s %i %s%s\n",
+		GetUserName(UserID), GetBalance(UserID),
+		type, disabled
+		);
 }
 
 /**
