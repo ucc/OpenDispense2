@@ -664,8 +664,7 @@ int Authenticate(int Socket)
  */
 void PopulateItemList(int Socket)
 {
-	char	buffer[BUFSIZ];
-	 int	len;
+	char	*buf;
 	 int	responseCode;
 	
 	char	*itemType, *itemStart;
@@ -674,14 +673,11 @@ void PopulateItemList(int Socket)
 	
 	// Ask server for stock list
 	send(Socket, "ENUM_ITEMS\n", 11, 0);
-	len = recv(Socket, buffer, BUFSIZ-1, 0);
-	buffer[len] = '\0';
+	buf = ReadLine(Socket);
 	
-	trim(buffer);
+	//printf("Output: %s\n", buf);
 	
-	//printf("Output: %s\n", buffer);
-	
-	responseCode = atoi(buffer);
+	responseCode = atoi(buf);
 	if( responseCode != 201 ) {
 		fprintf(stderr, "Unknown response from dispense server (Response Code %i)\n", responseCode);
 		exit(-1);
@@ -690,10 +686,10 @@ void PopulateItemList(int Socket)
 	// - Get item list -
 	
 	// Expected format: 201 Items <count> <item1> <item2> ...
-	RunRegex(&gArrayRegex, buffer, 4, matches, "Malformed server response");
+	RunRegex(&gArrayRegex, buf, 4, matches, "Malformed server response");
 		
-	itemType = &buffer[ matches[2].rm_so ];	buffer[ matches[2].rm_eo ] = '\0';
-	count = atoi( &buffer[ matches[3].rm_so ] );
+	itemType = &buf[ matches[2].rm_so ];	buf[ matches[2].rm_eo ] = '\0';
+	count = atoi( &buf[ matches[3].rm_so ] );
 		
 	// Check array type
 	if( strcmp(itemType, "Items") != 0 ) {
@@ -703,7 +699,7 @@ void PopulateItemList(int Socket)
 		exit(-1);
 	}
 		
-	itemStart = &buffer[ matches[3].rm_eo ];
+	itemStart = &buf[ matches[3].rm_eo ];
 		
 	gaItems = malloc( count * sizeof(tItem) );
 		
@@ -715,6 +711,8 @@ void PopulateItemList(int Socket)
 		itemStart = next;
 	}
 	
+	free(buf);
+	
 	// Fetch item information
 	for( i = 0; i < giNumItems; i ++ )
 	{
@@ -722,22 +720,22 @@ void PopulateItemList(int Socket)
 		
 		// Get item info
 		sendf(Socket, "ITEM_INFO %s\n", gaItems[i].Ident);
-		len = recv(Socket, buffer, BUFSIZ-1, 0);
-		buffer[len] = '\0';
-		trim(buffer);
+		buf = ReadLine(Socket);
 		
-		responseCode = atoi(buffer);
+		responseCode = atoi(buf);
 		if( responseCode != 202 ) {
 			fprintf(stderr, "Unknown response from dispense server (Response Code %i)\n", responseCode);
 			exit(-1);
 		}
 		
-		RunRegex(&gItemRegex, buffer, 6, matches, "Malformed server response");
+		RunRegex(&gItemRegex, buf, 6, matches, "Malformed server response");
 		
-		buffer[ matches[3].rm_eo ] = '\0';
+		buf[ matches[3].rm_eo ] = '\0';
 		
-		gaItems[i].Price = atoi( buffer + matches[4].rm_so );
-		gaItems[i].Desc = strdup( buffer + matches[5].rm_so );
+		gaItems[i].Price = atoi( buf + matches[4].rm_so );
+		gaItems[i].Desc = strdup( buf + matches[5].rm_so );
+		
+		free(buf);
 	}
 }
 

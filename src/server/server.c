@@ -208,7 +208,11 @@ void Server_HandleClient(int Socket, int bTrusted)
 			char	*ret;
 			*eol = '\0';
 			ret = Server_ParseClientCommand(&clientInfo, start);
-			printf("ret = %s", ret);
+			
+			#if DEBUG_TRACE_CLIENT
+			//printf("ret = %s", ret);
+			#endif
+			
 			// `ret` is a string on the heap
 			send(Socket, ret, strlen(ret), 0);
 			free(ret);

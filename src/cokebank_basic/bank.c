@@ -124,6 +124,9 @@ int Bank_AddUser(const char *Username)
 	if( strcmp(Username, ">liability") == 0 ) {
 		gaBank_Users[giBank_NumUsers].Flags = USER_TYPE_GOD;	// No minium
 	}
+	else if( strcmp(Username, "root") == 0 ) {
+		gaBank_Users[giBank_NumUsers].Flags = USER_TYPE_GOD;	// No minium
+	}
 	
 	// Commit to file
 	fseek(gBank_File, giBank_NumUsers*sizeof(gaBank_Users[0]), SEEK_SET);
