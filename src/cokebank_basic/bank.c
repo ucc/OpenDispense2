@@ -13,7 +13,10 @@
 #include <string.h>
 #include <limits.h>
 #include <pwd.h>
+#include <grp.h>
 #include "common.h"
+
+#define USE_UNIX_GROUPS	1
 
 // === PROTOTYPES ===
 static int	GetUnixID(const char *Username);
@@ -51,7 +54,54 @@ int Bank_GetUserBalance(int ID)
 int Bank_GetUserFlags(int ID)
 {
 	if( ID < 0 || ID >= giBank_NumUsers )
-		return INT_MIN;
+		return -1;
+		
+	// TODO: Implement checking the PAM groups and status instead, then
+	// fall back on the database. (and update if there is a difference)
+
+	// root
+	if( gaBank_Users[ID].UnixID == 0 ) {
+		gaBank_Users[ID].Flags &= ~USER_FLAG_TYPEMASK;
+		gaBank_Users[ID].Flags |= USER_TYPE_WHEEL;
+	}
+
+	#if USE_UNIX_GROUPS
+	if( gaBank_Users[ID].UnixID > 0 )
+	{
+		struct passwd	*pwd;
+		struct group	*grp;
+		 int	i;
+		
+		// Get username
+		pwd = getpwuid( gaBank_Users[ID].UnixID );
+		
+		// Check for additions to the "coke" group
+		grp = getgrnam("coke");
+		if( grp ) {
+			for( i = 0; grp->gr_mem[i]; i ++ )
+			{
+				if( strcmp(grp->gr_mem[i], pwd->pw_name) == 0 )
+				{
+					gaBank_Users[ID].Flags &= ~USER_FLAG_TYPEMASK;
+					gaBank_Users[ID].Flags |= USER_TYPE_COKE;
+				}
+			}
+		}
+		
+		// Check for additions to the "wheel" group
+		grp = getgrnam("wheel");
+		if( grp ) {
+			for( i = 0; grp->gr_mem[i]; i ++ )
+			{
+				if( strcmp(grp->gr_mem[i], pwd->pw_name) == 0 )
+				{
+					gaBank_Users[ID].Flags &= ~USER_FLAG_TYPEMASK;
+					gaBank_Users[ID].Flags |= USER_TYPE_WHEEL;
+				}
+			}
+		}
+	}
+	#endif
 
 	return gaBank_Users[ID].Flags;
 }
@@ -93,11 +143,9 @@ int Bank_GetMinAllowedBalance(int ID)
 	if( ID < 0 || ID >= giBank_NumUsers )
 		return 0;
 
-//	printf("gaBank_Users[%i].Flags = 0x%x\n", ID, gaBank_Users[ID].Flags);
-
-	switch( gaBank_Users[ID].Flags & USER_FLAG_TYPEMASK )
+	switch( Bank_GetUserFlags(ID) & USER_FLAG_TYPEMASK )
 	{
-	case USER_TYPE_NORMAL:	return     0;
+	case USER_TYPE_NORMAL:	return      0;
 	case USER_TYPE_COKE:	return  -2000;
 	case USER_TYPE_WHEEL:	return -10000;
 	case USER_TYPE_GOD:	return INT_MIN;
