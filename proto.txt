@@ -48,7 +48,7 @@ c	ADD <user> <ammount> <reason>\n
 s	200 Add OK\n or 402 No balance\n or 403 Not Coke\n or 404 Bad User\n
 --- Set balance ---
 c	SET <user> <ammount> <reason>\n
-s	200 Add OK\n or 403 Not Coke\n or 404 Bad User\n
+s	200 Set OK\n or 403 Not Coke\n or 404 Bad User\n
 
 --- Get Item list ---
 c	ENUM_ITEMS\n
@@ -60,5 +60,5 @@ s	202 Item <item_id> <price> <description>\n
 c	ENUM_USERS[ <max balance>]\n
 s	201 Users <count> <username>:<balance>:<flags> <username>:<balance>:<flags> ...\n
 --- Get a User's Balance ---
-c	USERINFO\n
+c	USER_INFO\n
 s	202 User <username> <balance> <flags>\n

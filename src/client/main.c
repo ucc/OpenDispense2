@@ -34,6 +34,8 @@ typedef struct sItem {
 }	tItem;
 
 // === PROTOTYPES ===
+ int	main(int argc, char *argv[]);
+void	ShowUsage(void);
 // --- GUI ---
  int	ShowNCursesUI(void);
 void	ShowItemAt(int Row, int Col, int Width, int Index);
@@ -43,7 +45,13 @@ void	PrintAlign(int Row, int Col, int Width, const char *Left, char Pad1, const 
  int	Authenticate(int Socket);
 void	PopulateItemList(int Socket);
  int	DispenseItem(int Socket, int ItemID);
+ int	Dispense_AlterBalance(int Socket, const char *Username, int Ammount, const char *Reason);
+ int	Dispense_SetBalance(int Socket, const char *Username, int Ammount, const char *Reason);
+ int	Dispense_EnumUsers(int Socket);
+ int	Dispense_ShowUser(int Socket, const char *Username);
+void	_PrintUserLine(const char *Line);
 // --- Helpers ---
+char	*ReadLine(int Socket);
  int	sendf(int Socket, const char *Format, ...);
 char	*trim(char *string);
  int	RunRegex(regex_t *regex, const char *string, int nMatches, regmatch_t *matches, const char *errorMessage);
@@ -52,12 +60,15 @@ void	CompileRegex(regex_t *regex, const char *pattern, int flags);
 // === GLOBALS ===
 char	*gsDispenseServer = "localhost";
  int	giDispensePort = 11020;
+
 tItem	*gaItems;
  int	giNumItems;
-regex_t	gArrayRegex, gItemRegex, gSaltRegex;
+regex_t	gArrayRegex, gItemRegex, gSaltRegex, gUserInfoRegex;
+ int	gbIsAuthenticated = 0;
 
 char	*gsOverrideUser;	//!< '-u' argument (dispense as another user)
  int	gbUseNCurses = 0;	//!< '-G' Use the NCurses GUI?
+ int	giSocket = -1;
 
 // === CODE ===
 int main(int argc, char *argv[])
@@ -72,14 +83,9 @@ int main(int argc, char *argv[])
 	// > Code Type Ident Price Desc
 	CompileRegex(&gItemRegex, "^([0-9]{3})\\s+([A-Za-z]+)\\s+([A-Za-z0-9:]+?)\\s+([0-9]+)\\s+(.+)$", REG_EXTENDED);
 	// > Code 'SALT' salt
-	CompileRegex(&gSaltRegex, "^([0-9]{3})\\s+(.+)\\s+(.+)$", REG_EXTENDED);
-	
-	// Connect to server
-	sock = OpenConnection(gsDispenseServer, giDispensePort);
-	if( sock < 0 )	return -1;
-
-	// Authenticate
-	Authenticate(sock);
+	CompileRegex(&gSaltRegex, "^([0-9]{3})\\s+([A-Za-z]+)\\s+(.+)$", REG_EXTENDED);
+	// > Code 'User' Username Balance Flags
+	CompileRegex(&gUserInfoRegex, "^([0-9]{3})\\s+([A-Za-z]+)\\s+([^ ]+)\\s+(-?[0-9]+)\\s+(.+)$", REG_EXTENDED);
 
 	// Parse Arguments
 	for( i = 1; i < argc; i ++ )
@@ -90,6 +96,11 @@ int main(int argc, char *argv[])
 		{			
 			switch(arg[1])
 			{
+			case 'h':
+			case '?':
+				ShowUsage();
+				return 0;
+			
 			case 'u':	// Override User
 				gsOverrideUser = argv[++i];
 				break;
@@ -102,15 +113,63 @@ int main(int argc, char *argv[])
 			continue;
 		}
 		
-		if( strcmp(argv[1], "acct") == 0 ) {
-			// Alter account
-			// List accounts
+		if( strcmp(arg, "acct") == 0 )
+		{
+
+			// Connect to server
+			sock = OpenConnection(gsDispenseServer, giDispensePort);
+			if( sock < 0 )	return -1;
+
+			// List accounts?
+			if( i + 1 == argc ) {
+				Dispense_EnumUsers(sock);
+				return 0;
+			}
+			
+			// argv[i+1]: Username
+			
+			// Alter account?
+			if( i + 2 < argc ) {
+				
+				if( i + 3 >= argc ) {
+					fprintf(stderr, "Error: `dispense acct' needs a reason\n");
+					exit(1);
+				}
+				
+				// Authentication required
+				Authenticate(sock);
+				
+				// argv[i+1]: Username
+				// argv[i+2]: Ammount
+				// argv[i+3]: Reason
+				
+				if( argv[i+2][0] == '=' ) {
+					// Set balance
+					Dispense_SetBalance(sock, argv[i+1], atoi(argv[i+2] + 1), argv[i+3]);
+				}
+				else {
+					// Alter balance
+					Dispense_AlterBalance(sock, argv[i+1], atoi(argv[i+2]), argv[i+3]);
+				}
+			}
+			
+			Dispense_ShowUser(sock, argv[i+1]);
+			
+			close(sock);
 			return 0;
 		}
 		else {
 			// Item name / pattern
+			break;
 		}
 	}
+	
+	// Connect to server
+	sock = OpenConnection(gsDispenseServer, giDispensePort);
+	if( sock < 0 )	return -1;
+	
+	// Authenticate
+	Authenticate(sock);
 
 	// Get items
 	PopulateItemList(sock);
@@ -157,6 +216,31 @@ int main(int argc, char *argv[])
 	close(sock);
 
 	return 0;
+}
+
+void ShowUsage(void)
+{
+	printf(
+		"Usage:\n"
+		"\tdispense\n"
+		"\t\tShow interactive list\n"
+		"\tdispense <item>\n"
+		"\t\tDispense named item\n"
+		"\tdispense give <user> <ammount> \"<reason>\"\n"
+		"\t\tGive some of your money away\n"
+		"\tdispense acct [<user>]\n"
+		"\t\tShow user balances\n"
+		"\tdispense acct <user> [+-=]<ammount> \"<reason>\"\n"
+		"\t\tAlter a account value (Coke members only)\n"
+		"\n"
+		"General Options:\n"
+		"\t-u <username>\n"
+		"\t\tSet a different user (Coke members only)\n"
+		"\t-h / -?\n"
+		"\t\tShow help text\n"
+		"\t-G\n"
+		"\t\tUse alternate GUI\n"
+		);
 }
 
 // -------------------
@@ -462,11 +546,13 @@ int OpenConnection(const char *Host, int Port)
 int Authenticate(int Socket)
 {
 	struct passwd	*pwd;
-	char	buf[512];
+	char	*buf;
 	 int	responseCode;
 	char	salt[32];
 	 int	i;
 	regmatch_t	matches[4];
+	
+	if( gbIsAuthenticated )	return 0;
 	
 	// Get user name
 	pwd = getpwuid( getuid() );
@@ -475,43 +561,49 @@ int Authenticate(int Socket)
 	sendf(Socket, "AUTOAUTH %s\n", pwd->pw_name);
 	
 	// Check if it worked
-	recv(Socket, buf, 511, 0);
-	trim(buf);
+	buf = ReadLine(Socket);
 	
 	responseCode = atoi(buf);
 	switch( responseCode )
 	{
+	
 	case 200:	// Authenticated, return :)
+		gbIsAuthenticated = 1;
+		free(buf);
 		return 0;
+	
 	case 401:	// Untrusted, attempt password authentication
+		free(buf);
+		
 		sendf(Socket, "USER %s\n", pwd->pw_name);
 		printf("Using username %s\n", pwd->pw_name);
 		
-		recv(Socket, buf, 511, 0);
-		trim(buf);
+		buf = ReadLine(Socket);
+		
 		// TODO: Get Salt
 		// Expected format: 100 SALT <something> ...
 		// OR             : 100 User Set
 		RunRegex(&gSaltRegex, buf, 4, matches, "Malformed server response");
 		responseCode = atoi(buf);
 		if( responseCode != 100 ) {
-			fprintf(stderr, "Unknown repsonse code %i from server\n", responseCode);
+			fprintf(stderr, "Unknown repsonse code %i from server\n%s\n", responseCode, buf);
+			free(buf);
 			return -1;	// ERROR
 		}
 		
 		// Check for salt
 		if( memcmp( buf+matches[2].rm_so, "SALT", matches[2].rm_eo - matches[2].rm_so) == 0) {
+			// Store it for later
 			memcpy( salt, buf + matches[3].rm_so, matches[3].rm_eo - matches[3].rm_so );
 			salt[ matches[3].rm_eo - matches[3].rm_so ] = 0;
 		}
-		
-		// Get password
-		fflush(stdout);
+		free(buf);
 		
 		// Give three attempts
 		for( i = 0; i < 3; i ++ )
 		{
 			 int	ofs = strlen(pwd->pw_name)+strlen(salt);
+			char	tmpBuf[42];
 			char	tmp[ofs+20];
 			char	*pass = getpass("Password: ");
 			uint8_t	h[20];
@@ -525,15 +617,14 @@ int Authenticate(int Socket)
 			
 			// Hash all that
 			SHA1( (unsigned char*)tmp, ofs+20, h );
-			sprintf(buf, "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
+			sprintf(tmpBuf, "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
 				h[ 0], h[ 1], h[ 2], h[ 3], h[ 4], h[ 5], h[ 6], h[ 7], h[ 8], h[ 9],
 				h[10], h[11], h[12], h[13], h[14], h[15], h[16], h[17], h[18], h[19]
 				);
-			fflush(stdout);	// Debug
 		
 			// Send password
-			sendf(Socket, "PASS %s\n", buf);
-			recv(Socket, buf, 511, 0);
+			sendf(Socket, "PASS %s\n", tmpBuf);
+			buf = ReadLine(Socket);
 		
 			responseCode = atoi(buf);
 			// Auth OK?
@@ -541,25 +632,36 @@ int Authenticate(int Socket)
 			// Bad username/password
 			if( responseCode == 401 )	continue;
 			
-			fprintf(stderr, "Unknown repsonse code %i from server\n", responseCode);
+			fprintf(stderr, "Unknown repsonse code %i from server\n%s\n", responseCode, buf);
+			free(buf);
 			return -1;
 		}
-		return 2;	// 2 = Bad Password
+		free(buf);
+		if( i < 3 ) {
+			gbIsAuthenticated = 1;
+			return 0;
+		}
+		else
+			return 2;	// 2 = Bad Password
 	
 	case 404:	// Bad Username
 		fprintf(stderr, "Bad Username '%s'\n", pwd->pw_name);
+		free(buf);
 		return 1;
 	
 	default:
 		fprintf(stderr, "Unkown response code %i from server\n", responseCode);
 		printf("%s\n", buf);
+		free(buf);
 		return -1;
 	}
-	
-	printf("%s\n", buf);
-	return 0;	// Seems OK
 }
 
+
+/**
+ * \brief Fill the item information structure
+ * \return Boolean Failure
+ */
 void PopulateItemList(int Socket)
 {
 	char	buffer[BUFSIZ];
@@ -639,49 +741,230 @@ void PopulateItemList(int Socket)
 	}
 }
 
+/**
+ * \brief Dispense an item
+ * \return Boolean Failure
+ */
 int DispenseItem(int Socket, int ItemID)
 {
-	 int	len, responseCode;
-	char	buffer[BUFSIZ];
+	 int	ret, responseCode;
+	char	*buf;
 	
 	if( ItemID < 0 || ItemID > giNumItems )	return -1;
 	
 	// Dispense!
 	sendf(Socket, "DISPENSE %s\n", gaItems[ItemID].Ident);
-	len = recv(Socket, buffer, BUFSIZ-1, 0);
-	buffer[len] = '\0';
-	trim(buffer);
+	buf = ReadLine(Socket);
 	
-	responseCode = atoi(buffer);
+	responseCode = atoi(buf);
 	switch( responseCode )
 	{
 	case 200:
 		printf("Dispense OK\n");
-		return 0;
+		ret = 0;
+		break;
 	case 401:
 		printf("Not authenticated\n");
-		return 1;
+		ret = 1;
+		break;
 	case 402:
 		printf("Insufficient balance\n");
-		return 1;
+		ret = 1;
+		break;
 	case 406:
 		printf("Bad item name, bug report\n");
-		return 1;
+		ret = 1;
+		break;
 	case 500:
 		printf("Item failed to dispense, is the slot empty?\n");
-		return 1;
+		ret = 1;
+		break;
 	case 501:
 		printf("Dispense not possible (slot empty/permissions)\n");
-		return 1;
+		ret = 1;
+		break;
 	default:
-		printf("Unknown response code %i ('%s')\n", responseCode, buffer);
-		return -2;
+		printf("Unknown response code %i ('%s')\n", responseCode, buf);
+		ret = -2;
+		break;
+	}
+	
+	free(buf);
+	return ret;
+}
+
+/**
+ * \brief Alter a user's balance
+ */
+int Dispense_AlterBalance(int Socket, const char *Username, int Ammount, const char *Reason)
+{
+	char	*buf;
+	 int	responseCode;
+	
+	sendf(Socket, "ADD %s %i %s\n", Username, Ammount, Reason);
+	buf = ReadLine(Socket);
+	
+	responseCode = atoi(buf);
+	free(buf);
+	
+	switch(responseCode)
+	{
+	case 200:	return 0;	// OK
+	case 403:	// Not in coke
+		fprintf(stderr, "You are not in coke (sucker)\n");
+		return 1;
+	case 404:	// Unknown user
+		fprintf(stderr, "Unknown user '%s'\n", Username);
+		return 2;
+	default:
+		fprintf(stderr, "Unknown response code %i\n", responseCode);
+		return -1;
+	}
+	
+	return -1;
+}
+
+/**
+ * \brief Alter a user's balance
+ */
+int Dispense_SetBalance(int Socket, const char *Username, int Ammount, const char *Reason)
+{
+	char	*buf;
+	 int	responseCode;
+	
+	sendf(Socket, "SET %s %i %s\n", Username, Ammount, Reason);
+	buf = ReadLine(Socket);
+	
+	responseCode = atoi(buf);
+	free(buf);
+	
+	switch(responseCode)
+	{
+	case 200:	return 0;	// OK
+	case 403:	// Not in coke
+		fprintf(stderr, "You are not in coke (sucker)\n");
+		return 1;
+	case 404:	// Unknown user
+		fprintf(stderr, "Unknown user '%s'\n", Username);
+		return 2;
+	default:
+		fprintf(stderr, "Unknown response code %i\n", responseCode);
+		return -1;
+	}
+	
+	return -1;
+}
+
+int Dispense_EnumUsers(int Socket)
+{
+	printf("TODO: Dispense_EnumUsers\n");
+	return -1;
+}
+
+int Dispense_ShowUser(int Socket, const char *Username)
+{
+	char	*buf;
+	 int	responseCode, ret;
+	
+	sendf(Socket, "USER_INFO %s\n", Username);
+	buf = ReadLine(Socket);
+	
+	responseCode = atoi(buf);
+	
+	switch(responseCode)
+	{
+	case 202:
+		_PrintUserLine(buf);
+		ret = 0;
+		break;
+	
+	case 404:
+		printf("Unknown user '%s'\n", Username);
+		ret = 1;
+		break;
+	
+	default:
+		fprintf(stderr, "Unknown response code %i '%s'\n", responseCode, buf);
+		ret = -1;
+		break;
+	}
+	
+	free(buf);
+	
+	return ret;
+}
+
+void _PrintUserLine(const char *Line)
+{
+	regmatch_t	matches[6];
+	 int	bal;
+	
+	RunRegex(&gUserInfoRegex, Line, 6, matches, "Malformed server response");
+	// 3: Username
+	// 4: Balance
+	// 5: Flags
+	{
+		 int	usernameLen = matches[3].rm_eo - matches[3].rm_so;
+		char	username[usernameLen + 1];
+		 int	flagsLen = matches[5].rm_eo - matches[5].rm_so;
+		char	flags[flagsLen + 1];
+		
+		memcpy(username, Line + matches[3].rm_so, usernameLen);
+		username[usernameLen] = '\0';
+		memcpy(flags, Line + matches[5].rm_so, flagsLen);
+		flags[flagsLen] = '\0';
+		
+		bal = atoi(Line + matches[4].rm_so);
+		printf("%-15s: $%i.%02i (%s)\n", username, bal/100, bal%100, flags);
 	}
 }
 
 // ---------------
 // --- Helpers ---
 // ---------------
+char *ReadLine(int Socket)
+{
+	static char	buf[BUFSIZ];
+	static int	bufPos = 0;
+	 int	len;
+	char	*newline = NULL;
+	 int	retLen = 0;
+	char	*ret = malloc(10);
+	
+	#if DBG_TRACE_SERVER
+	printf("ReadLine: ");
+	#endif
+	fflush(stdout);
+	
+	ret[0] = '\0';
+	
+	while( !newline )
+	{
+		len = recv(Socket, buf+bufPos, BUFSIZ-1-bufPos, 0);
+		buf[bufPos+len] = '\0';
+		
+		newline = strchr( buf+bufPos, '\n' );
+		if( newline ) {
+			*newline = '\0';
+		}
+		
+		retLen += strlen(buf+bufPos);
+		ret = realloc(ret, retLen + 1);
+		strcat( ret, buf+bufPos );
+		
+		if( newline ) {
+			bufPos += newline - (buf+bufPos) + 1;
+		}
+		if( len + bufPos == BUFSIZ - 1 )	bufPos = 0;
+	}
+	
+	#if DBG_TRACE_SERVER
+	printf("%i '%s'\n", retLen, ret);
+	#endif
+	
+	return ret;
+}
+
 int sendf(int Socket, const char *Format, ...)
 {
 	va_list	args;
@@ -696,6 +979,10 @@ int sendf(int Socket, const char *Format, ...)
 		va_start(args, Format);
 		vsnprintf(buf, len+1, Format, args);
 		va_end(args);
+		
+		#if DBG_TRACE_SERVER
+		printf("sendf: %s", buf);
+		#endif
 		
 		return send(Socket, buf, len, 0);
 	}

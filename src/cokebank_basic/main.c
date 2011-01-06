@@ -60,6 +60,7 @@ int Transfer(int SourceUser, int DestUser, int Ammount, const char *Reason)
 {
 	 int	srcBal = Bank_GetUserBalance(SourceUser);
 	 int	dstBal = Bank_GetUserBalance(DestUser);
+	
 	if( srcBal - Ammount < Bank_GetMinAllowedBalance(SourceUser) )
 		return 1;
 	if( dstBal + Ammount < Bank_GetMinAllowedBalance(DestUser) )

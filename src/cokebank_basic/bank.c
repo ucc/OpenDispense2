@@ -91,7 +91,7 @@ int Bank_SetUserBalance(int ID, int Value)
 int Bank_GetMinAllowedBalance(int ID)
 {
 	if( ID < 0 || ID >= giBank_NumUsers )
-		return -1;
+		return 0;
 
 	switch( gaBank_Users[ID].Flags & FLAG_TYPEMASK )
 	{
@@ -120,6 +120,10 @@ int Bank_AddUser(const char *Username)
 	gaBank_Users[giBank_NumUsers].UnixID = uid;
 	gaBank_Users[giBank_NumUsers].Balance = 0;
 	gaBank_Users[giBank_NumUsers].Flags = 0;
+	
+	if( strcmp(Username, ">liability") == 0 ) {
+		gaBank_Users[giBank_NumUsers].Flags = USER_TYPE_GOD;	// No minium
+	}
 	
 	// Commit to file
 	fseek(gBank_File, giBank_NumUsers*sizeof(gaBank_Users[0]), SEEK_SET);

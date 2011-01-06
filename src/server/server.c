@@ -57,6 +57,7 @@ char	*Server_Cmd_ITEMINFO(tClient *Client, char *Args);
 char	*Server_Cmd_DISPENSE(tClient *Client, char *Args);
 char	*Server_Cmd_GIVE(tClient *Client, char *Args);
 char	*Server_Cmd_ADD(tClient *Client, char *Args);
+char	*Server_Cmd_USERINFO(tClient *Client, char *Args);
 // --- Helpers ---
  int	GetUserAuth(const char *Salt, const char *Username, const uint8_t *Hash);
 void	HexBin(uint8_t *Dest, char *Src, int BufSize);
@@ -76,7 +77,8 @@ struct sClientCommand {
 	{"ITEM_INFO", Server_Cmd_ITEMINFO},
 	{"DISPENSE", Server_Cmd_DISPENSE},
 	{"GIVE", Server_Cmd_GIVE},
-	{"ADD", Server_Cmd_ADD}
+	{"ADD", Server_Cmd_ADD},
+	{"USER_INFO", Server_Cmd_USERINFO}
 };
 #define NUM_COMMANDS	(sizeof(gaServer_Commands)/sizeof(gaServer_Commands[0]))
  int	giServer_Socket;
@@ -206,6 +208,7 @@ void Server_HandleClient(int Socket, int bTrusted)
 			char	*ret;
 			*eol = '\0';
 			ret = Server_ParseClientCommand(&clientInfo, start);
+			printf("ret = %s", ret);
 			// `ret` is a string on the heap
 			send(Socket, ret, strlen(ret), 0);
 			free(ret);
@@ -306,9 +309,7 @@ char *Server_Cmd_USER(tClient *Client, char *Args)
 	Client->Salt[7] = 0x21 + (rand()&0x3F);
 	
 	// TODO: Also send hash type to use, (SHA1 or crypt according to [DAA])
-	// "100 Salt xxxxXXXX\n"
-	ret = strdup("100 SALT xxxxXXXX\n");
-	sprintf(ret, "100 SALT %s\n", Client->Salt);
+	ret = mkstr("100 SALT %s\n", Client->Salt);
 	#else
 	ret = strdup("100 User Set\n");
 	#endif
@@ -546,6 +547,8 @@ char *Server_Cmd_ADD(tClient *Client, char *Args)
 	*reason = '\0';
 	reason ++;
 
+	// TODO: Check if the current user is in coke/higher
+
 	// Get recipient
 	uid = GetUserID(user);
 	if( uid == -1 )	return strdup("404 Invalid user");
@@ -564,6 +567,22 @@ char *Server_Cmd_ADD(tClient *Client, char *Args)
 	default:
 		return strdup("500 Unknown error\n");
 	}
+}
+
+char *Server_Cmd_USERINFO(tClient *Client, char *Args)
+{
+	 int	uid;
+	char	*user = Args;
+	char	*space;
+	
+	space = strchr(user, ' ');
+	if(space)	*space = '\0';
+	
+	// Get recipient
+	uid = GetUserID(user);
+	if( uid == -1 )	return strdup("404 Invalid user");
+
+	return mkstr("202 User %s %i user\n", user, GetBalance(uid));
 }
 
 /**

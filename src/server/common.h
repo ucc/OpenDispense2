@@ -85,6 +85,7 @@ extern void	Log_Info(const char *Format, ...);
 
 // --- Cokebank Functions ---
 extern int	Transfer(int SourceUser, int DestUser, int Ammount, const char *Reason);
+extern int	GetFlags(int User);
 extern int	GetBalance(int User);
 extern char	*GetUserName(int User);
 extern int	GetUserID(const char *Username);
