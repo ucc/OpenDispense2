@@ -1,0 +1,14 @@
+=====================
+=== OpenDispense2 ===
+=====================
+
+Replacement for the UCC (University Computer Club)'s "dispense" system
+
+
+=== Compiling ===
+Required packages
+- libncurses-dev
+- libssl-dev
+- build-essentials (gcc and GNU Make)
+
+Run `make -C src/`
