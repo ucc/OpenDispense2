@@ -25,6 +25,7 @@
 #include <openssl/sha.h>	// SHA1
 
 #define	USE_NCURSES_INTERFACE	0
+#define DEBUG_TRACE_SERVER	0
 
 // === TYPES ===
 typedef struct sItem {
@@ -855,8 +856,54 @@ int Dispense_SetBalance(int Socket, const char *Username, int Ammount, const cha
 
 int Dispense_EnumUsers(int Socket)
 {
-	printf("TODO: Dispense_EnumUsers\n");
-	return -1;
+	char	*buf;
+	 int	responseCode;
+	 int	nUsers;
+	regmatch_t	matches[4];
+	
+	sendf(Socket, "ENUM_USERS\n");
+	buf = ReadLine(Socket);
+	responseCode = atoi(buf);
+	
+	switch(responseCode)
+	{
+	case 201:	break;	// Ok, length follows
+	
+	default:
+		fprintf(stderr, "Unknown response code %i\n%s\n", responseCode, buf);
+		free(buf);
+		return -1;
+	}
+	
+	// Get count (not actually used)
+	RunRegex(&gArrayRegex, buf, 4, matches, "Malformed server response");
+	nUsers = atoi( buf + matches[3].rm_so );
+	printf("%i users returned\n", nUsers);
+	
+	// Free string
+	free(buf);
+	
+	// Read returned users
+	do {
+		buf = ReadLine(Socket);
+		responseCode = atoi(buf);
+		
+		if( responseCode != 202 )	break;
+		
+		_PrintUserLine(buf);
+		free(buf);
+	} while(responseCode == 202);
+	
+	// Check final response
+	if( responseCode != 200 ) {
+		fprintf(stderr, "Unknown response code %i\n%s\n", responseCode, buf);
+		free(buf);
+		return -1;
+	}
+	
+	free(buf);
+	
+	return 0;
 }
 
 int Dispense_ShowUser(int Socket, const char *Username)
@@ -913,7 +960,7 @@ void _PrintUserLine(const char *Line)
 		flags[flagsLen] = '\0';
 		
 		bal = atoi(Line + matches[4].rm_so);
-		printf("%-15s: $%i.%02i (%s)\n", username, bal/100, bal%100, flags);
+		printf("%-15s: $%4i.%02i (%s)\n", username, bal/100, bal%100, flags);
 	}
 }
 
@@ -924,12 +971,13 @@ char *ReadLine(int Socket)
 {
 	static char	buf[BUFSIZ];
 	static int	bufPos = 0;
+	static int	bufValid = 0;
 	 int	len;
 	char	*newline = NULL;
 	 int	retLen = 0;
 	char	*ret = malloc(10);
 	
-	#if DBG_TRACE_SERVER
+	#if DEBUG_TRACE_SERVER
 	printf("ReadLine: ");
 	#endif
 	fflush(stdout);
@@ -938,8 +986,13 @@ char *ReadLine(int Socket)
 	
 	while( !newline )
 	{
-		len = recv(Socket, buf+bufPos, BUFSIZ-1-bufPos, 0);
-		buf[bufPos+len] = '\0';
+		if( bufValid ) {
+			len = bufValid;
+		}
+		else {
+			len = recv(Socket, buf+bufPos, BUFSIZ-1-bufPos, 0);
+			buf[bufPos+len] = '\0';
+		}
 		
 		newline = strchr( buf+bufPos, '\n' );
 		if( newline ) {
@@ -951,12 +1004,14 @@ char *ReadLine(int Socket)
 		strcat( ret, buf+bufPos );
 		
 		if( newline ) {
-			bufPos += newline - (buf+bufPos) + 1;
+			 int	newLen = newline - (buf+bufPos) + 1;
+			bufValid = len - newLen;
+			bufPos += newLen;
 		}
 		if( len + bufPos == BUFSIZ - 1 )	bufPos = 0;
 	}
 	
-	#if DBG_TRACE_SERVER
+	#if DEBUG_TRACE_SERVER
 	printf("%i '%s'\n", retLen, ret);
 	#endif
 	
@@ -978,7 +1033,7 @@ int sendf(int Socket, const char *Format, ...)
 		vsnprintf(buf, len+1, Format, args);
 		va_end(args);
 		
-		#if DBG_TRACE_SERVER
+		#if DEBUG_TRACE_SERVER
 		printf("sendf: %s", buf);
 		#endif
 		

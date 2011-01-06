@@ -10,6 +10,7 @@
 #define _COMMON_H_
 
 #include <regex.h>
+#include "../cokebank.h"
 
 // === CONSTANTS ===
 #define	DEFAULT_CONFIG_FILE	"/etc/opendispense/main.cfg"
@@ -82,12 +83,5 @@ extern int	DispenseAdd(int User, int ByUser, int Ammount, const char *ReasonGive
 // --- Logging ---
 extern void	Log_Error(const char *Format, ...);
 extern void	Log_Info(const char *Format, ...);
-
-// --- Cokebank Functions ---
-extern int	Transfer(int SourceUser, int DestUser, int Ammount, const char *Reason);
-extern int	GetFlags(int User);
-extern int	GetBalance(int User);
-extern char	*GetUserName(int User);
-extern int	GetUserID(const char *Username);
 
 #endif

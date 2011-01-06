@@ -7,7 +7,7 @@ All server responses are on one line and are prefixed by a three digit response 
 == Response Codes ==
 100	Information
 200	Command succeeded, no extra information
-201	Command succeeded, array follows (<length> <items> <items> ...)
+201	Command succeeded, multiple lines follow (<length>)
 202	Command succeeded, per-command format
 400	Unknown Command
 401	Not Authenticated (or Authentication failure)
@@ -57,11 +57,12 @@ s	201 Items <count> <item_id> <item_id> ...\n
 c	ITEM_INFO <item_id>\n
 s	202 Item <item_id> <price> <description>\n
 --- Get Users' Balances ---
-c	ENUM_USERS[ <max balance>]\n
+ <max balance> and <min balance> can be '-' to indicate "none"
+c	ENUM_USERS[ <min balance> [<max balance>]]\n
 s	201 Users <count>\n
 s	202 User <username> <balance> <flags>\n
     ...
-s   200 List End
+s   200 List End\n
 --- Get a User's Balance ---
 c	USER_INFO\n
 s	202 User <username> <balance> <flags>\n

@@ -15,10 +15,14 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <string.h>
+#include <limits.h>
+#include <stdarg.h>
 
 // HACKS
 #define HACK_TPG_NOAUTH	1
 #define HACK_ROOT_NOAUTH	1
+
+#define	DEBUG_TRACE_CLIENT	1
 
 // Statistics
 #define MAX_CONNECTION_QUEUE	5
@@ -32,6 +36,7 @@
 // === TYPES ===
 typedef struct sClient
 {
+	 int	Socket;	// Client socket ID
 	 int	ID;	// Client ID
 	 
 	 int	bIsTrusted;	// Is the connection from a trusted host/port
@@ -57,8 +62,10 @@ char	*Server_Cmd_ITEMINFO(tClient *Client, char *Args);
 char	*Server_Cmd_DISPENSE(tClient *Client, char *Args);
 char	*Server_Cmd_GIVE(tClient *Client, char *Args);
 char	*Server_Cmd_ADD(tClient *Client, char *Args);
+char	*Server_Cmd_ENUMUSERS(tClient *Client, char *Args);
 char	*Server_Cmd_USERINFO(tClient *Client, char *Args);
 // --- Helpers ---
+ int	sendf(int Socket, const char *Format, ...);
  int	GetUserAuth(const char *Salt, const char *Username, const uint8_t *Hash);
 void	HexBin(uint8_t *Dest, char *Src, int BufSize);
 
@@ -78,6 +85,7 @@ struct sClientCommand {
 	{"DISPENSE", Server_Cmd_DISPENSE},
 	{"GIVE", Server_Cmd_GIVE},
 	{"ADD", Server_Cmd_ADD},
+	{"ENUM_USERS", Server_Cmd_ENUMUSERS},
 	{"USER_INFO", Server_Cmd_USERINFO}
 };
 #define NUM_COMMANDS	(sizeof(gaServer_Commands)/sizeof(gaServer_Commands[0]))
@@ -185,6 +193,7 @@ void Server_HandleClient(int Socket, int bTrusted)
 	tClient	clientInfo = {0};
 	
 	// Initialise Client info
+	clientInfo.Socket = Socket;
 	clientInfo.ID = giServer_NextClientID ++;
 	clientInfo.bIsTrusted = bTrusted;
 	
@@ -210,7 +219,7 @@ void Server_HandleClient(int Socket, int bTrusted)
 			ret = Server_ParseClientCommand(&clientInfo, start);
 			
 			#if DEBUG_TRACE_CLIENT
-			//printf("ret = %s", ret);
+			printf("send : %s", ret);
 			#endif
 			
 			// `ret` is a string on the heap
@@ -574,6 +583,47 @@ char *Server_Cmd_ADD(tClient *Client, char *Args)
 	}
 }
 
+char *Server_Cmd_ENUMUSERS(tClient *Client, char *Args)
+{
+	 int	i, numRet = 0;
+	 int	maxBal = INT_MAX, minBal = INT_MIN;
+	 int	numUsr = GetMaxID();
+	
+	// Parse arguments
+	//minBal = atoi(Args);
+	
+	// Get return number
+	for( i = 0; i < numUsr; i ++ )
+	{
+		int bal = GetBalance(i);
+		
+		if( bal == INT_MIN )	continue;
+		
+		if( bal < minBal )	continue;
+		if( bal > maxBal )	continue;
+		
+		numRet ++;
+	}
+	
+	// Send count
+	sendf(Client->Socket, "201 Users %i\n", numRet);
+	
+	for( i = 0; i < numUsr; i ++ )
+	{
+		int bal = GetBalance(i);
+		
+		if( bal == INT_MIN )	continue;
+		
+		if( bal < minBal )	continue;
+		if( bal > maxBal )	continue;
+		
+		// TODO: User flags
+		sendf(Client->Socket, "202 User %s %i user\n", GetUserName(i), GetBalance(i));
+	}
+	
+	return strdup("200 List End\n");
+}
+
 char *Server_Cmd_USERINFO(tClient *Client, char *Args)
 {
 	 int	uid;
@@ -587,6 +637,7 @@ char *Server_Cmd_USERINFO(tClient *Client, char *Args)
 	uid = GetUserID(user);
 	if( uid == -1 )	return strdup("404 Invalid user");
 
+	// TODO: User flags/type
 	return mkstr("202 User %s %i user\n", user, GetBalance(uid));
 }
 
@@ -632,6 +683,29 @@ int GetUserAuth(const char *Salt, const char *Username, const uint8_t *ProvidedH
 }
 
 // --- INTERNAL HELPERS ---
+int sendf(int Socket, const char *Format, ...)
+{
+	va_list	args;
+	 int	len;
+	
+	va_start(args, Format);
+	len = vsnprintf(NULL, 0, Format, args);
+	va_end(args);
+	
+	{
+		char	buf[len+1];
+		va_start(args, Format);
+		vsnprintf(buf, len+1, Format, args);
+		va_end(args);
+		
+		#if DEBUG_TRACE_CLIENT
+		printf("sendf: %s", buf);
+		#endif
+		
+		return send(Socket, buf, len, 0);
+	}
+}
+
 // TODO: Move to another file
 void HexBin(uint8_t *Dest, char *Src, int BufSize)
 {

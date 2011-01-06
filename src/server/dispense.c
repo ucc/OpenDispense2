@@ -27,7 +27,7 @@ int DispenseItem(int User, tItem *Item)
 	// Subtract the balance
 	reason = mkstr("Dispense - %s:%i %s", handler->Name, Item->ID, Item->Name);
 	if( !reason )	reason = Item->Name;	// TODO: Should I instead return an error?
-	ret = Transfer( User, GetUserID(">sales"), Item->Price, reason);
+	ret = Transfer( User, GetUserID(COKEBANK_SALES_ACCT), Item->Price, reason);
 	free(reason);
 	if(ret)	return 2;	// 2: No balance
 	
@@ -40,7 +40,7 @@ int DispenseItem(int User, tItem *Item)
 		if(ret) {
 			Log_Error("Dispense failed after deducting cost (%s dispensing %s - %ic)",
 				username, Item->Name, Item->Price);
-			Transfer( GetUserID(">sales"), User, Item->Price, "rollback" );
+			Transfer( GetUserID(COKEBANK_SALES_ACCT), User, Item->Price, "rollback" );
 			free( username );
 			return -1;	// 1: Unkown Error again
 		}
@@ -78,7 +78,7 @@ int DispenseAdd(int User, int ByUser, int Ammount, const char *ReasonGiven)
 {
 	 int	ret;
 	
-	ret = Transfer( GetUserID(">liability"), User, Ammount, ReasonGiven );
+	ret = Transfer( GetUserID(COKEBANK_DEBT_ACCT), User, Ammount, ReasonGiven );
 	
 	if(ret)	return 2;
 	

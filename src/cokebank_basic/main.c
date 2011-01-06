@@ -20,6 +20,7 @@ void	Init_Cokebank(const char *Argument);
 char	*GetUserName(int User);
  int	GetUserID(const char *Username); 
  int	GetUserAuth(const char *Username, const char *Password);
+ int	GetMaxID(void);
 
 // === GLOBALS ===
 FILE	*gBank_LogFile;
@@ -107,5 +108,10 @@ int GetUserID(const char *Username)
 	}
 
 	return ret;
+}
+
+int GetMaxID(void)
+{
+	return giBank_NumUsers;
 }
 

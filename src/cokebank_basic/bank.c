@@ -15,14 +15,6 @@
 #include <pwd.h>
 #include "common.h"
 
-enum {
-	FLAG_TYPEMASK    = 0x03,
-	USER_TYPE_NORMAL = 0x00,
-	USER_TYPE_COKE   = 0x01,
-	USER_TYPE_WHEEL  = 0x02,
-	USER_TYPE_GOD    = 0x03
-};
-
 // === PROTOTYPES ===
 static int	GetUnixID(const char *Username);
 
@@ -131,7 +123,7 @@ int Bank_AddUser(const char *Username)
 	gaBank_Users[giBank_NumUsers].Balance = 0;
 	gaBank_Users[giBank_NumUsers].Flags = 0;
 	
-	if( strcmp(Username, ">liability") == 0 ) {
+	if( strcmp(Username, COKEBANK_DEBT_ACCT) == 0 ) {
 		gaBank_Users[giBank_NumUsers].Flags = USER_TYPE_GOD;	// No minium
 	}
 	else if( strcmp(Username, "root") == 0 ) {
@@ -160,10 +152,10 @@ char *Bank_GetUserName(int ID)
 		return NULL;
 	
 	if( gaBank_Users[ID].UnixID == -1 )
-		return strdup(">sales");
+		return strdup(COKEBANK_SALES_ACCT);
 
 	if( gaBank_Users[ID].UnixID == -2 )
-		return strdup(">liability");
+		return strdup(COKEBANK_DEBT_ACCT);
 
 	pwd = getpwuid(gaBank_Users[ID].UnixID);
 	if( !pwd )	return NULL;
@@ -175,10 +167,10 @@ static int GetUnixID(const char *Username)
 {
 	 int	uid;
 
-	if( strcmp(Username, ">sales") == 0 ) {	// Pseudo account that sales are made into
+	if( strcmp(Username, COKEBANK_SALES_ACCT) == 0 ) {	// Pseudo account that sales are made into
 		uid = -1;
 	}
-	else if( strcmp(Username, ">liability") == 0 ) {	// Pseudo acount that money is added from
+	else if( strcmp(Username, COKEBANK_DEBT_ACCT) == 0 ) {	// Pseudo acount that money is added from
 		uid = -2;
 	}
 	else {
