@@ -559,7 +559,8 @@ char *Server_Cmd_ADD(tClient *Client, char *Args)
 
 	// Parse ammount
 	iAmmount = atoi(ammount);
-	if( iAmmount == 0 && ammount[0] != '0' )	return strdup("407 Invalid Argument, ammount must be > zero\n");
+	if( iAmmount == 0 && ammount[0] != '0' )
+		return strdup("407 Invalid Argument\n");
 
 	// Do give
 	switch( DispenseAdd(uid, Client->UID, iAmmount, reason) )

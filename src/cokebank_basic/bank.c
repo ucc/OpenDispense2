@@ -56,6 +56,14 @@ int Bank_GetUserBalance(int ID)
 	return gaBank_Users[ID].Balance;
 }
 
+int Bank_GetUserFlags(int ID)
+{
+	if( ID < 0 || ID >= giBank_NumUsers )
+		return INT_MIN;
+
+	return gaBank_Users[ID].Flags;
+}
+
 int Bank_AlterUserBalance(int ID, int Delta)
 {
 	// Sanity
@@ -92,6 +100,8 @@ int Bank_GetMinAllowedBalance(int ID)
 {
 	if( ID < 0 || ID >= giBank_NumUsers )
 		return 0;
+
+//	printf("gaBank_Users[%i].Flags = 0x%x\n", ID, gaBank_Users[ID].Flags);
 
 	switch( gaBank_Users[ID].Flags & FLAG_TYPEMASK )
 	{

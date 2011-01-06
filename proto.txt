@@ -58,7 +58,10 @@ c	ITEM_INFO <item_id>\n
 s	202 Item <item_id> <price> <description>\n
 --- Get Users' Balances ---
 c	ENUM_USERS[ <max balance>]\n
-s	201 Users <count> <username>:<balance>:<flags> <username>:<balance>:<flags> ...\n
+s	201 Users <count>\n
+s	202 User <username> <balance> <flags>\n
+    ...
+s   200 List End
 --- Get a User's Balance ---
 c	USER_INFO\n
 s	202 User <username> <balance> <flags>\n

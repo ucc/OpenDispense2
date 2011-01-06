@@ -72,6 +72,11 @@ int Transfer(int SourceUser, int DestUser, int Ammount, const char *Reason)
 	return 0;
 }
 
+int GetFlags(int User)
+{
+	return Bank_GetUserFlags(User);
+}
+
 /**
  * \brief Get the balance of the passed user
  */
