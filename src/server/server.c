@@ -17,6 +17,7 @@
 #include <string.h>
 #include <limits.h>
 #include <stdarg.h>
+#include <ldap.h>
 
 // HACKS
 #define HACK_TPG_NOAUTH	1
@@ -45,6 +46,7 @@ typedef struct sClient
 	char	Salt[9];
 	
 	 int	UID;
+	 int	EffectiveUID;
 	 int	bIsAuthed;
 }	tClient;
 
@@ -57,6 +59,7 @@ void	Server_ParseClientCommand(tClient *Client, char *CommandString);
 void	Server_Cmd_USER(tClient *Client, char *Args);
 void	Server_Cmd_PASS(tClient *Client, char *Args);
 void	Server_Cmd_AUTOAUTH(tClient *Client, char *Args);
+void	Server_Cmd_SETEUSER(tClient *Client, char *Args);
 void	Server_Cmd_ENUMITEMS(tClient *Client, char *Args);
 void	Server_Cmd_ITEMINFO(tClient *Client, char *Args);
 void	Server_Cmd_DISPENSE(tClient *Client, char *Args);
@@ -71,18 +74,20 @@ void	Server_Cmd_USERFLAGS(tClient *Client, char *Args);
  int	sendf(int Socket, const char *Format, ...);
  int	GetUserAuth(const char *Salt, const char *Username, const uint8_t *Hash);
 void	HexBin(uint8_t *Dest, char *Src, int BufSize);
+#if USE_LDAP
+char	*ReadLDAPValue(const char *Filter, char *Value);
+#endif
 
-// === GLOBALS ===
- int	giServer_Port = 1020;
- int	giServer_NextClientID = 1;
+// === CONSTANTS ===
 // - Commands
-struct sClientCommand {
-	char	*Name;
+const struct sClientCommand {
+	const char	*Name;
 	void	(*Function)(tClient *Client, char *Arguments);
 }	gaServer_Commands[] = {
 	{"USER", Server_Cmd_USER},
 	{"PASS", Server_Cmd_PASS},
 	{"AUTOAUTH", Server_Cmd_AUTOAUTH},
+	{"SETEUSER", Server_Cmd_SETEUSER},
 	{"ENUM_ITEMS", Server_Cmd_ENUMITEMS},
 	{"ITEM_INFO", Server_Cmd_ITEMINFO},
 	{"DISPENSE", Server_Cmd_DISPENSE},
@@ -94,6 +99,15 @@ struct sClientCommand {
 	{"USER_FLAGS", Server_Cmd_USERFLAGS}
 };
 #define NUM_COMMANDS	(sizeof(gaServer_Commands)/sizeof(gaServer_Commands[0]))
+
+// === GLOBALS ===
+ int	giServer_Port = 1020;
+ int	giServer_NextClientID = 1;
+#if USE_LDAP
+char	*gsLDAPServer = "mussel";
+ int	giLDAPPort = 389;
+LDAP	*gpLDAP;
+#endif
  int	giServer_Socket;
 
 // === CODE ===
@@ -104,8 +118,45 @@ void Server_Start(void)
 {
 	 int	client_socket;
 	struct sockaddr_in	server_addr, client_addr;
+	#if USE_LDAP
+	 int	rv;
+	#endif
 
 	atexit(Server_Cleanup);
+
+	#if USE_LDAP
+	// Connect to LDAP
+	rv = ldap_create(&gpLDAP);
+	if(rv) {
+		fprintf(stderr, "ldap_create: %s\n", ldap_err2string(rv));
+		exit(1);
+	}
+	rv = ldap_initialize(&gpLDAP, "ldap://mussel:389");
+	if(rv) {
+		fprintf(stderr, "ldap_initialize: %s\n", ldap_err2string(rv));
+		exit(1);
+	}
+	{ int ver = LDAP_VERSION3; ldap_set_option(gpLDAP, LDAP_OPT_PROTOCOL_VERSION, &ver); }
+	# if 0
+	rv = ldap_start_tls_s(gpLDAP, NULL, NULL);
+	if(rv) {
+		fprintf(stderr, "ldap_start_tls_s: %s\n", ldap_err2string(rv));
+		exit(1);
+	}
+	# endif
+	{
+		struct berval	cred;
+		struct berval	*servcred;
+		cred.bv_val = "secret";
+		cred.bv_len = 6;
+		rv = ldap_sasl_bind_s(gpLDAP, "cn=root,dc=ucc,dc=gu,dc=uwa,dc=edu,dc=au",
+			"", &cred, NULL, NULL, NULL);
+		if(rv) {
+			fprintf(stderr, "ldap_start_tls_s: %s\n", ldap_err2string(rv));
+			exit(1);
+		}
+	}
+	#endif
 
 	// Create Server
 	giServer_Socket = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -417,6 +468,38 @@ void Server_Cmd_AUTOAUTH(tClient *Client, char *Args)
 }
 
 /**
+ * \brief Set effective user
+ */
+void Server_Cmd_SETEUSER(tClient *Client, char *Args)
+{
+	char	*space;
+	
+	space = strchr(Args, ' ');
+	
+	if(space)	*space = '\0';
+	
+	if( !strlen(Args) ) {
+		sendf(Client->Socket, "407 SETEUSER expects an argument\n");
+		return ;
+	}
+
+	// Check user permissions
+	if( (GetFlags(Client->UID) & USER_FLAG_TYPEMASK) < USER_TYPE_COKE ) {
+		sendf(Client->Socket, "403 Not in coke\n");
+		return ;
+	}
+	
+	// Set id
+	Client->EffectiveUID = GetUserID(Args);
+	if( Client->EffectiveUID == -1 ) {
+		sendf(Client->Socket, "404 User not found\n");
+		return ;
+	}
+	
+	sendf(Client->Socket, "200 User set\n");
+}
+
+/**
  * \brief Enumerate the items that the server knows about
  */
 void Server_Cmd_ENUMITEMS(tClient *Client, char *Args)
@@ -494,6 +577,8 @@ void Server_Cmd_DISPENSE(tClient *Client, char *Args)
 {
 	tItem	*item;
 	 int	ret;
+	 int	uid;
+	 
 	if( !Client->bIsAuthed ) {
 		sendf(Client->Socket, "401 Not Authenticated\n");
 		return ;
@@ -504,8 +589,15 @@ void Server_Cmd_DISPENSE(tClient *Client, char *Args)
 		sendf(Client->Socket, "406 Bad Item ID\n");
 		return ;
 	}
+	
+	if( Client->EffectiveUID != -1 ) {
+		uid = Client->EffectiveUID;
+	}
+	else {
+		uid = Client->UID;
+	}
 
-	switch( ret = DispenseItem( Client->UID, item ) )
+	switch( ret = DispenseItem( Client->UID, uid, item ) )
 	{
 	case 0:	sendf(Client->Socket, "200 Dispense OK\n");	return ;
 	case 1:	sendf(Client->Socket, "501 Unable to dispense\n");	return ;
@@ -520,6 +612,7 @@ void Server_Cmd_GIVE(tClient *Client, char *Args)
 {
 	char	*recipient, *ammount, *reason;
 	 int	uid, iAmmount;
+	 int	thisUid;
 	
 	if( !Client->bIsAuthed ) {
 		sendf(Client->Socket, "401 Not Authenticated\n");
@@ -557,9 +650,16 @@ void Server_Cmd_GIVE(tClient *Client, char *Args)
 		sendf(Client->Socket, "407 Invalid Argument, ammount must be > zero\n");
 		return ;
 	}
+	
+	if( Client->EffectiveUID != -1 ) {
+		thisUid = Client->EffectiveUID;
+	}
+	else {
+		thisUid = Client->UID;
+	}
 
 	// Do give
-	switch( DispenseGive(Client->UID, uid, iAmmount, reason) )
+	switch( DispenseGive(Client->UID, thisUid, uid, iAmmount, reason) )
 	{
 	case 0:
 		sendf(Client->Socket, "200 Give OK\n");
@@ -601,7 +701,7 @@ void Server_Cmd_ADD(tClient *Client, char *Args)
 	*reason = '\0';
 	reason ++;
 
-	// TODO: Check if the current user is in coke/higher
+	// Check user permissions
 	if( (GetFlags(Client->UID) & USER_FLAG_TYPEMASK) < USER_TYPE_COKE ) {
 		sendf(Client->Socket, "403 Not in coke\n");
 		return ;
@@ -609,6 +709,12 @@ void Server_Cmd_ADD(tClient *Client, char *Args)
 
 	// Get recipient
 	uid = GetUserID(user);
+
+	// Check user permissions
+	if( (GetFlags(Client->UID) & USER_FLAG_TYPEMASK) < USER_TYPE_COKE ) {
+		sendf(Client->Socket, "403 Not in coke\n");
+		return ;
+	}
 	if( uid == -1 ) {
 		sendf(Client->Socket, "404 Invalid user\n");
 		return ;
@@ -727,6 +833,8 @@ void _SendUserInfo(tClient *Client, int UserID)
 	
 	if( flags & USER_FLAG_DISABLED )
 		disabled = ",disabled";
+	if( flags & USER_FLAG_DOORGROUP )
+		disabled = ",door";
 	
 	// TODO: User flags/type
 	sendf(
@@ -862,11 +970,12 @@ void Server_Cmd_USERFLAGS(tClient *Client, char *Args)
  */
 int GetUserAuth(const char *Salt, const char *Username, const uint8_t *ProvidedHash)
 {
-	#if 0
+	#if USE_LDAP
 	uint8_t	h[20];
 	 int	ofs = strlen(Username) + strlen(Salt);
 	char	input[ ofs + 40 + 1];
 	char	tmp[4 + strlen(Username) + 1];	// uid=%s
+	char	*passhash;
 	#endif
 	
 	#if HACK_TPG_NOAUTH
@@ -882,13 +991,19 @@ int GetUserAuth(const char *Salt, const char *Username, const uint8_t *ProvidedH
 	}
 	#endif
 	
-	#if 0
-	//
+	#if USE_LDAP
+	// Build string to hash
 	strcpy(input, Username);
 	strcpy(input, Salt);
+	
 	// TODO: Get user's SHA-1 hash
 	sprintf(tmp, "uid=%s", Username);
-	ldap_search_s(ld, "", LDAP_SCOPE_BASE, tmp, "userPassword", 0, res);
+	printf("tmp = '%s'\n", tmp);
+	passhash = ReadLDAPValue(tmp, "userPassword");
+	if( !passhash ) {
+		return -1;
+	}
+	printf("LDAP hash '%s'\n", passhash);
 	
 	sprintf(input+ofs, "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
 		h[ 0], h[ 1], h[ 2], h[ 3], h[ 4], h[ 5], h[ 6], h[ 7], h[ 8], h[ 9],
@@ -1001,3 +1116,40 @@ int UnBase64(uint8_t *Dest, char *Src, int BufSize)
 	
 	return Src - start_src;
 }
+
+#if USE_LDAP
+char *ReadLDAPValue(const char *Filter, char *Value)
+{
+	LDAPMessage	*res, *res2;
+	struct berval **attrValues;
+	char	*attrNames[] = {Value,NULL};
+	char	*ret;
+	struct timeval	timeout;
+	 int	rv;
+	
+	timeout.tv_sec = 5;
+	timeout.tv_usec = 0;
+	
+	rv = ldap_search_ext_s(gpLDAP, "", LDAP_SCOPE_BASE, Filter,
+		attrNames, 0, NULL, NULL, &timeout, 1, &res
+		);
+	printf("ReadLDAPValue: rv = %i\n", rv);
+	if(rv) {
+		fprintf(stderr, "LDAP Error reading '%s' with filter '%s'\n%s\n",
+			Value, Filter,
+			ldap_err2string(rv)
+			);
+		return NULL;
+	}
+	
+	res2 = ldap_first_entry(gpLDAP, res);
+	attrValues = ldap_get_values_len(gpLDAP, res2, Value);
+	
+	ret = strndup(attrValues[0]->bv_val, attrValues[0]->bv_len);
+	
+	ldap_value_free_len(attrValues);
+	
+	
+	return ret;
+}
+#endif

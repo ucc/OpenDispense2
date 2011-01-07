@@ -9,11 +9,11 @@
  * 
  * The core of the dispense system, I kinda like it :)
  */
-int DispenseItem(int User, tItem *Item)
+int DispenseItem(int ActualUser, int User, tItem *Item)
 {
 	 int	ret;
 	tHandler	*handler;
-	char	*username;
+	char	*username, *actualUsername;
 	char	*reason;
 	
 	handler = Item->Handler;
@@ -46,30 +46,45 @@ int DispenseItem(int User, tItem *Item)
 		}
 	}
 	
+	actualUsername = GetUserName(ActualUser);
+	
 	// And log that it happened
-	Log_Info("dispense '%s' (%s:%i) by %s [cost %i, balance %i cents]",
+	Log_Info("dispense '%s' (%s:%i) for %s by %s [cost %i, balance %i cents]",
 		Item->Name, handler->Name, Item->ID,
-		username, Item->Price, GetBalance(User)
+		username, actualUsername, Item->Price, GetBalance(User)
 		);
 	
 	free( username );
+	free( actualUsername );
 	return 0;	// 0: EOK
 }
 
 /**
  * \brief Give money from one user to another
  */
-int DispenseGive(int SrcUser, int DestUser, int Ammount, const char *ReasonGiven)
+int DispenseGive(int ActualUser, int SrcUser, int DestUser, int Ammount, const char *ReasonGiven)
 {
 	 int	ret;
+	char	*actualUsername;
+	char	*srcName, *dstName;
+	
 	if( Ammount < 0 )	return 1;	// Um... negative give? Not on my watch!
 	
 	ret = Transfer( SrcUser, DestUser, Ammount, ReasonGiven );
 	if(ret)	return 2;	// No Balance
 	
-	Log_Info("give %i to %s from %s (%s)",
-		Ammount, GetUserName(DestUser), GetUserName(SrcUser), ReasonGiven
+	
+	srcName = GetUserName(SrcUser);
+	dstName = GetUserName(DestUser);
+	actualUsername = GetUserName(ActualUser);
+	
+	Log_Info("give %i to %s from %s by %s (%s)",
+		Ammount, srcName, dstName, actualUsername, ReasonGiven
 		);
+	
+	free(srcName);
+	free(dstName);
+	free(actualUsername);
 	
 	return 0;
 }
@@ -80,14 +95,20 @@ int DispenseGive(int SrcUser, int DestUser, int Ammount, const char *ReasonGiven
 int DispenseAdd(int User, int ByUser, int Ammount, const char *ReasonGiven)
 {
 	 int	ret;
+	char	*dstName, *byName;
 	
 	ret = Transfer( GetUserID(COKEBANK_DEBT_ACCT), User, Ammount, ReasonGiven );
-	
 	if(ret)	return 2;
 	
+	byName = GetUserName(ByUser);
+	dstName = GetUserName(User);
+	
 	Log_Info("add %i to %s by %s (%s)",
-		Ammount, GetUserName(User), GetUserName(ByUser), ReasonGiven
+		Ammount, dstName, byName, ReasonGiven
 		);
+	
+	free(byName);
+	free(dstName);
 	
 	return 0;
 }

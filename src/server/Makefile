@@ -6,7 +6,7 @@ OBJ += dispense.o itemdb.o
 OBJ += handler_coke.o handler_snack.o handler_door.o
 BIN := ../../dispsrv
 
-LINKFLAGS := -g ../../cokebank.so
+LINKFLAGS := -g ../../cokebank.so -lldap
 CPPFLAGS := 
 CFLAGS := -Wall -g
 

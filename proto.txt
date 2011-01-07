@@ -35,6 +35,9 @@ If the client is connecting from a trusted machine on a root port then
 automatic authentication is allowed
 c	AUTOAUTH <username>\n
 s	200 Auth OK\n or 404 Bad Username\n or 401 Untrusted\n
+--- Set effective user (User in `dispense -u`) ---
+c	SETEUSER <username>\n
+s	200 User set\n or 403 Not in coke\n or 404 User not found\n
 
 === Commands ===
 --- Dispense an item ---
