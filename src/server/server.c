@@ -812,7 +812,7 @@ void Server_Cmd_USERFLAGS(tClient *Client, char *Args)
 			{"coke", USER_FLAG_TYPEMASK, USER_TYPE_COKE},
 			{"wheel", USER_FLAG_TYPEMASK, USER_TYPE_WHEEL},
 			{"meta", USER_FLAG_TYPEMASK, USER_TYPE_GOD}
-			};
+		};
 		const int	ciNumFlags = sizeof(cFLAGS)/sizeof(cFLAGS[0]);
 		
 		while( *flags == ' ' )	flags ++;	// Eat whitespace

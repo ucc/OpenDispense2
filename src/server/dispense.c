@@ -47,7 +47,7 @@ int DispenseItem(int User, tItem *Item)
 	}
 	
 	// And log that it happened
-	Log_Info("dispense %s (%s:%i) by %s [cost %i, balance %i cents]",
+	Log_Info("dispense '%s' (%s:%i) by %s [cost %i, balance %i cents]",
 		Item->Name, handler->Name, Item->ID,
 		username, Item->Price, GetBalance(User)
 		);
@@ -74,6 +74,9 @@ int DispenseGive(int SrcUser, int DestUser, int Ammount, const char *ReasonGiven
 	return 0;
 }
 
+/**
+ * \brief Add money to an account
+ */
 int DispenseAdd(int User, int ByUser, int Ammount, const char *ReasonGiven)
 {
 	 int	ret;

@@ -17,6 +17,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <stdarg.h>
+#include <syslog.h>
 
 // === IMPORTS ===
 extern void	Init_Cokebank(const char *Argument);	// cokebank.c
@@ -81,6 +82,8 @@ int main(int argc, char *argv[])
 	}
 	
 	signal(SIGINT, sigint_handler);
+	
+	openlog("odispense2", 0, LOG_LOCAL4);
 	
 	Init_Cokebank(gsCokebankPath);
 
