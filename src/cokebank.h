@@ -25,14 +25,56 @@ enum eCokebank_Flags {
 };
 
 // --- Cokebank Functions ---
+/**
+ * \brief Transfer money from one account to another
+ * \param SourceUser	UID (from \a GetUserID) to take the money from
+ * \param DestUser	UID (from \a GetUserID) give money to
+ * \param Ammount	Amount of money (in cents) to transfer
+ * \param Reason	Reason for the transfer
+ */
 extern int	Transfer(int SourceUser, int DestUser, int Ammount, const char *Reason);
+/**
+ * \brief Get flags on an account
+ * \param User	UID to get flags from
+ * \see eCokebank_Flags
+ */
 extern int	GetFlags(int User);
+/**
+ * \brief Set an account's flags
+ * \param User	UID to set flags on
+ * \param Mask	Mask of flags changed
+ * \param Value	Final value of changed flags
+ */
 extern int	SetFlags(int User, int Mask, int Value);
+/**
+ * \brief Get an account's balance
+ * \param User	UID to query
+ */
 extern int	GetBalance(int User);
+/**
+ * \brief Get the name associated with an account
+ * \return Heap string
+ */
 extern char	*GetUserName(int User);
+/**
+ * \brief Get a UID from a passed name
+ */
 extern int	GetUserID(const char *Username);
+/**
+ * \brief Create a new account
+ */
 extern int	CreateUser(const char *Username);
+/**
+ * \brief Get the maximum UID
+ * \note Used for iterating accounts
+ */
 extern int	GetMaxID(void);
+/**
+ * \brief Validates a user's authentication
+ * \param Salt	Salt given to the client for hashing the password
+ * \param Username	Username used
+ * \param Password	Password sent by the client
+ */
 extern int	GetUserAuth(const char *Salt, const char *Username, const char *Password);
 
 #endif
