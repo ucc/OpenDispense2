@@ -25,9 +25,9 @@ extern void	Init_Handlers(void);
 extern void	Load_Itemlist(void);
 extern void	Server_Start(void);
 extern int	giServer_Port;
-extern char*	gsItemListFile;
-extern char*	gsCoke_SerialPort;
-extern char*	gsSnack_SerialPort;
+extern char	*gsItemListFile;
+extern char	*gsCoke_SerialPort;
+extern char	*gsSnack_SerialPort;
 
 // === GLOBALS ===
  int	giDebugLevel = 0;

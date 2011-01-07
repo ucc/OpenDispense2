@@ -37,12 +37,10 @@ regex_t	gSnack_ResponseRegex;
 // == CODE ===
 int Snack_InitHandler()
 {
-	giSnack_SerialFD = open(gsSnack_SerialPort, O_RDWR | O_NOCTTY | O_NONBLOCK);
+	giSnack_SerialFD = InitSerial(gsSnack_SerialPort, 9600);
 	if( giSnack_SerialFD == -1 ) {
 		fprintf(stderr, "ERROR: Unable to open snack serial port ('%s')\n", gsSnack_SerialPort);
 	}
-	
-	InitSerial(giSnack_SerialFD, 9600);
 	
 	regcomp(&gSnack_ResponseRegex, "^(\\d\\d\\d)(.*)$", REG_EXTENDED);
 	return 0;
