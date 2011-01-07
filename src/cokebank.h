@@ -13,15 +13,12 @@
 #define COKEBANK_SALES_ACCT	">sales"	//!< Sales made into
 #define COKEBANK_DEBT_ACCT	">liability"	//!< Credit taken out of
 
-enum eCokebank_Flags {
-	USER_FLAG_TYPEMASK = 0x03,
-	USER_TYPE_NORMAL = 0x00,
-	USER_TYPE_COKE   = 0x01,
-	USER_TYPE_WHEEL  = 0x02,
-	USER_TYPE_GOD    = 0x03,
-	
-	USER_FLAG_DOORGROUP = 0x40,
-	USER_FLAG_DISABLED  = 0x80
+enum eCokebank_Flags {	
+	USER_FLAG_COKE  	= 0x01,
+	USER_FLAG_WHEEL 	= 0x02,
+	USER_FLAG_DOORGROUP	= 0x04,
+	USER_FLAG_INTERNAL	= 0x40,
+	USER_FLAG_DISABLED	= 0x80
 };
 
 // --- Cokebank Functions ---

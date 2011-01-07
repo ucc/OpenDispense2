@@ -401,6 +401,13 @@ void Server_Cmd_AUTOAUTH(tClient *Client, char *Args)
 		return ;
 	}
 	
+	// You can't be an internal account
+	if( GetFlags(Client->UID) & USER_FLAG_INTERNAL ) {
+		Client->UID = -1;
+		sendf(Client->Socket, "401 Auth Failure\n");
+		return ;
+	}
+	
 	if(giDebugLevel)
 		printf("Client %i: Authenticated as '%s' (%i)\n", Client->ID, Args, Client->UID);
 	
@@ -424,7 +431,7 @@ void Server_Cmd_SETEUSER(tClient *Client, char *Args)
 	}
 
 	// Check user permissions
-	if( (GetFlags(Client->UID) & USER_FLAG_TYPEMASK) < USER_TYPE_COKE ) {
+	if( !(GetFlags(Client->UID) & USER_FLAG_COKE) ) {
 		sendf(Client->Socket, "403 Not in coke\n");
 		return ;
 	}
@@ -432,6 +439,13 @@ void Server_Cmd_SETEUSER(tClient *Client, char *Args)
 	// Set id
 	Client->EffectiveUID = GetUserID(Args);
 	if( Client->EffectiveUID == -1 ) {
+		sendf(Client->Socket, "404 User not found\n");
+		return ;
+	}
+	
+	// You can't be an internal account
+	if( GetFlags(Client->EffectiveUID) & USER_FLAG_INTERNAL ) {
+		Client->EffectiveUID = -1;
 		sendf(Client->Socket, "404 User not found\n");
 		return ;
 	}
@@ -583,6 +597,12 @@ void Server_Cmd_GIVE(tClient *Client, char *Args)
 		sendf(Client->Socket, "404 Invalid target user\n");
 		return ;
 	}
+	
+	// You can't alter an internal account
+	if( GetFlags(uid) & USER_FLAG_INTERNAL ) {
+		sendf(Client->Socket, "404 Invalid target user\n");
+		return ;
+	}
 
 	// Parse ammount
 	iAmmount = atoi(ammount);
@@ -642,20 +662,20 @@ void Server_Cmd_ADD(tClient *Client, char *Args)
 	reason ++;
 
 	// Check user permissions
-	if( (GetFlags(Client->UID) & USER_FLAG_TYPEMASK) < USER_TYPE_COKE ) {
+	if( !(GetFlags(Client->UID) & USER_FLAG_COKE)  ) {
 		sendf(Client->Socket, "403 Not in coke\n");
 		return ;
 	}
 
 	// Get recipient
 	uid = GetUserID(user);
-
-	// Check user permissions
-	if( (GetFlags(Client->UID) & USER_FLAG_TYPEMASK) < USER_TYPE_COKE ) {
-		sendf(Client->Socket, "403 Not in coke\n");
+	if( uid == -1 ) {
+		sendf(Client->Socket, "404 Invalid user\n");
 		return ;
 	}
-	if( uid == -1 ) {
+	
+	// You can't alter an internal account
+	if( GetFlags(uid) & USER_FLAG_INTERNAL ) {
 		sendf(Client->Socket, "404 Invalid user\n");
 		return ;
 	}
@@ -759,22 +779,29 @@ void Server_Cmd_USERINFO(tClient *Client, char *Args)
 
 void _SendUserInfo(tClient *Client, int UserID)
 {
-	char	*type, *disabled="";
+	char	*type, *disabled="", *door="";
 	 int	flags = GetFlags(UserID);
 	
-	switch( flags & USER_FLAG_TYPEMASK )
-	{
-	default:
-	case USER_TYPE_NORMAL:	type = "user";	break;
-	case USER_TYPE_COKE:	type = "coke";	break;
-	case USER_TYPE_WHEEL:	type = "wheel";	break;
-	case USER_TYPE_GOD:	type = "meta";	break;
+	if( flags & USER_FLAG_INTERNAL ) {
+		type = "internal";
+	}
+	else if( flags & USER_FLAG_COKE ) {
+		if( flags & USER_FLAG_WHEEL )
+			type = "coke,wheel";
+		else
+			type = "coke";
+	}
+	else if( flags & USER_FLAG_WHEEL ) {
+		type = "wheel";
+	}
+	else {
+		type = "user";
 	}
 	
 	if( flags & USER_FLAG_DISABLED )
 		disabled = ",disabled";
 	if( flags & USER_FLAG_DOORGROUP )
-		disabled = ",door";
+		door = ",door";
 	
 	// TODO: User flags/type
 	sendf(
@@ -789,7 +816,7 @@ void Server_Cmd_USERADD(tClient *Client, char *Args)
 	char	*username, *space;
 	
 	// Check permissions
-	if( (GetFlags(Client->UID) & USER_FLAG_TYPEMASK) < USER_TYPE_WHEEL ) {
+	if( !(GetFlags(Client->UID) & USER_FLAG_WHEEL) ) {
 		sendf(Client->Socket, "403 Not Wheel\n");
 		return ;
 	}
@@ -817,7 +844,7 @@ void Server_Cmd_USERFLAGS(tClient *Client, char *Args)
 	 int	uid;
 	
 	// Check permissions
-	if( (GetFlags(Client->UID) & USER_FLAG_TYPEMASK) < USER_TYPE_WHEEL ) {
+	if( !(GetFlags(Client->UID) & USER_FLAG_WHEEL) ) {
 		sendf(Client->Socket, "403 Not Wheel\n");
 		return ;
 	}
@@ -854,12 +881,11 @@ void Server_Cmd_USERFLAGS(tClient *Client, char *Args)
 			 int	Mask;
 			 int	Value;
 		}	cFLAGS[] = {
-			{"disabled", USER_FLAG_DISABLED, USER_FLAG_DISABLED},
-			{"door", USER_FLAG_DOORGROUP, USER_FLAG_DOORGROUP},
-			{"user", USER_FLAG_TYPEMASK, USER_TYPE_NORMAL},
-			{"coke", USER_FLAG_TYPEMASK, USER_TYPE_COKE},
-			{"wheel", USER_FLAG_TYPEMASK, USER_TYPE_WHEEL},
-			{"meta", USER_FLAG_TYPEMASK, USER_TYPE_GOD}
+			 {"disabled", USER_FLAG_DISABLED, USER_FLAG_DISABLED}
+			,{"door", USER_FLAG_DOORGROUP, USER_FLAG_DOORGROUP}
+			,{"coke", USER_FLAG_COKE, USER_FLAG_COKE}
+			,{"wheel", USER_FLAG_WHEEL, USER_FLAG_WHEEL}
+		//	,{"internal", USER_FLAG_INTERNAL, USER_FLAG_INTERNAL}
 		};
 		const int	ciNumFlags = sizeof(cFLAGS)/sizeof(cFLAGS[0]);
 		

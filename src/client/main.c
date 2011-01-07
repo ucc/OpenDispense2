@@ -1138,7 +1138,7 @@ void _PrintUserLine(const char *Line)
 		flags[flagsLen] = '\0';
 		
 		bal = atoi(Line + matches[4].rm_so);
-		printf("%-15s: $%4i.%02i (%s)\n", username, bal/100, bal%100, flags);
+		printf("%-15s: $%4i.%02i (%s)\n", username, bal/100, abs(bal)%100, flags);
 	}
 }
 

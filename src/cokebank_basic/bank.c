@@ -55,17 +55,15 @@ int Bank_GetUserFlags(int ID)
 {
 	if( ID < 0 || ID >= giBank_NumUsers )
 		return -1;
-		
-	// TODO: Implement checking the PAM groups and status instead, then
-	// fall back on the database. (and update if there is a difference)
 
 	// root
 	if( gaBank_Users[ID].UnixID == 0 ) {
-		gaBank_Users[ID].Flags &= ~USER_FLAG_TYPEMASK;
-		gaBank_Users[ID].Flags |= USER_TYPE_WHEEL;
+		gaBank_Users[ID].Flags |= USER_FLAG_WHEEL|USER_FLAG_COKE;
 	}
 
 	#if USE_UNIX_GROUPS
+	// TODO: Implement checking the PAM groups and status instead, then
+	// fall back on the database. (and update if there is a difference)
 	if( gaBank_Users[ID].UnixID > 0 )
 	{
 		struct passwd	*pwd;
@@ -80,10 +78,9 @@ int Bank_GetUserFlags(int ID)
 		if( grp ) {
 			for( i = 0; grp->gr_mem[i]; i ++ )
 			{
-				if( strcmp(grp->gr_mem[i], pwd->pw_name) == 0 )
-				{
-					gaBank_Users[ID].Flags &= ~USER_FLAG_TYPEMASK;
-					gaBank_Users[ID].Flags |= USER_TYPE_COKE;
+				if( strcmp(grp->gr_mem[i], pwd->pw_name) == 0 ) {
+					gaBank_Users[ID].Flags |= USER_FLAG_COKE;
+					break ;
 				}
 			}
 		}
@@ -93,10 +90,9 @@ int Bank_GetUserFlags(int ID)
 		if( grp ) {
 			for( i = 0; grp->gr_mem[i]; i ++ )
 			{
-				if( strcmp(grp->gr_mem[i], pwd->pw_name) == 0 )
-				{
-					gaBank_Users[ID].Flags &= ~USER_FLAG_TYPEMASK;
-					gaBank_Users[ID].Flags |= USER_TYPE_WHEEL;
+				if( strcmp(grp->gr_mem[i], pwd->pw_name) == 0 ) {
+					gaBank_Users[ID].Flags |= USER_FLAG_WHEEL;
+					break ;
 				}
 			}
 		}
@@ -115,7 +111,7 @@ int Bank_SetUserFlags(int ID, int Mask, int Value)
 	// Silently ignore changes to root and meta accounts
 	if( gaBank_Users[ID].UnixID <= 0 )	return 0;
 	
-	gaBank_Users[ID].Flags &= Mask;
+	gaBank_Users[ID].Flags &= ~Mask;
 	gaBank_Users[ID].Flags |= Value;
 	
 	return 0;
@@ -155,17 +151,26 @@ int Bank_SetUserBalance(int ID, int Value)
 
 int Bank_GetMinAllowedBalance(int ID)
 {
+	 int	flags;
 	if( ID < 0 || ID >= giBank_NumUsers )
 		return 0;
 
-	switch( Bank_GetUserFlags(ID) & USER_FLAG_TYPEMASK )
-	{
-	case USER_TYPE_NORMAL:	return      0;
-	case USER_TYPE_COKE:	return  -2000;
-	case USER_TYPE_WHEEL:	return -10000;
-	case USER_TYPE_GOD:	return INT_MIN;
-	default:	return 0;
-	}
+	flags = Bank_GetUserFlags(ID);
+
+	// Internal accounts have no limit
+	if( (flags & USER_FLAG_INTERNAL) )
+		return INT_MIN;
+
+	// Wheel is allowed to go to -$100
+	if( (flags & USER_FLAG_WHEEL) )
+		return -10000;
+	
+	// Coke is allowed to go to -$20
+	if( (flags & USER_FLAG_COKE) )
+		return -2000;
+
+	// For everyone else, no negative
+	return 0;
 }
 
 /**
@@ -187,10 +192,13 @@ int Bank_AddUser(const char *Username)
 	gaBank_Users[giBank_NumUsers].Flags = 0;
 	
 	if( strcmp(Username, COKEBANK_DEBT_ACCT) == 0 ) {
-		gaBank_Users[giBank_NumUsers].Flags = USER_TYPE_GOD;	// No minium
+		gaBank_Users[giBank_NumUsers].Flags = USER_FLAG_INTERNAL;
+	}
+	else if( strcmp(Username, COKEBANK_SALES_ACCT) == 0 ) {
+		gaBank_Users[giBank_NumUsers].Flags = USER_FLAG_INTERNAL;
 	}
 	else if( strcmp(Username, "root") == 0 ) {
-		gaBank_Users[giBank_NumUsers].Flags = USER_TYPE_GOD;	// No minium
+		gaBank_Users[giBank_NumUsers].Flags = USER_FLAG_WHEEL|USER_FLAG_COKE;
 	}
 	
 	// Commit to file

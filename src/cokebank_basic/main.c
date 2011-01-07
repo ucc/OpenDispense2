@@ -17,6 +17,14 @@
 # include <ldap.h>
 #endif
 
+/*
+ * NOTES:
+ * 
+ * http://linuxdevcenter.com/pub/a/linux/2003/08/14/libldap.html
+ * - Using libldap, the LDAP Client Library 
+ * 
+ */
+
 // === HACKS ===
 #define HACK_TPG_NOAUTH	1
 #define HACK_ROOT_NOAUTH	1
