@@ -33,5 +33,6 @@ extern char	*GetUserName(int User);
 extern int	GetUserID(const char *Username);
 extern int	CreateUser(const char *Username);
 extern int	GetMaxID(void);
+extern int	GetUserAuth(const char *Salt, const char *Username, const char *Password);
 
 #endif

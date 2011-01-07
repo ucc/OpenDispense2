@@ -19,10 +19,6 @@
 #include <stdarg.h>
 #include <ldap.h>
 
-// HACKS
-#define HACK_TPG_NOAUTH	1
-#define HACK_ROOT_NOAUTH	1
-
 #define	DEBUG_TRACE_CLIENT	0
 
 // Statistics
@@ -72,11 +68,7 @@ void	Server_Cmd_USERADD(tClient *Client, char *Args);
 void	Server_Cmd_USERFLAGS(tClient *Client, char *Args);
 // --- Helpers ---
  int	sendf(int Socket, const char *Format, ...);
- int	GetUserAuth(const char *Salt, const char *Username, const uint8_t *Hash);
 void	HexBin(uint8_t *Dest, char *Src, int BufSize);
-#if USE_LDAP
-char	*ReadLDAPValue(const char *Filter, char *Value);
-#endif
 
 // === CONSTANTS ===
 // - Commands
@@ -103,11 +95,6 @@ const struct sClientCommand {
 // === GLOBALS ===
  int	giServer_Port = 1020;
  int	giServer_NextClientID = 1;
-#if USE_LDAP
-char	*gsLDAPServer = "mussel";
- int	giLDAPPort = 389;
-LDAP	*gpLDAP;
-#endif
  int	giServer_Socket;
 
 // === CODE ===
@@ -118,45 +105,8 @@ void Server_Start(void)
 {
 	 int	client_socket;
 	struct sockaddr_in	server_addr, client_addr;
-	#if USE_LDAP
-	 int	rv;
-	#endif
 
 	atexit(Server_Cleanup);
-
-	#if USE_LDAP
-	// Connect to LDAP
-	rv = ldap_create(&gpLDAP);
-	if(rv) {
-		fprintf(stderr, "ldap_create: %s\n", ldap_err2string(rv));
-		exit(1);
-	}
-	rv = ldap_initialize(&gpLDAP, "ldap://mussel:389");
-	if(rv) {
-		fprintf(stderr, "ldap_initialize: %s\n", ldap_err2string(rv));
-		exit(1);
-	}
-	{ int ver = LDAP_VERSION3; ldap_set_option(gpLDAP, LDAP_OPT_PROTOCOL_VERSION, &ver); }
-	# if 0
-	rv = ldap_start_tls_s(gpLDAP, NULL, NULL);
-	if(rv) {
-		fprintf(stderr, "ldap_start_tls_s: %s\n", ldap_err2string(rv));
-		exit(1);
-	}
-	# endif
-	{
-		struct berval	cred;
-		struct berval	*servcred;
-		cred.bv_val = "secret";
-		cred.bv_len = 6;
-		rv = ldap_sasl_bind_s(gpLDAP, "cn=root,dc=ucc,dc=gu,dc=uwa,dc=edu,dc=au",
-			"", &cred, NULL, NULL, NULL);
-		if(rv) {
-			fprintf(stderr, "ldap_start_tls_s: %s\n", ldap_err2string(rv));
-			exit(1);
-		}
-	}
-	#endif
 
 	// Create Server
 	giServer_Socket = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -407,28 +357,15 @@ void Server_Cmd_USER(tClient *Client, char *Args)
  * Usage: PASS <hash>
  */
 void Server_Cmd_PASS(tClient *Client, char *Args)
-{
-	uint8_t	clienthash[HASH_LENGTH] = {0};
-	
-	// Read user's hash
-	HexBin(clienthash, Args, HASH_LENGTH);
-	
+{	
 	// TODO: Decrypt password passed
 	
-	Client->UID = GetUserAuth(Client->Salt, Client->Username, clienthash);
+	Client->UID = GetUserAuth(Client->Salt, Client->Username, Args);
 
 	if( Client->UID != -1 ) {
 		Client->bIsAuthed = 1;
 		sendf(Client->Socket, "200 Auth OK\n");
 		return ;
-	}
-
-	if( giDebugLevel ) {
-		 int	i;
-		printf("Client %i: Password hash ", Client->ID);
-		for(i=0;i<HASH_LENGTH;i++)
-			printf("%02x", clienthash[i]&0xFF);
-		printf("\n");
 	}
 	
 	sendf(Client->Socket, "401 Auth Failure\n");
@@ -964,58 +901,6 @@ void Server_Cmd_USERFLAGS(tClient *Client, char *Args)
 	sendf(Client->Socket, "200 User Updated\n");
 }
 
-/**
- * \brief Authenticate a user
- * \return User ID, or -1 if authentication failed
- */
-int GetUserAuth(const char *Salt, const char *Username, const uint8_t *ProvidedHash)
-{
-	#if USE_LDAP
-	uint8_t	h[20];
-	 int	ofs = strlen(Username) + strlen(Salt);
-	char	input[ ofs + 40 + 1];
-	char	tmp[4 + strlen(Username) + 1];	// uid=%s
-	char	*passhash;
-	#endif
-	
-	#if HACK_TPG_NOAUTH
-	if( strcmp(Username, "tpg") == 0 )
-		return GetUserID("tpg");
-	#endif
-	#if HACK_ROOT_NOAUTH
-	if( strcmp(Username, "root") == 0 ) {
-		int ret = GetUserID("root");
-		if( ret == -1 )
-			return CreateUser("root");
-		return ret;
-	}
-	#endif
-	
-	#if USE_LDAP
-	// Build string to hash
-	strcpy(input, Username);
-	strcpy(input, Salt);
-	
-	// TODO: Get user's SHA-1 hash
-	sprintf(tmp, "uid=%s", Username);
-	printf("tmp = '%s'\n", tmp);
-	passhash = ReadLDAPValue(tmp, "userPassword");
-	if( !passhash ) {
-		return -1;
-	}
-	printf("LDAP hash '%s'\n", passhash);
-	
-	sprintf(input+ofs, "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
-		h[ 0], h[ 1], h[ 2], h[ 3], h[ 4], h[ 5], h[ 6], h[ 7], h[ 8], h[ 9],
-		h[10], h[11], h[12], h[13], h[14], h[15], h[16], h[17], h[18], h[19]
-		);
-	// Then create the hash from the provided salt
-	// Compare that with the provided hash
-	#endif
-	
-	return -1;
-}
-
 // --- INTERNAL HELPERS ---
 int sendf(int Socket, const char *Format, ...)
 {
@@ -1038,40 +923,6 @@ int sendf(int Socket, const char *Format, ...)
 		
 		return send(Socket, buf, len, 0);
 	}
-}
-
-// TODO: Move to another file
-void HexBin(uint8_t *Dest, char *Src, int BufSize)
-{
-	 int	i;
-	for( i = 0; i < BufSize; i ++ )
-	{
-		uint8_t	val = 0;
-		
-		if('0' <= *Src && *Src <= '9')
-			val |= (*Src-'0') << 4;
-		else if('A' <= *Src && *Src <= 'F')
-			val |= (*Src-'A'+10) << 4;
-		else if('a' <= *Src && *Src <= 'f')
-			val |= (*Src-'a'+10) << 4;
-		else
-			break;
-		Src ++;
-		
-		if('0' <= *Src && *Src <= '9')
-			val |= (*Src-'0');
-		else if('A' <= *Src && *Src <= 'F')
-			val |= (*Src-'A'+10);
-		else if('a' <= *Src && *Src <= 'f')
-			val |= (*Src-'a'+10);
-		else
-			break;
-		Src ++;
-		
-		Dest[i] = val;
-	}
-	for( ; i < BufSize; i++ )
-		Dest[i] = 0;
 }
 
 /**
@@ -1116,40 +967,3 @@ int UnBase64(uint8_t *Dest, char *Src, int BufSize)
 	
 	return Src - start_src;
 }
-
-#if USE_LDAP
-char *ReadLDAPValue(const char *Filter, char *Value)
-{
-	LDAPMessage	*res, *res2;
-	struct berval **attrValues;
-	char	*attrNames[] = {Value,NULL};
-	char	*ret;
-	struct timeval	timeout;
-	 int	rv;
-	
-	timeout.tv_sec = 5;
-	timeout.tv_usec = 0;
-	
-	rv = ldap_search_ext_s(gpLDAP, "", LDAP_SCOPE_BASE, Filter,
-		attrNames, 0, NULL, NULL, &timeout, 1, &res
-		);
-	printf("ReadLDAPValue: rv = %i\n", rv);
-	if(rv) {
-		fprintf(stderr, "LDAP Error reading '%s' with filter '%s'\n%s\n",
-			Value, Filter,
-			ldap_err2string(rv)
-			);
-		return NULL;
-	}
-	
-	res2 = ldap_first_entry(gpLDAP, res);
-	attrValues = ldap_get_values_len(gpLDAP, res2, Value);
-	
-	ret = strndup(attrValues[0]->bv_val, attrValues[0]->bv_len);
-	
-	ldap_value_free_len(attrValues);
-	
-	
-	return ret;
-}
-#endif

@@ -166,9 +166,16 @@ int main(int argc, char *argv[])
 				}
 			}
 			
+			// Show user information
 			Dispense_ShowUser(sock, argv[i+1]);
 			
 			close(sock);
+			return 0;
+		}
+		else if( strcmp(arg, "give") == 0 )
+		{
+			// TODO: `dispense give`
+			printf("TODO: Implement `dispense give`\n");
 			return 0;
 		}
 		else if( strcmp(arg, "user") == 0 )
@@ -237,7 +244,9 @@ int main(int argc, char *argv[])
 	
 	if( gsItemPattern )
 	{
-		
+		// TODO: Implement `dispense <name>`
+		printf("TODO: Implement `dispense <name>`\n");
+		i = -1;
 	}
 	else if( gbUseNCurses )
 	{
@@ -295,7 +304,7 @@ void ShowUsage(void)
 		"        Give some of your money away\n"
 		"    dispense acct [<user>]\n"
 		"        Show user balances\n"
-		"    dispense acct <user> [+-=]<ammount> \"<reason>\"\n"
+		"    dispense acct <user> [+-]<ammount> \"<reason>\"\n"
 		"        Alter a account value (Coke members only)\n"
 		"    dispense user add <user>\n"
 		"        Create new coke account (Wheel members only)\n"
