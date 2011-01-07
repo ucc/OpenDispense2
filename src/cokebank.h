@@ -27,6 +27,7 @@ enum eCokebank_Flags {
 // --- Cokebank Functions ---
 extern int	Transfer(int SourceUser, int DestUser, int Ammount, const char *Reason);
 extern int	GetFlags(int User);
+extern int	SetFlags(int User, int Mask, int Value);
 extern int	GetBalance(int User);
 extern char	*GetUserName(int User);
 extern int	GetUserID(const char *Username);

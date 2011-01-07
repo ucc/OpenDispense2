@@ -106,6 +106,21 @@ int Bank_GetUserFlags(int ID)
 	return gaBank_Users[ID].Flags;
 }
 
+int Bank_SetUserFlags(int ID, int Mask, int Value)
+{
+	// Sanity
+	if( ID < 0 || ID >= giBank_NumUsers )
+		return -1;
+	
+	// Silently ignore changes to root and meta accounts
+	if( gaBank_Users[ID].UnixID <= 0 )	return 0;
+	
+	gaBank_Users[ID].Flags &= Mask;
+	gaBank_Users[ID].Flags |= Value;
+	
+	return 0;
+}
+
 int Bank_AlterUserBalance(int ID, int Delta)
 {
 	// Sanity

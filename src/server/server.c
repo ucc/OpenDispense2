@@ -765,6 +765,8 @@ void Server_Cmd_USERFLAGS(tClient *Client, char *Args)
 {
 	char	*username, *flags;
 	char	*space;
+	 int	mask=0, value=0;
+	 int	uid;
 	
 	// Check permissions
 	if( (GetFlags(Client->UID) & USER_FLAG_TYPEMASK) < USER_TYPE_WHEEL ) {
@@ -781,14 +783,76 @@ void Server_Cmd_USERFLAGS(tClient *Client, char *Args)
 		sendf(Client->Socket, "407 USER_FLAGS requires 2 arguments, 1 given\n");
 		return ;
 	}
+	*space = '\0';
 	// - Flags
 	flags = space + 1;
 	while( *flags == ' ' )	flags ++;
 	space = strchr(flags, ' ');
 	if(space)	*space = '\0';
 	
-	printf("Username = '%s', flags = '%s'\n", username, flags);
+	// Get UID
+	uid = GetUserID(username);
+	if( uid == -1 ) {
+		sendf(Client->Socket, "404 User '%s' not found\n", username);
+		return ;
+	}
 	
+	// Parse flags
+	do {
+		 int	bRemove = 0;
+		 int	i;
+		struct {
+			const char	*Name;
+			 int	Mask;
+			 int	Value;
+		}	cFLAGS[] = {
+			{"disabled", USER_FLAG_DISABLED, USER_FLAG_DISABLED},
+			{"door", USER_FLAG_DOORGROUP, USER_FLAG_DOORGROUP},
+			{"user", USER_FLAG_TYPEMASK, USER_TYPE_NORMAL},
+			{"coke", USER_FLAG_TYPEMASK, USER_TYPE_COKE},
+			{"wheel", USER_FLAG_TYPEMASK, USER_TYPE_WHEEL},
+			{"meta", USER_FLAG_TYPEMASK, USER_TYPE_GOD}
+			};
+		const int	ciNumFlags = sizeof(cFLAGS)/sizeof(cFLAGS[0]);
+		
+		while( *flags == ' ' )	flags ++;	// Eat whitespace
+		space = strchr(flags, ',');	// Find the end of the flag
+		if(space)	*space = '\0';
+		
+		// Check for inversion/removal
+		if( *flags == '!' || *flags == '-' ) {
+			bRemove = 1;
+			flags ++;
+		}
+		else if( *flags == '+' ) {
+			flags ++;
+		}
+		
+		// Check flag values
+		for( i = 0; i < ciNumFlags; i ++ )
+		{
+			if( strcmp(flags, cFLAGS[i].Name) == 0 ) {
+				mask |= cFLAGS[i].Mask;
+				value &= ~cFLAGS[i].Mask;
+				if( !bRemove )
+					value |= cFLAGS[i].Value;
+				break;
+			}
+		}
+		
+		// Error check
+		if( i == ciNumFlags ) {
+			sendf(Client->Socket, "407 Unknown flag value '%s'\n", flags);
+			return ;
+		}
+		
+		flags = space + 1;
+	} while(space);
+	
+	// Apply flags
+	SetFlags(uid, mask, value);
+	
+	// Return OK
 	sendf(Client->Socket, "200 User Updated\n");
 }
 

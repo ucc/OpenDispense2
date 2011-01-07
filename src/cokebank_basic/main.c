@@ -78,6 +78,11 @@ int GetFlags(int User)
 	return Bank_GetUserFlags(User);
 }
 
+int SetFlags(int User, int Mask, int Flags)
+{
+	return Bank_SetUserFlags(User, Mask, Flags);
+}
+
 /**
  * \brief Get the balance of the passed user
  */

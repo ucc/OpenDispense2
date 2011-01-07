@@ -929,6 +929,9 @@ int Dispense_SetBalance(int Socket, const char *Username, int Ammount, const cha
 	return -1;
 }
 
+/**
+ * \brief Enumerate users
+ */
 int Dispense_EnumUsers(int Socket)
 {
 	char	*buf;

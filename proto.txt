@@ -75,5 +75,7 @@ s	202 User <username> <balance> <flags>\n
 c	USER_ADD <username>\n
 s	200 User Added\n or 403 Not Wheel\n or 404 User Exists\n
 --- Set user flags ---
+ <flags> is a comma-separated list of flag values (optionally preceded by
+ - to remove the flag) Valid values are: user,coke,wheel,meta,disabled,door
 c	USER_FLAGS <username> <flags>\n
 s	200 User Updated\n or 403 Not Wheel\n or 404 Bad User\n or 407 Unknown Flags\n
