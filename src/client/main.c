@@ -71,7 +71,7 @@ regex_t	gArrayRegex, gItemRegex, gSaltRegex, gUserInfoRegex;
  int	gbIsAuthenticated = 0;
 
 char	*gsItemPattern;	//!< Item pattern
-char	*gsOverrideUser;	//!< '-u' Dispense as another user
+char	*gsEffectiveUser;	//!< '-u' Dispense as another user
  int	gbUseNCurses = 0;	//!< '-G' Use the NCurses GUI?
  int	giMinimumBalance = INT_MIN;	//!< '-m' Minumum balance for `dispense acct`
  int	giMaximumBalance = INT_MAX;	//!< '-M' Maximum balance for `dispense acct`
@@ -115,7 +115,7 @@ int main(int argc, char *argv[])
 				break;
 			
 			case 'u':	// Override User
-				gsOverrideUser = argv[++i];
+				gsEffectiveUser = argv[++i];
 				break;
 			
 			case 'G':	// Use GUI
@@ -642,9 +642,8 @@ int Authenticate(int Socket)
 	{
 	
 	case 200:	// Authenticated, return :)
-		gbIsAuthenticated = 1;
 		free(buf);
-		return 0;
+		break;
 	
 	case 401:	// Untrusted, attempt password authentication
 		free(buf);
@@ -711,12 +710,9 @@ int Authenticate(int Socket)
 			return -1;
 		}
 		free(buf);
-		if( i < 3 ) {
-			gbIsAuthenticated = 1;
-			return 0;
-		}
-		else
+		if( i == 3 )
 			return 2;	// 2 = Bad Password
+		break;
 	
 	case 404:	// Bad Username
 		fprintf(stderr, "Bad Username '%s'\n", pwd->pw_name);
@@ -729,6 +725,43 @@ int Authenticate(int Socket)
 		free(buf);
 		return -1;
 	}
+	
+	// Set effective user
+	if( gsEffectiveUser ) {
+		sendf(Socket, "SETEUSER %s\n", gsEffectiveUser);
+		
+		buf = ReadLine(Socket);
+		responseCode = atoi(buf);
+		
+		switch(responseCode)
+		{
+		case 200:
+			printf("Running as '%s' by '%s'\n", gsEffectiveUser, pwd->pw_name);
+			break;
+		
+		case 403:
+			printf("Only coke members can use `dispense -u`\n");
+			free(buf);
+			return -1;
+		
+		case 404:
+			printf("Invalid user selected\n");
+			free(buf);
+			return -1;
+		
+		default:
+			fprintf(stderr, "Unkown response code %i from server\n", responseCode);
+			printf("%s\n", buf);
+			free(buf);
+			exit(-1);
+		}
+		
+		free(buf);
+	}
+	
+	gbIsAuthenticated = 1;
+	
+	return 0;
 }
 
 
