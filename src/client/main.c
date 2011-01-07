@@ -52,6 +52,8 @@ void	PopulateItemList(int Socket);
  int	Dispense_EnumUsers(int Socket);
  int	Dispense_ShowUser(int Socket, const char *Username);
 void	_PrintUserLine(const char *Line);
+ int	Dispense_AddUser(int Socket, const char *Username);
+ int	Dispense_SetUserType(int Socket, const char *Username, const char *TypeString);
 // --- Helpers ---
 char	*ReadLine(int Socket);
  int	sendf(int Socket, const char *Format, ...);
@@ -68,6 +70,7 @@ tItem	*gaItems;
 regex_t	gArrayRegex, gItemRegex, gSaltRegex, gUserInfoRegex;
  int	gbIsAuthenticated = 0;
 
+char	*gsItemPattern;	//!< Item pattern
 char	*gsOverrideUser;	//!< '-u' Dispense as another user
  int	gbUseNCurses = 0;	//!< '-G' Use the NCurses GUI?
  int	giMinimumBalance = INT_MIN;	//!< '-m' Minumum balance for `dispense acct`
@@ -125,7 +128,6 @@ int main(int argc, char *argv[])
 		
 		if( strcmp(arg, "acct") == 0 )
 		{
-
 			// Connect to server
 			sock = OpenConnection(gsDispenseServer, giDispensePort);
 			if( sock < 0 )	return -1;
@@ -140,14 +142,15 @@ int main(int argc, char *argv[])
 			
 			// Alter account?
 			if( i + 2 < argc )
-			{	
+			{
 				if( i + 3 >= argc ) {
 					fprintf(stderr, "Error: `dispense acct' needs a reason\n");
 					exit(1);
 				}
 				
 				// Authentication required
-				Authenticate(sock);
+				if( Authenticate(sock) )
+					return -1;
 				
 				// argv[i+1]: Username
 				// argv[i+2]: Ammount
@@ -168,8 +171,56 @@ int main(int argc, char *argv[])
 			close(sock);
 			return 0;
 		}
+		else if( strcmp(arg, "user") == 0 )
+		{
+			// Check argument count
+			if( i + 1 >= argc ) {
+				fprintf(stderr, "Error: `dispense user` requires arguments\n");
+				ShowUsage();
+				exit(1);
+			}
+			
+			// Connect to server
+			sock = OpenConnection(gsDispenseServer, giDispensePort);
+			if( sock < 0 )	return -1;
+			
+			// Attempt authentication
+			if( Authenticate(sock) )
+				return -1;
+			
+			// Add new user?
+			if( strcmp(argv[i+1], "add") == 0 )
+			{
+				if( i + 2 >= argc ) {
+					fprintf(stderr, "Error: `dispense user add` requires an argument\n");
+					ShowUsage();
+					exit(1);
+				}
+				
+				Dispense_AddUser(sock, argv[i+2]);
+			}
+			// Update a user
+			else if( strcmp(argv[i+1], "type") == 0 )
+			{
+				if( i + 3 >= argc ) {
+					fprintf(stderr, "Error: `dispense user type` requires two arguments\n");
+					ShowUsage();
+					exit(1);
+				}
+				
+				Dispense_SetUserType(sock, argv[i+2], argv[i+3]);
+			}
+			else
+			{
+				fprintf(stderr, "Error: Unknown sub-command for `dispense user`\n");
+				ShowUsage();
+				exit(1);
+			}
+			return 0;
+		}
 		else {
 			// Item name / pattern
+			gsItemPattern = arg;
 			break;
 		}
 	}
@@ -184,7 +235,11 @@ int main(int argc, char *argv[])
 	// Get items
 	PopulateItemList(sock);
 	
-	if( gbUseNCurses )
+	if( gsItemPattern )
+	{
+		
+	}
+	else if( gbUseNCurses )
 	{
 		i = ShowNCursesUI();
 	}
@@ -997,6 +1052,89 @@ void _PrintUserLine(const char *Line)
 		bal = atoi(Line + matches[4].rm_so);
 		printf("%-15s: $%4i.%02i (%s)\n", username, bal/100, bal%100, flags);
 	}
+}
+
+int Dispense_AddUser(int Socket, const char *Username)
+{
+	char	*buf;
+	 int	responseCode, ret;
+	
+	sendf(Socket, "USER_ADD %s\n", Username);
+	
+	buf = ReadLine(Socket);
+	responseCode = atoi(buf);
+	
+	switch(responseCode)
+	{
+	case 200:
+		printf("User '%s' added\n", Username);
+		ret = 0;
+		break;
+		
+	case 403:
+		printf("Only wheel can add users\n");
+		ret = 1;
+		break;
+		
+	case 404:
+		printf("User '%s' already exists\n", Username);
+		ret = 0;
+		break;
+	
+	default:
+		fprintf(stderr, "Unknown response code %i '%s'\n", responseCode, buf);
+		ret = -1;
+		break;
+	}
+	
+	free(buf);
+	
+	return ret;
+}
+
+int Dispense_SetUserType(int Socket, const char *Username, const char *TypeString)
+{
+	char	*buf;
+	 int	responseCode, ret;
+	
+	// TODO: Pre-validate the string
+	
+	sendf(Socket, "USER_FLAGS %s %s\n", Username, TypeString);
+	
+	buf = ReadLine(Socket);
+	responseCode = atoi(buf);
+	
+	switch(responseCode)
+	{
+	case 200:
+		printf("User '%s' updated\n", Username);
+		ret = 0;
+		break;
+		
+	case 403:
+		printf("Only wheel can modify users\n");
+		ret = 1;
+		break;
+	
+	case 404:
+		printf("User '%s' does not exist\n", Username);
+		ret = 0;
+		break;
+	
+	case 407:
+		printf("Flag string is invalid\n");
+		ret = 0;
+		break;
+	
+	default:
+		fprintf(stderr, "Unknown response code %i '%s'\n", responseCode, buf);
+		ret = -1;
+		break;
+	}
+	
+	free(buf);
+	
+	return ret;
 }
 
 // ---------------

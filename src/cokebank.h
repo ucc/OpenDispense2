@@ -30,6 +30,7 @@ extern int	GetFlags(int User);
 extern int	GetBalance(int User);
 extern char	*GetUserName(int User);
 extern int	GetUserID(const char *Username);
+extern int	CreateUser(const char *Username);
 extern int	GetMaxID(void);
 
 #endif

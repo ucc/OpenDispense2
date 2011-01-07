@@ -55,17 +55,25 @@ c	ENUM_ITEMS\n
 s	201 Items <count>\n
 s	202 Item <item_id> <price> <description>\n
     ...
-s   200 List End\n
+s	200 List End\n
 --- Get Item Information ---
 c	ITEM_INFO <item_id>\n
 s	202 Item <item_id> <price> <description>\n
+
 --- Get Users' Balances ---
  <max balance> and <min balance> can be '-' to indicate "none"
 c	ENUM_USERS[ <min balance> [<max balance>]]\n
 s	201 Users <count>\n
 s	202 User <username> <balance> <flags>\n
     ...
-s   200 List End\n
+s	200 List End\n
 --- Get a User's Balance ---
 c	USER_INFO\n
 s	202 User <username> <balance> <flags>\n
+
+--- Add a new user ---
+c	USER_ADD <username>\n
+s	200 User Added\n or 403 Not Wheel\n or 404 User Exists\n
+--- Set user flags ---
+c	USER_FLAGS <username> <flags>\n
+s	200 User Updated\n or 403 Not Wheel\n or 404 Bad User\n or 407 Unknown Flags\n

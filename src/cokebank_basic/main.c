@@ -99,15 +99,17 @@ char *GetUserName(int User)
  */
 int GetUserID(const char *Username)
 {
+	return Bank_GetUserByName(Username);
+}
+
+int CreateUser(const char *Username)
+{
 	 int	ret;
-
-	// Get internal ID (or create new user)
+	
 	ret = Bank_GetUserByName(Username);
-	if( ret == -1 ) {
-		ret = Bank_AddUser(Username);
-	}
-
-	return ret;
+	if( ret != -1 )	return -1;
+	
+	return Bank_AddUser(Username);
 }
 
 int GetMaxID(void)

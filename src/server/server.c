@@ -65,6 +65,8 @@ void	Server_Cmd_ADD(tClient *Client, char *Args);
 void	Server_Cmd_ENUMUSERS(tClient *Client, char *Args);
 void	Server_Cmd_USERINFO(tClient *Client, char *Args);
 void	_SendUserInfo(tClient *Client, int UserID);
+void	Server_Cmd_USERADD(tClient *Client, char *Args);
+void	Server_Cmd_USERFLAGS(tClient *Client, char *Args);
 // --- Helpers ---
  int	sendf(int Socket, const char *Format, ...);
  int	GetUserAuth(const char *Salt, const char *Username, const uint8_t *Hash);
@@ -87,7 +89,9 @@ struct sClientCommand {
 	{"GIVE", Server_Cmd_GIVE},
 	{"ADD", Server_Cmd_ADD},
 	{"ENUM_USERS", Server_Cmd_ENUMUSERS},
-	{"USER_INFO", Server_Cmd_USERINFO}
+	{"USER_INFO", Server_Cmd_USERINFO},
+	{"USER_ADD", Server_Cmd_USERADD},
+	{"USER_FLAGS", Server_Cmd_USERFLAGS}
 };
 #define NUM_COMMANDS	(sizeof(gaServer_Commands)/sizeof(gaServer_Commands[0]))
  int	giServer_Socket;
@@ -261,6 +265,10 @@ void Server_ParseClientCommand(tClient *Client, char *CommandString)
 {
 	char	*space, *args;
 	 int	i;
+	#if 0
+	char	**argList;
+	 int	numArgs = 0;
+	#endif
 	
 	// Split at first space
 	space = strchr(CommandString, ' ');
@@ -270,7 +278,27 @@ void Server_ParseClientCommand(tClient *Client, char *CommandString)
 	else {
 		*space = '\0';
 		args = space + 1;
+		while( *space == ' ' )	space ++;
+		
+		#if 0
+		// Count arguments
+		numArgs = 1;
+		for( i = 0; args[i]; )
+		{
+			while( CommandString[i] != ' ' ) {
+				if( CommandString[i] == '"' ) {
+					while( !(CommandString[i] != '\\' CommandString[i+1] == '"' ) )
+						i ++;
+					i ++;
+				}
+				i ++;
+			}
+			numArgs ++;
+			while( CommandString[i] == ' ' )	i ++;
+		}
+		#endif
 	}
+	
 	
 	// Find command
 	for( i = 0; i < NUM_COMMANDS; i++ )
@@ -374,7 +402,7 @@ void Server_Cmd_AUTOAUTH(tClient *Client, char *Args)
 	}
 	
 	// Get UID
-	Client->UID = GetUserID( Args );
+	Client->UID = GetUserID( Args );	
 	if( Client->UID < 0 ) {
 		if(giDebugLevel)
 			printf("Client %i: Unknown user '%s'\n", Client->ID, Args);
@@ -658,7 +686,6 @@ void Server_Cmd_ENUMUSERS(tClient *Client, char *Args)
 		if( bal < minBal )	continue;
 		if( bal > maxBal )	continue;
 		
-		// TODO: User flags
 		_SendUserInfo(Client, i);
 	}
 	
@@ -709,6 +736,62 @@ void _SendUserInfo(tClient *Client, int UserID)
 		);
 }
 
+void Server_Cmd_USERADD(tClient *Client, char *Args)
+{
+	char	*username, *space;
+	
+	// Check permissions
+	if( (GetFlags(Client->UID) & USER_FLAG_TYPEMASK) < USER_TYPE_WHEEL ) {
+		sendf(Client->Socket, "403 Not Wheel\n");
+		return ;
+	}
+	
+	// Read arguments
+	username = Args;
+	while( *username == ' ' )	username ++;
+	space = strchr(username, ' ');
+	if(space)	*space = '\0';
+	
+	// Try to create user
+	if( CreateUser(username) == -1 ) {
+		sendf(Client->Socket, "404 User exists\n");
+		return ;
+	}
+	
+	sendf(Client->Socket, "200 User Added\n");
+}
+
+void Server_Cmd_USERFLAGS(tClient *Client, char *Args)
+{
+	char	*username, *flags;
+	char	*space;
+	
+	// Check permissions
+	if( (GetFlags(Client->UID) & USER_FLAG_TYPEMASK) < USER_TYPE_WHEEL ) {
+		sendf(Client->Socket, "403 Not Wheel\n");
+		return ;
+	}
+	
+	// Read arguments
+	// - Username
+	username = Args;
+	while( *username == ' ' )	username ++;
+	space = strchr(username, ' ');
+	if(!space) {
+		sendf(Client->Socket, "407 USER_FLAGS requires 2 arguments, 1 given\n");
+		return ;
+	}
+	// - Flags
+	flags = space + 1;
+	while( *flags == ' ' )	flags ++;
+	space = strchr(flags, ' ');
+	if(space)	*space = '\0';
+	
+	printf("Username = '%s', flags = '%s'\n", username, flags);
+	
+	sendf(Client->Socket, "200 User Updated\n");
+}
+
 /**
  * \brief Authenticate a user
  * \return User ID, or -1 if authentication failed
@@ -727,8 +810,12 @@ int GetUserAuth(const char *Salt, const char *Username, const uint8_t *ProvidedH
 		return GetUserID("tpg");
 	#endif
 	#if HACK_ROOT_NOAUTH
-	if( strcmp(Username, "root") == 0 )
-		return GetUserID("root");
+	if( strcmp(Username, "root") == 0 ) {
+		int ret = GetUserID("root");
+		if( ret == -1 )
+			return CreateUser("root");
+		return ret;
+	}
 	#endif
 	
 	#if 0
