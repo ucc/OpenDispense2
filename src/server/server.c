@@ -17,7 +17,6 @@
 #include <string.h>
 #include <limits.h>
 #include <stdarg.h>
-#include <ldap.h>
 
 #define	DEBUG_TRACE_CLIENT	0
 
@@ -322,7 +321,10 @@ void Server_ParseClientCommand(tClient *Client, char *CommandString)
  * Usage: USER <username>
  */
 void Server_Cmd_USER(tClient *Client, char *Args)
-{	
+{
+	char	*space = strchr(Args, ' ');
+	if(space)	*space = '\0';	// Remove characters after the ' '
+	
 	// Debug!
 	if( giDebugLevel )
 		printf("Client %i authenticating as '%s'\n", Client->ID, Args);
@@ -357,9 +359,11 @@ void Server_Cmd_USER(tClient *Client, char *Args)
  * Usage: PASS <hash>
  */
 void Server_Cmd_PASS(tClient *Client, char *Args)
-{	
-	// TODO: Decrypt password passed
+{
+	char	*space = strchr(Args, ' ');
+	if(space)	*space = '\0';	// Remove characters after the ' '
 	
+	// Pass on to cokebank
 	Client->UID = GetUserAuth(Client->Salt, Client->Username, Args);
 
 	if( Client->UID != -1 ) {
@@ -378,8 +382,8 @@ void Server_Cmd_PASS(tClient *Client, char *Args)
  */
 void Server_Cmd_AUTOAUTH(tClient *Client, char *Args)
 {
-	char	*spos = strchr(Args, ' ');
-	if(spos)	*spos = '\0';	// Remove characters after the ' '
+	char	*space = strchr(Args, ' ');
+	if(space)	*space = '\0';	// Remove characters after the ' '
 	
 	// Check if trusted
 	if( !Client->bIsTrusted ) {

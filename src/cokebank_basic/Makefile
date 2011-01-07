@@ -6,6 +6,11 @@ CPPFLAGS :=
 CFLAGS := -Wall -Werror -g -fPIC
 LDFLAGS := -shared -Wl,-soname,cokebank.so
 
+ifneq ($(USE_LDAP),)
+	CFLAGS += -DUSE_LDAP
+	LDFLAGS += -lldap
+endif
+
 .PHONY: all clean
 
 all:	$(BIN)

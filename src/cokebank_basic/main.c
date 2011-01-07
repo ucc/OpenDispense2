@@ -13,6 +13,9 @@
 #include <string.h>
 #include <openssl/sha.h>
 #include "common.h"
+#if USE_LDAP
+# include <ldap.h>
+#endif
 
 // === HACKS ===
 #define HACK_TPG_NOAUTH	1
@@ -228,7 +231,6 @@ int GetUserAuth(const char *Salt, const char *Username, const char *PasswordStri
 		);
 	// Then create the hash from the provided salt
 	// Compare that with the provided hash
-	
 
 	if( giDebugLevel ) {
 		 int	i;
