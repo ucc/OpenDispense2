@@ -79,7 +79,7 @@ int DispenseGive(int ActualUser, int SrcUser, int DestUser, int Ammount, const c
 	actualUsername = GetUserName(ActualUser);
 	
 	Log_Info("give %i to %s from %s by %s (%s)",
-		Ammount, srcName, dstName, actualUsername, ReasonGiven
+		Ammount, dstName, srcName, actualUsername, ReasonGiven
 		);
 	
 	free(srcName);

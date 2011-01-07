@@ -48,7 +48,7 @@ void	PrintAlign(int Row, int Col, int Width, const char *Left, char Pad1, const 
 void	PopulateItemList(int Socket);
  int	DispenseItem(int Socket, int ItemID);
  int	Dispense_AlterBalance(int Socket, const char *Username, int Ammount, const char *Reason);
- int	Dispense_SetBalance(int Socket, const char *Username, int Ammount, const char *Reason);
+ int	Dispense_Give(int Socket, const char *Username, int Ammount, const char *Reason);
  int	Dispense_EnumUsers(int Socket);
  int	Dispense_ShowUser(int Socket, const char *Username);
 void	_PrintUserLine(const char *Line);
@@ -156,14 +156,8 @@ int main(int argc, char *argv[])
 				// argv[i+2]: Ammount
 				// argv[i+3]: Reason
 				
-				if( argv[i+2][0] == '=' ) {
-					// Set balance
-					Dispense_SetBalance(sock, argv[i+1], atoi(argv[i+2] + 1), argv[i+3]);
-				}
-				else {
-					// Alter balance
-					Dispense_AlterBalance(sock, argv[i+1], atoi(argv[i+2]), argv[i+3]);
-				}
+				// Alter balance
+				Dispense_AlterBalance(sock, argv[i+1], atoi(argv[i+2]), argv[i+3]);
 			}
 			
 			// Show user information
@@ -172,12 +166,36 @@ int main(int argc, char *argv[])
 			close(sock);
 			return 0;
 		}
+		//
+		// `dispense give`
+		// - "Here, have some money."
 		else if( strcmp(arg, "give") == 0 )
 		{
+			if( i + 3 >= argc ) {
+				fprintf(stderr, "`dispense give` takes three arguments\n");
+				ShowUsage();
+				return -1;
+			}
 			// TODO: `dispense give`
-			printf("TODO: Implement `dispense give`\n");
+			
+			// argv[i+1]: Destination
+			// argv[i+2]: Ammount
+			// argv[i+3]: Reason
+			
+			// Connect to server
+			sock = OpenConnection(gsDispenseServer, giDispensePort);
+			if( sock < 0 )	return -1;
+			
+			// Authenticate
+			if( Authenticate(sock) )
+				return -1;
+			
+			Dispense_Give(sock, argv[i+1], atoi(argv[i+2]), argv[i+3]);
 			return 0;
 		}
+		// 
+		// `dispense user`
+		// - User administration (Wheel Only)
 		else if( strcmp(arg, "user") == 0 )
 		{
 			// Check argument count
@@ -932,6 +950,9 @@ int Dispense_AlterBalance(int Socket, const char *Username, int Ammount, const c
 	switch(responseCode)
 	{
 	case 200:	return 0;	// OK
+	case 402:
+		fprintf(stderr, "Insufficient balance\n");
+		return 1;
 	case 403:	// Not in coke
 		fprintf(stderr, "You are not in coke (sucker)\n");
 		return 1;
@@ -949,12 +970,23 @@ int Dispense_AlterBalance(int Socket, const char *Username, int Ammount, const c
 /**
  * \brief Alter a user's balance
  */
-int Dispense_SetBalance(int Socket, const char *Username, int Ammount, const char *Reason)
+int Dispense_Give(int Socket, const char *Username, int Ammount, const char *Reason)
 {
 	char	*buf;
 	 int	responseCode;
 	
-	sendf(Socket, "SET %s %i %s\n", Username, Ammount, Reason);
+	if( Ammount < 0 ) {
+		printf("Sorry, you can only give, you can't take.\n");
+		return -1;
+	}
+	
+	// Fast return on zero
+	if( Ammount == 0 ) {
+		printf("Are you actually going to give any?\n");
+		return 0;
+	}
+	
+	sendf(Socket, "GIVE %s %i %s\n", Username, Ammount, Reason);
 	buf = ReadLine(Socket);
 	
 	responseCode = atoi(buf);
@@ -963,12 +995,15 @@ int Dispense_SetBalance(int Socket, const char *Username, int Ammount, const cha
 	switch(responseCode)
 	{
 	case 200:	return 0;	// OK
-	case 403:	// Not in coke
-		fprintf(stderr, "You are not in coke (sucker)\n");
+	
+	case 402:	
+		fprintf(stderr, "Insufficient balance\n");
 		return 1;
+	
 	case 404:	// Unknown user
 		fprintf(stderr, "Unknown user '%s'\n", Username);
 		return 2;
+	
 	default:
 		fprintf(stderr, "Unknown response code %i\n", responseCode);
 		return -1;
