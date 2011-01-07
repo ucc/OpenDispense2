@@ -30,7 +30,8 @@
 
 // === TYPES ===
 typedef struct sItem {
-	char	*Ident;
+	char	*Type;
+	 int	ID;
 	char	*Desc;
 	 int	Price;
 }	tItem;
@@ -87,7 +88,7 @@ int main(int argc, char *argv[])
 	// > Code Type Count ...
 	CompileRegex(&gArrayRegex, "^([0-9]{3})\\s+([A-Za-z]+)\\s+([0-9]+)", REG_EXTENDED);	//
 	// > Code Type Ident Price Desc
-	CompileRegex(&gItemRegex, "^([0-9]{3})\\s+([A-Za-z]+)\\s+([A-Za-z0-9:]+?)\\s+([0-9]+)\\s+(.+)$", REG_EXTENDED);
+	CompileRegex(&gItemRegex, "^([0-9]{3})\\s+([A-Za-z]+)\\s+([A-Za-z]+):([0-9]+)\\s+([0-9]+)\\s+(.+)$", REG_EXTENDED);
 	// > Code 'SALT' salt
 	CompileRegex(&gSaltRegex, "^([0-9]{3})\\s+([A-Za-z]+)\\s+(.+)$", REG_EXTENDED);
 	// > Code 'User' Username Balance Flags
@@ -273,7 +274,8 @@ int main(int argc, char *argv[])
 	else
 	{
 		for( i = 0; i < giNumItems; i ++ ) {		
-			printf("%2i %s\t%3i %s\n", i, gaItems[i].Ident, gaItems[i].Price, gaItems[i].Desc);
+			printf("%2i %s:%i\t%3i %s\n", i, gaItems[i].Type, gaItems[i].ID,
+				gaItems[i].Price, gaItems[i].Desc);
 		}
 		printf(" q Quit\n");
 		for(;;)
@@ -667,8 +669,7 @@ int Authenticate(int Socket)
 	responseCode = atoi(buf);
 	switch( responseCode )
 	{
-	
-	case 200:	// Authenticated, return :)
+	case 200:	// Autoauth succeeded, return
 		free(buf);
 		break;
 	
@@ -845,7 +846,7 @@ void PopulateItemList(int Socket)
 	// Fetch item information
 	for( i = 0; i < giNumItems; i ++ )
 	{
-		regmatch_t	matches[6];
+		regmatch_t	matches[7];
 		
 		// Get item info
 		buf = ReadLine(Socket);
@@ -856,13 +857,14 @@ void PopulateItemList(int Socket)
 			exit(-1);
 		}
 		
-		RunRegex(&gItemRegex, buf, 6, matches, "Malformed server response");
+		RunRegex(&gItemRegex, buf, 7, matches, "Malformed server response");
 		
 		buf[ matches[3].rm_eo ] = '\0';
 		
-		gaItems[i].Ident = strdup( buf + matches[3].rm_so );
-		gaItems[i].Price = atoi( buf + matches[4].rm_so );
-		gaItems[i].Desc = strdup( buf + matches[5].rm_so );
+		gaItems[i].Type = strdup( buf + matches[3].rm_so );
+		gaItems[i].ID = atoi( buf + matches[4].rm_so );
+		gaItems[i].Price = atoi( buf + matches[5].rm_so );
+		gaItems[i].Desc = strdup( buf + matches[6].rm_so );
 		
 		free(buf);
 	}
@@ -893,7 +895,7 @@ int DispenseItem(int Socket, int ItemID)
 	if( ItemID < 0 || ItemID > giNumItems )	return -1;
 	
 	// Dispense!
-	sendf(Socket, "DISPENSE %s\n", gaItems[ItemID].Ident);
+	sendf(Socket, "DISPENSE %s:%i\n", gaItems[ItemID].Type, gaItems[ItemID].ID);
 	buf = ReadLine(Socket);
 	
 	responseCode = atoi(buf);

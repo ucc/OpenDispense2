@@ -32,13 +32,12 @@ char	*GetUserName(int User);
 #if USE_LDAP
 char	*ReadLDAPValue(const char *Filter, char *Value);
 #endif
-void	HexBin(uint8_t *Dest, int BufSize, char *Src);
+void	HexBin(uint8_t *Dest, int BufSize, const char *Src);
 
 // === GLOBALS ===
 FILE	*gBank_LogFile;
 #if USE_LDAP
-char	*gsLDAPServer = "mussel";
- int	giLDAPPort = 389;
+char	*gsLDAPPath = "ldapi:///";
 LDAP	*gpLDAP;
 #endif
 
@@ -80,7 +79,7 @@ void Init_Cokebank(const char *Argument)
 		fprintf(stderr, "ldap_create: %s\n", ldap_err2string(rv));
 		exit(1);
 	}
-	rv = ldap_initialize(&gpLDAP, "ldap://mussel:389");
+	rv = ldap_initialize(&gpLDAP, gsLDAPPath);
 	if(rv) {
 		fprintf(stderr, "ldap_initialize: %s\n", ldap_err2string(rv));
 		exit(1);
@@ -99,7 +98,7 @@ void Init_Cokebank(const char *Argument)
 		cred.bv_val = "secret";
 		cred.bv_len = 6;
 		rv = ldap_sasl_bind_s(gpLDAP, "cn=root,dc=ucc,dc=gu,dc=uwa,dc=edu,dc=au",
-			"", &cred, NULL, NULL, NULL);
+			"", &cred, NULL, NULL, &servcred);
 		if(rv) {
 			fprintf(stderr, "ldap_start_tls_s: %s\n", ldap_err2string(rv));
 			exit(1);
@@ -232,13 +231,15 @@ int GetUserAuth(const char *Salt, const char *Username, const char *PasswordStri
 	// Then create the hash from the provided salt
 	// Compare that with the provided hash
 
-	if( giDebugLevel ) {
+	# if 1
+	{
 		 int	i;
-		printf("Client %i: Password hash ", Client->ID);
-		for(i=0;i<HASH_LENGTH;i++)
+		printf("Password hash ");
+		for(i=0;i<20;i++)
 			printf("%02x", hash[i]&0xFF);
 		printf("\n");
 	}
+	# endif
 	
 	#endif
 	
@@ -283,7 +284,7 @@ char *ReadLDAPValue(const char *Filter, char *Value)
 #endif
 
 // TODO: Move to another file
-void HexBin(uint8_t *Dest, int BufSize, char *Src)
+void HexBin(uint8_t *Dest, int BufSize, const char *Src)
 {
 	 int	i;
 	for( i = 0; i < BufSize; i ++ )
