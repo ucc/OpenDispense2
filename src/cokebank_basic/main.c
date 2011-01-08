@@ -134,8 +134,9 @@ int Transfer(int SourceUser, int DestUser, int Ammount, const char *Reason)
 		return 1;
 	Bank_AlterUserBalance(DestUser, Ammount);
 	Bank_AlterUserBalance(SourceUser, -Ammount);
-	fprintf(gBank_LogFile, "ACCT #%i{%i} -= %ic [to #%i] (%s)\n", SourceUser, srcBal, Ammount, DestUser, Reason);
-	fprintf(gBank_LogFile, "ACCT #%i{%i} += %ic [from #%i] (%s)\n", DestUser, dstBal, Ammount, SourceUser, Reason);
+	fprintf(gBank_LogFile, "Transfer %ic #%i{%i} > #%i{%i} [%i, %i] (%s)\n",
+		Ammount, SourceUser, srcBal, DestUser, dstBal,
+		srcBal - Ammount, dstBal + Ammount, Reason);
 	return 0;
 }
 
