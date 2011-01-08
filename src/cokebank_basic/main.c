@@ -155,7 +155,7 @@ int SetFlags(int User, int Mask, int Flags)
  */
 int GetBalance(int User)
 {
-	return Bank_GetUserBalance(User);;
+	return Bank_GetUserBalance(User);
 }
 
 /**

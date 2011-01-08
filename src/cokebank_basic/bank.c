@@ -27,6 +27,19 @@ tUser	*gaBank_Users;
 FILE	*gBank_File;
 
 // === CODE ===
+static int Bank_int_WriteEntry(int ID)
+{
+	if( ID < 0 || ID >= giBank_NumUsers ) {
+		return -1;
+	}
+	
+	// Commit to file
+	fseek(gBank_File, ID*sizeof(gaBank_Users[0]), SEEK_SET);
+	fwrite(&gaBank_Users[ID], sizeof(gaBank_Users[0]), 1, gBank_File);
+	
+	return 0;
+}
+
 int Bank_GetUserByName(const char *Username)
 {
 	 int	i, uid;
@@ -113,6 +126,8 @@ int Bank_SetUserFlags(int ID, int Mask, int Value)
 	
 	gaBank_Users[ID].Flags &= ~Mask;
 	gaBank_Users[ID].Flags |= Value;
+
+	Bank_int_WriteEntry(ID);
 	
 	return 0;
 }
@@ -126,25 +141,7 @@ int Bank_AlterUserBalance(int ID, int Delta)
 	// Update
 	gaBank_Users[ID].Balance += Delta;
 
-	// Commit
-	fseek(gBank_File, ID*sizeof(gaBank_Users[0]), SEEK_SET);
-	fwrite(&gaBank_Users[ID], sizeof(gaBank_Users[0]), 1, gBank_File);
-	
-	return 0;
-}
-
-int Bank_SetUserBalance(int ID, int Value)
-{
-	// Sanity
-	if( ID < 0 || ID >= giBank_NumUsers )
-		return -1;
-
-	// Update
-	gaBank_Users[ID].Balance = Value;
-	
-	// Commit
-	fseek(gBank_File, ID*sizeof(gaBank_Users[0]), SEEK_SET);
-	fwrite(&gaBank_Users[ID], sizeof(gaBank_Users[0]), 1, gBank_File);
+	Bank_int_WriteEntry(ID);
 	
 	return 0;
 }
@@ -200,13 +197,11 @@ int Bank_AddUser(const char *Username)
 	else if( strcmp(Username, "root") == 0 ) {
 		gaBank_Users[giBank_NumUsers].Flags = USER_FLAG_WHEEL|USER_FLAG_COKE;
 	}
-	
-	// Commit to file
-	fseek(gBank_File, giBank_NumUsers*sizeof(gaBank_Users[0]), SEEK_SET);
-	fwrite(&gaBank_Users[giBank_NumUsers], sizeof(gaBank_Users[0]), 1, gBank_File);
 
 	// Increment count
 	giBank_NumUsers ++;
+	
+	Bank_int_WriteEntry(giBank_NumUsers - 1);
 
 	return 0;
 }
