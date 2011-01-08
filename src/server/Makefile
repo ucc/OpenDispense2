@@ -6,9 +6,11 @@ OBJ += dispense.o itemdb.o
 OBJ += handler_coke.o handler_snack.o handler_door.o
 BIN := ../../dispsrv
 
+DEPFILES := $(OBJ:%.o=%.d)
+
 LINKFLAGS := -g ../../cokebank.so
 CPPFLAGS := 
-CFLAGS := -Wall -g
+CFLAGS := -Wall -Wextra -Werror -g
 
 .PHONY: all clean
 
@@ -19,4 +21,10 @@ clean:
 
 $(BIN): $(OBJ)
 	$(CC) -o $(BIN) $(LINKFLAGS) $(OBJ)
+
+%.o: %.c
+	$(CC) -c $< -o $@ $(CFLAGS) $(CPPFLAGS)
+	@cpp $< -MM -MF $*.d
+	
+-include $(DEPFILES)
 

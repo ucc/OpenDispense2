@@ -18,17 +18,4 @@ typedef struct sUser {
 	 int	Flags;
 }	tUser;
 
-// === IMPORTS ===
-extern int	Bank_GetMinAllowedBalance(int ID);
-extern int	Bank_GetUserBalance(int ID);
-extern int	Bank_AlterUserBalance(int ID, int Delta);
-extern char	*Bank_GetUserName(int ID);
-extern int	Bank_GetUserFlags(int ID);
-extern int	Bank_SetUserFlags(int ID, int Mask, int Value);
-extern int	Bank_GetUserByName(const char *Username);
-extern int	Bank_AddUser(const char *Username);
-extern FILE	*gBank_File;
-extern tUser	*gaBank_Users;
-extern int	giBank_NumUsers;
-
 #endif

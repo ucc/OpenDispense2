@@ -27,12 +27,12 @@ int DispenseItem(int ActualUser, int User, tItem *Item)
 	// Subtract the balance
 	reason = mkstr("Dispense - %s:%i %s", handler->Name, Item->ID, Item->Name);
 	if( !reason )	reason = Item->Name;	// TODO: Should I instead return an error?
-	ret = Transfer( User, GetUserID(COKEBANK_SALES_ACCT), Item->Price, reason);
+	ret = Bank_Transfer( User, Bank_GetUserID(COKEBANK_SALES_ACCT), Item->Price, reason);
 	free(reason);
 	if(ret)	return 2;	// 2: No balance
 	
 	// Get username for debugging
-	username = GetUserName(User);
+	username = Bank_GetUserName(User);
 	
 	// Actually do the dispense
 	if( handler->DoDispense ) {
@@ -40,18 +40,18 @@ int DispenseItem(int ActualUser, int User, tItem *Item)
 		if(ret) {
 			Log_Error("Dispense failed after deducting cost (%s dispensing %s - %ic)",
 				username, Item->Name, Item->Price);
-			Transfer( GetUserID(COKEBANK_SALES_ACCT), User, Item->Price, "rollback" );
+			Bank_Transfer( Bank_GetUserID(COKEBANK_SALES_ACCT), User, Item->Price, "rollback" );
 			free( username );
 			return -1;	// 1: Unkown Error again
 		}
 	}
 	
-	actualUsername = GetUserName(ActualUser);
+	actualUsername = Bank_GetUserName(ActualUser);
 	
 	// And log that it happened
 	Log_Info("dispense '%s' (%s:%i) for %s by %s [cost %i, balance %i cents]",
 		Item->Name, handler->Name, Item->ID,
-		username, actualUsername, Item->Price, GetBalance(User)
+		username, actualUsername, Item->Price, Bank_GetBalance(User)
 		);
 	
 	free( username );
@@ -70,16 +70,17 @@ int DispenseGive(int ActualUser, int SrcUser, int DestUser, int Ammount, const c
 	
 	if( Ammount < 0 )	return 1;	// Um... negative give? Not on my watch!
 	
-	ret = Transfer( SrcUser, DestUser, Ammount, ReasonGiven );
+	ret = Bank_Transfer( SrcUser, DestUser, Ammount, ReasonGiven );
 	if(ret)	return 2;	// No Balance
 	
 	
-	srcName = GetUserName(SrcUser);
-	dstName = GetUserName(DestUser);
-	actualUsername = GetUserName(ActualUser);
+	srcName = Bank_GetUserName(SrcUser);
+	dstName = Bank_GetUserName(DestUser);
+	actualUsername = Bank_GetUserName(ActualUser);
 	
-	Log_Info("give %i to %s from %s by %s (%s)",
-		Ammount, dstName, srcName, actualUsername, ReasonGiven
+	Log_Info("give %i to %s from %s by %s (%s) [balances %i, %i]",
+		Ammount, dstName, srcName, actualUsername, ReasonGiven,
+		Bank_GetBalance(SrcUser), Bank_GetBalance(DestUser)
 		);
 	
 	free(srcName);
@@ -97,14 +98,14 @@ int DispenseAdd(int User, int ByUser, int Ammount, const char *ReasonGiven)
 	 int	ret;
 	char	*dstName, *byName;
 	
-	ret = Transfer( GetUserID(COKEBANK_DEBT_ACCT), User, Ammount, ReasonGiven );
+	ret = Bank_Transfer( Bank_GetUserID(COKEBANK_DEBT_ACCT), User, Ammount, ReasonGiven );
 	if(ret)	return 2;
 	
-	byName = GetUserName(ByUser);
-	dstName = GetUserName(User);
+	byName = Bank_GetUserName(ByUser);
+	dstName = Bank_GetUserName(User);
 	
-	Log_Info("add %i to %s by %s (%s)",
-		Ammount, dstName, byName, ReasonGiven
+	Log_Info("add %i to %s by %s (%s) [balance %i]",
+		Ammount, dstName, byName, ReasonGiven, Bank_GetBalance(User)
 		);
 	
 	free(byName);

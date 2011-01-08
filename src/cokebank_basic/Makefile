@@ -1,9 +1,9 @@
 
 BIN := ../../cokebank.so
-OBJ := main.o bank.o
+OBJ := main.o
 
 CPPFLAGS := 
-CFLAGS := -Wall -Werror -g -fPIC
+CFLAGS := -Wall -Wextra -Werror -g -fPIC -Wmissing-prototypes -Wstrict-prototypes
 LDFLAGS := -shared -Wl,-soname,cokebank.so
 
 ifneq ($(USE_LDAP),)
@@ -11,15 +11,20 @@ ifneq ($(USE_LDAP),)
 	LDFLAGS += -lldap
 endif
 
+DEPFILES := $(OBJ:%.o=%.d)
+
 .PHONY: all clean
 
 all:	$(BIN)
 
 clean:
-	$(RM) $(BIN) $(OBJ)
+	$(RM) $(BIN) $(OBJ) $(DEPFILES)
 
 $(BIN):	$(OBJ)
 	$(CC) $(LDFLAGS) -o $(BIN) $(OBJ)
 
 %.o: %.c
 	$(CC) -c $< -o $@ $(CFLAGS) $(CPPFLAGS)
+	@cpp $< -MM -MF $*.d
+	
+-include $(DEPFILES)

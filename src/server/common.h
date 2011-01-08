@@ -20,6 +20,8 @@
 #define _EXPSTR(x)	#x
 #define EXPSTR(x)	_EXPSTR(x)
 
+#define UNUSED(var)	unused__##var __attribute__((__unused__))
+
 // === STRUCTURES ===
 typedef struct sItem	tItem;
 typedef struct sUser	tUser;

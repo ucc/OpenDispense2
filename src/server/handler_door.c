@@ -49,6 +49,9 @@ int Door_CanDispense(int User, int Item)
 	// Sanity please
 	if( Item == 0 )	return -1;
 	
+	if( !(Bank_GetFlags(User) & USER_FLAG_DOORGROUP) )
+		return 1;
+	
 	return 0;
 }
 
@@ -57,11 +60,12 @@ int Door_CanDispense(int User, int Item)
  */
 int Door_DoDispense(int User, int Item)
 {
-
 	// Sanity please
 	if( Item != 0 )	return -1;
 	
 	// Check if user is in door
+	if( !(Bank_GetFlags(User) & USER_FLAG_DOORGROUP) )
+		return 1;
 	
 	// llogin or other
 

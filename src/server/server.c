@@ -88,7 +88,7 @@ const struct sClientCommand {
 	{"USER_ADD", Server_Cmd_USERADD},
 	{"USER_FLAGS", Server_Cmd_USERFLAGS}
 };
-#define NUM_COMMANDS	(sizeof(gaServer_Commands)/sizeof(gaServer_Commands[0]))
+#define NUM_COMMANDS	((int)(sizeof(gaServer_Commands)/sizeof(gaServer_Commands[0])))
 
 // === GLOBALS ===
  int	giServer_Port = 1020;
@@ -194,7 +194,9 @@ void Server_HandleClient(int Socket, int bTrusted)
 	char	*buf = inbuf;
 	 int	remspace = INPUT_BUFFER_SIZE-1;
 	 int	bytes = -1;
-	tClient	clientInfo = {0};
+	tClient	clientInfo;
+	
+	memset(&clientInfo, 0, sizeof(clientInfo));
 	
 	// Initialise Client info
 	clientInfo.Socket = Socket;
@@ -363,7 +365,7 @@ void Server_Cmd_PASS(tClient *Client, char *Args)
 	if(space)	*space = '\0';	// Remove characters after the ' '
 	
 	// Pass on to cokebank
-	Client->UID = GetUserAuth(Client->Salt, Client->Username, Args);
+	Client->UID = Bank_GetUserAuth(Client->Salt, Client->Username, Args);
 
 	if( Client->UID != -1 ) {
 		Client->bIsAuthed = 1;
@@ -393,7 +395,7 @@ void Server_Cmd_AUTOAUTH(tClient *Client, char *Args)
 	}
 	
 	// Get UID
-	Client->UID = GetUserID( Args );	
+	Client->UID = Bank_GetUserID( Args );	
 	if( Client->UID < 0 ) {
 		if(giDebugLevel)
 			printf("Client %i: Unknown user '%s'\n", Client->ID, Args);
@@ -402,7 +404,7 @@ void Server_Cmd_AUTOAUTH(tClient *Client, char *Args)
 	}
 	
 	// You can't be an internal account
-	if( GetFlags(Client->UID) & USER_FLAG_INTERNAL ) {
+	if( Bank_GetFlags(Client->UID) & USER_FLAG_INTERNAL ) {
 		Client->UID = -1;
 		sendf(Client->Socket, "401 Auth Failure\n");
 		return ;
@@ -431,20 +433,20 @@ void Server_Cmd_SETEUSER(tClient *Client, char *Args)
 	}
 
 	// Check user permissions
-	if( !(GetFlags(Client->UID) & USER_FLAG_COKE) ) {
+	if( !(Bank_GetFlags(Client->UID) & USER_FLAG_COKE) ) {
 		sendf(Client->Socket, "403 Not in coke\n");
 		return ;
 	}
 	
 	// Set id
-	Client->EffectiveUID = GetUserID(Args);
+	Client->EffectiveUID = Bank_GetUserID(Args);
 	if( Client->EffectiveUID == -1 ) {
 		sendf(Client->Socket, "404 User not found\n");
 		return ;
 	}
 	
 	// You can't be an internal account
-	if( GetFlags(Client->EffectiveUID) & USER_FLAG_INTERNAL ) {
+	if( Bank_GetFlags(Client->EffectiveUID) & USER_FLAG_INTERNAL ) {
 		Client->EffectiveUID = -1;
 		sendf(Client->Socket, "404 User not found\n");
 		return ;
@@ -459,6 +461,11 @@ void Server_Cmd_SETEUSER(tClient *Client, char *Args)
 void Server_Cmd_ENUMITEMS(tClient *Client, char *Args)
 {
 	 int	i;
+
+	if( Args != NULL || strlen(Args) ) {
+		sendf(Client->Socket, "407 ENUM_ITEMS takes no arguments\n");
+		return ;
+	}
 
 	sendf(Client->Socket, "201 Items %i\n", giNumItems);
 
@@ -592,14 +599,14 @@ void Server_Cmd_GIVE(tClient *Client, char *Args)
 	reason ++;
 
 	// Get recipient
-	uid = GetUserID(recipient);
+	uid = Bank_GetUserID(recipient);
 	if( uid == -1 ) {
 		sendf(Client->Socket, "404 Invalid target user\n");
 		return ;
 	}
 	
 	// You can't alter an internal account
-	if( GetFlags(uid) & USER_FLAG_INTERNAL ) {
+	if( Bank_GetFlags(uid) & USER_FLAG_INTERNAL ) {
 		sendf(Client->Socket, "404 Invalid target user\n");
 		return ;
 	}
@@ -662,20 +669,20 @@ void Server_Cmd_ADD(tClient *Client, char *Args)
 	reason ++;
 
 	// Check user permissions
-	if( !(GetFlags(Client->UID) & USER_FLAG_COKE)  ) {
+	if( !(Bank_GetFlags(Client->UID) & USER_FLAG_COKE)  ) {
 		sendf(Client->Socket, "403 Not in coke\n");
 		return ;
 	}
 
 	// Get recipient
-	uid = GetUserID(user);
+	uid = Bank_GetUserID(user);
 	if( uid == -1 ) {
 		sendf(Client->Socket, "404 Invalid user\n");
 		return ;
 	}
 	
 	// You can't alter an internal account
-	if( GetFlags(uid) & USER_FLAG_INTERNAL ) {
+	if( Bank_GetFlags(uid) & USER_FLAG_INTERNAL ) {
 		sendf(Client->Socket, "404 Invalid user\n");
 		return ;
 	}
@@ -706,7 +713,7 @@ void Server_Cmd_ENUMUSERS(tClient *Client, char *Args)
 {
 	 int	i, numRet = 0;
 	 int	maxBal = INT_MAX, minBal = INT_MIN;
-	 int	numUsr = GetMaxID();
+	 int	numUsr = Bank_GetMaxID();
 	
 	// Parse arguments
 	if( Args && strlen(Args) )
@@ -730,7 +737,7 @@ void Server_Cmd_ENUMUSERS(tClient *Client, char *Args)
 	// Get return number
 	for( i = 0; i < numUsr; i ++ )
 	{
-		int bal = GetBalance(i);
+		int bal = Bank_GetBalance(i);
 		
 		if( bal == INT_MIN )	continue;
 		
@@ -745,7 +752,7 @@ void Server_Cmd_ENUMUSERS(tClient *Client, char *Args)
 	
 	for( i = 0; i < numUsr; i ++ )
 	{
-		int bal = GetBalance(i);
+		int bal = Bank_GetBalance(i);
 		
 		if( bal == INT_MIN )	continue;
 		
@@ -768,7 +775,7 @@ void Server_Cmd_USERINFO(tClient *Client, char *Args)
 	if(space)	*space = '\0';
 	
 	// Get recipient
-	uid = GetUserID(user);
+	uid = Bank_GetUserID(user);
 	if( uid == -1 ) {
 		sendf(Client->Socket, "404 Invalid user");
 		return ;
@@ -780,7 +787,7 @@ void Server_Cmd_USERINFO(tClient *Client, char *Args)
 void _SendUserInfo(tClient *Client, int UserID)
 {
 	char	*type, *disabled="", *door="";
-	 int	flags = GetFlags(UserID);
+	 int	flags = Bank_GetFlags(UserID);
 	
 	if( flags & USER_FLAG_INTERNAL ) {
 		type = "internal";
@@ -806,7 +813,7 @@ void _SendUserInfo(tClient *Client, int UserID)
 	// TODO: User flags/type
 	sendf(
 		Client->Socket, "202 User %s %i %s%s\n",
-		GetUserName(UserID), GetBalance(UserID),
+		Bank_GetUserName(UserID), Bank_GetBalance(UserID),
 		type, disabled
 		);
 }
@@ -816,7 +823,7 @@ void Server_Cmd_USERADD(tClient *Client, char *Args)
 	char	*username, *space;
 	
 	// Check permissions
-	if( !(GetFlags(Client->UID) & USER_FLAG_WHEEL) ) {
+	if( !(Bank_GetFlags(Client->UID) & USER_FLAG_WHEEL) ) {
 		sendf(Client->Socket, "403 Not Wheel\n");
 		return ;
 	}
@@ -828,7 +835,7 @@ void Server_Cmd_USERADD(tClient *Client, char *Args)
 	if(space)	*space = '\0';
 	
 	// Try to create user
-	if( CreateUser(username) == -1 ) {
+	if( Bank_CreateUser(username) == -1 ) {
 		sendf(Client->Socket, "404 User exists\n");
 		return ;
 	}
@@ -844,7 +851,7 @@ void Server_Cmd_USERFLAGS(tClient *Client, char *Args)
 	 int	uid;
 	
 	// Check permissions
-	if( !(GetFlags(Client->UID) & USER_FLAG_WHEEL) ) {
+	if( !(Bank_GetFlags(Client->UID) & USER_FLAG_WHEEL) ) {
 		sendf(Client->Socket, "403 Not Wheel\n");
 		return ;
 	}
@@ -866,7 +873,7 @@ void Server_Cmd_USERFLAGS(tClient *Client, char *Args)
 	if(space)	*space = '\0';
 	
 	// Get UID
-	uid = GetUserID(username);
+	uid = Bank_GetUserID(username);
 	if( uid == -1 ) {
 		sendf(Client->Socket, "404 User '%s' not found\n", username);
 		return ;
@@ -924,7 +931,7 @@ void Server_Cmd_USERFLAGS(tClient *Client, char *Args)
 	} while(space);
 	
 	// Apply flags
-	SetFlags(uid, mask, value);
+	Bank_SetFlags(uid, mask, value);
 	
 	// Return OK
 	sendf(Client->Socket, "200 User Updated\n");

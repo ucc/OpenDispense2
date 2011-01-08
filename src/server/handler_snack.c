@@ -46,7 +46,7 @@ int Snack_InitHandler()
 	return 0;
 }
 
-int Snack_CanDispense(int User, int Item)
+int Snack_CanDispense(int UNUSED(User), int Item)
 {
 	// Sanity please
 	if( Item < 0 || Item > 99 )	return -1;
@@ -59,7 +59,7 @@ int Snack_CanDispense(int User, int Item)
 /**
  * \brief Actually do a dispense from the coke machine
  */
-int Snack_DoDispense(int User, int Item)
+int Snack_DoDispense(int UNUSED(User), int Item)
 {
 	char	tmp[32];
 	regmatch_t	matches[4];

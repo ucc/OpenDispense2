@@ -52,7 +52,7 @@ int Coke_InitHandler()
 	return 0;
 }
 
-int Coke_CanDispense(int User, int Item)
+int Coke_CanDispense(int UNUSED(User), int Item)
 {
 	char	tmp[40], *status;
 	regmatch_t	matches[4];
@@ -118,7 +118,7 @@ int Coke_CanDispense(int User, int Item)
 /**
  * \brief Actually do a dispense from the coke machine
  */
-int Coke_DoDispense(int User, int Item)
+int Coke_DoDispense(int UNUSED(User), int Item)
 {
 	char	tmp[32];
 	 int	i, ret;
