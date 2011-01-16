@@ -35,10 +35,11 @@
 
 // === PROTOTYPES ===
 void	Init_Cokebank(const char *Argument);
+static int Bank_int_ReadDatabase(void);
+static int Bank_int_WriteEntry(int ID);
  int	Bank_Transfer(int SourceUser, int DestUser, int Ammount, const char *Reason);
  int	Bank_CreateUser(const char *Username);
  int	Bank_GetMaxID(void);
-static int Bank_int_WriteEntry(int ID);
  int	Bank_GetUserID(const char *Username);
  int	Bank_GetBalance(int User);
  int	Bank_GetFlags(int User);
@@ -76,24 +77,15 @@ void Init_Cokebank(const char *Argument)
 	
 	// Open Cokebank
 	gBank_File = fopen(Argument, "rb+");
-	if( !gBank_File ) {
-		gBank_File = fopen(Argument, "wb+");
-	}
-	if( !gBank_File ) {
-		perror("Opening coke bank");
-	}
+	if( !gBank_File )	gBank_File = fopen(Argument, "wb+");
+	if( !gBank_File )	perror("Opening coke bank");
+	Bank_int_ReadDatabase();
 
 	// Open log file
 	// TODO: Do I need this?
 	gBank_LogFile = fopen("cokebank.log", "a");
 	if( !gBank_LogFile )	gBank_LogFile = stdout;
-
-	// Read in cokebank
-	fseek(gBank_File, 0, SEEK_END);
-	giBank_NumUsers = ftell(gBank_File) / sizeof(gaBank_Users[0]);
-	fseek(gBank_File, 0, SEEK_SET);
-	gaBank_Users = malloc( giBank_NumUsers * sizeof(gaBank_Users[0]) );
-	fread(gaBank_Users, sizeof(gaBank_Users[0]), giBank_NumUsers, gBank_File);
+	
 	
 	#if USE_LDAP
 	// Connect to LDAP
@@ -120,7 +112,7 @@ void Init_Cokebank(const char *Argument)
 		struct berval	*servcred;
 		cred.bv_val = "secret";
 		cred.bv_len = 6;
-		rv = ldap_sasl_bind_s(gpLDAP, "cn=root,dc=ucc,dc=gu,dc=uwa,dc=edu,dc=au",
+		rv = ldap_sasl_bind_s(gpLDAP, "cn=admin,dc=ucc,dc=gu,dc=uwa,dc=edu,dc=au",
 			"", &cred, NULL, NULL, &servcred);
 		if(rv) {
 			fprintf(stderr, "ldap_start_tls_s: %s\n", ldap_err2string(rv));
@@ -128,6 +120,51 @@ void Init_Cokebank(const char *Argument)
 		}
 	}
 	#endif
+}
+
+#if 1
+static int Bank_int_ReadDatabase(void)
+{
+	if( gaBank_Users )	return 1;
+	
+	// Get size
+	fseek(gBank_File, 0, SEEK_END);
+	giBank_NumUsers = ftell(gBank_File) / sizeof(gaBank_Users[0]);
+	fseek(gBank_File, 0, SEEK_SET);
+	// Read data
+	gaBank_Users = malloc( giBank_NumUsers * sizeof(gaBank_Users[0]) );
+	fread(gaBank_Users, sizeof(gaBank_Users[0]), giBank_NumUsers, gBank_File);
+	
+	return 0;
+}
+#else
+static int Bank_int_ReadDatabase(void)
+{
+	char	buf[BUFSIZ];
+	// Alternate data format
+	// > Plain Text
+	// <username>,<uid>,<pin>,<lastused>,<balance>,<flags>,<altlogins...>
+	fseek(gBank_File, 0, SEEK_SET);
+	
+	while(1)
+	{
+		fgets(buf, BUFSIZ-1, gBank_File);
+	}
+	#endif
+}
+#endif
+
+static int Bank_int_WriteEntry(int ID)
+{
+	if( ID < 0 || ID >= giBank_NumUsers ) {
+		return -1;
+	}
+	
+	// Commit to file
+	fseek(gBank_File, ID*sizeof(gaBank_Users[0]), SEEK_SET);
+	fwrite(&gaBank_Users[ID], sizeof(gaBank_Users[0]), 1, gBank_File);
+	
+	return 0;
 }
 
 /**
@@ -168,19 +205,6 @@ int Bank_CreateUser(const char *Username)
 int Bank_GetMaxID(void)
 {
 	return giBank_NumUsers;
-}
-
-static int Bank_int_WriteEntry(int ID)
-{
-	if( ID < 0 || ID >= giBank_NumUsers ) {
-		return -1;
-	}
-	
-	// Commit to file
-	fseek(gBank_File, ID*sizeof(gaBank_Users[0]), SEEK_SET);
-	fwrite(&gaBank_Users[ID], sizeof(gaBank_Users[0]), 1, gBank_File);
-	
-	return 0;
 }
 
 /**

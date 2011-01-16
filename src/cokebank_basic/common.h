@@ -18,4 +18,21 @@ typedef struct sUser {
 	 int	Flags;
 }	tUser;
 
+#if 0
+typedef struct sUser
+{
+	char	*Username;
+	 int	UID;
+	 int	Pin;
+	 int	Balance;
+	 int	Flags;
+	time_t	LastUsed;
+}	tUser;
+typedef struct sAltLogin
+{
+	tUser	*User;
+	char	CardID[];
+}	tAltLogin;
+#endif
+
 #endif
