@@ -1,0 +1,19 @@
+
+User
+	INTEGER	UserID
+	STRING	Username
+	
+	STRING	PasswordHash	; < Hmm... needed?
+	INTEGER	PinCode
+	
+	INTEGER	Balance
+	DATETIME	LastSeen
+	BOOL	bEnabled
+	BOOL	bCokeMember
+	BOOL	bWheelMember
+	BOOL	bInternal
+	
+	
+Card -> User
+	STRING	CardID
+	INTEGER	UserID

@@ -13,3 +13,5 @@ Central "dispense" server
  > Accepts commands from dispense app.
   - See `proto.txt`
 
+
+Extra notes, see http://wiki.ucc.asn.au/OpenDispense2
