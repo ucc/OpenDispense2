@@ -1,9 +1,11 @@
 
 User
-	INTEGER	UserID
-	STRING	Username
+	INTEGER	UserID	PRIMARY_KEY
+	
+	STRING	Username	UNIQUE
 	
 	STRING	PasswordHash	; < Hmm... needed?
+	INTEGER	UnixUID	UNIQUE
 	INTEGER	PinCode
 	
 	INTEGER	Balance
@@ -15,5 +17,5 @@ User
 	
 	
 Card -> User
-	STRING	CardID
+	STRING	CardID	UNIQUE
 	INTEGER	UserID
