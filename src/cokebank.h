@@ -14,6 +14,8 @@
 #ifndef _COKEBANK_H_
 #define _COKEBANK_H_
 
+#include <stdlib.h>
+
 #define COKEBANK_SALES_ACCT	">sales"	//!< Sales made into
 #define COKEBANK_DEBT_ACCT	">liability"	//!< Credit taken out of
 
@@ -146,14 +148,24 @@ extern int	Bank_GetUserAuth(const char *Salt, const char *Username, const char *
 extern int	Bank_GetAcctByCard(const char *CardID);
 
 /**
- * \brief Add a card to an git account
- * \param User	User ID
+ * \brief Add a card to an account
+ * \param AcctID	Account ID
  * \param CardID	MIFARE card ID
  * \return Boolean failure
  * \retval 0	Success
- * \retval 1	Bad user ID
+ * \retval 1	Bad account ID
  * \retval 2	Card in use
  */
-extern int	Bank_AddUserCard(int User, const char *CardID);
+extern int	Bank_AddAcctCard(int AcctID, const char *CardID);
+
+// ---
+// Server provided helper functions
+// ---
+/**
+ * \brief Create a formatted string on the heap
+ * \param Format	Format string
+ * \return Heap string
+ */
+extern char	*mkstr(const char *Format, ...);
 
 #endif
