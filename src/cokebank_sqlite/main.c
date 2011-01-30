@@ -90,6 +90,8 @@ int Bank_Initialise(const char *Argument)
 			sqlite3_free(errmsg);
 			return 1;
 		}
+		
+		Log_Info("SQLite database rebuilt");
 	}
 	else
 	{
@@ -159,7 +161,7 @@ int Bank_GetFlags(int UserID)
 
 	// Build Query
 	query = mkstr(
-		"SELECT acct_is_disabled,acct_is_coke,acct_is_wheel,acct_is_door,acct_is_internal"
+		"SELECT acct_is_disabled,acct_is_coke,acct_is_admin,acct_is_door,acct_is_internal"
 		" FROM accounts WHERE acct_id=%i LIMIT 1",
 		UserID
 		);
@@ -335,6 +337,7 @@ tAcctIterator *Bank_Iterator(int FlagMask, int FlagValues, int Flags, int MinMax
 	const char	*revSort;
 	sqlite3_stmt	*ret;
 	
+	// Balance condtion
 	if( Flags & BANK_ITFLAG_MINBALANCE )
 		balanceClause = " AND acct_balance>=";
 	else if( Flags & BANK_ITFLAG_MAXBALANCE )
@@ -344,6 +347,7 @@ tAcctIterator *Bank_Iterator(int FlagMask, int FlagValues, int Flags, int MinMax
 		MinMaxBalance = 0;
 	}
 	
+	// Last seen condition
 	if( Flags & BANK_ITFLAG_SEENAFTER )
 		lastSeenClause = " AND acct_last_seen>=";
 	else if( Flags & BANK_ITFLAG_SEENBEFORE )
@@ -352,6 +356,7 @@ tAcctIterator *Bank_Iterator(int FlagMask, int FlagValues, int Flags, int MinMax
 		lastSeenClause = " AND datetime(-1,'unixepoch')!=";
 	}
 	
+	// Sorting clause
 	switch( Flags & BANK_ITFLAG_SORTMASK )
 	{
 	case BANK_ITFLAG_SORT_NONE:

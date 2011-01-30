@@ -59,6 +59,7 @@ void	Server_Cmd_ENUMITEMS(tClient *Client, char *Args);
 void	Server_Cmd_ITEMINFO(tClient *Client, char *Args);
 void	Server_Cmd_DISPENSE(tClient *Client, char *Args);
 void	Server_Cmd_GIVE(tClient *Client, char *Args);
+void	Server_Cmd_DONATE(tClient *Client, char *Args);
 void	Server_Cmd_ADD(tClient *Client, char *Args);
 void	Server_Cmd_ENUMUSERS(tClient *Client, char *Args);
 void	Server_Cmd_USERINFO(tClient *Client, char *Args);
@@ -83,6 +84,7 @@ const struct sClientCommand {
 	{"ITEM_INFO", Server_Cmd_ITEMINFO},
 	{"DISPENSE", Server_Cmd_DISPENSE},
 	{"GIVE", Server_Cmd_GIVE},
+	{"DONATE", Server_Cmd_DONATE},
 	{"ADD", Server_Cmd_ADD},
 	{"ENUM_USERS", Server_Cmd_ENUMUSERS},
 	{"USER_INFO", Server_Cmd_USERINFO},
@@ -203,6 +205,7 @@ void Server_HandleClient(int Socket, int bTrusted)
 	clientInfo.Socket = Socket;
 	clientInfo.ID = giServer_NextClientID ++;
 	clientInfo.bIsTrusted = bTrusted;
+	clientInfo.EffectiveUID = -1;
 	
 	// Read from client
 	/*
@@ -771,36 +774,133 @@ void Server_Cmd_ADD(tClient *Client, char *Args)
 void Server_Cmd_ENUMUSERS(tClient *Client, char *Args)
 {
 	 int	i, numRet = 0;
-	 int	maxBal = INT_MAX, minBal = INT_MIN;
 	tAcctIterator	*it;
+	 int	maxBal = INT_MAX, minBal = INT_MIN;
+	 int	flagMask = 0, flagVal = 0;
 	 int	sort = BANK_ITFLAG_SORT_NAME;
+	time_t	lastSeenAfter=0, lastSeenBefore=0;
+	
+	 int	flags;	// Iterator flags
+	 int	balValue;	// Balance value for iterator
+	time_t	timeValue;	// Time value for iterator
 	
 	// Parse arguments
 	if( Args && strlen(Args) )
 	{
-		char	*min = Args, *max;
-		
-		max = strchr(Args, ' ');
-		if( max ) {
-			*max = '\0';
-			max ++;
-		}
-		
-		// If <minBal> != "-"
-		if( strcmp(min, "-") != 0 )
-			minBal = atoi(min);
-		// If <maxBal> != "-"
-		if( max && strcmp(max, "-") != 0 )
-			maxBal = atoi(max);
+		char	*space = Args, *type, *val;
+		do
+		{
+			type = space;
+			// Get next space
+			space = strchr(space, ' ');
+			if(space)	*space = '\0';
+			
+			// Get type
+			val = strchr(type, ':');
+			if( val ) {
+				*val = '\0';
+				val ++;
+				
+				// Types
+				// - Minium Balance
+				if( strcmp(type, "min_balance") == 0 ) {
+					minBal = atoi(val);
+				}
+				// - Maximum Balance
+				else if( strcmp(type, "max_balance") == 0 ) {
+					maxBal = atoi(val);
+				}
+				// - Flags
+				else if( strcmp(type, "flags") == 0 ) {
+					if( Server_int_ParseFlags(Client, val, &flagMask, &flagVal) )
+						return ;
+				}
+				// - Last seen before timestamp
+				else if( strcmp(type, "last_seen_before") == 0 ) {
+					lastSeenAfter = atoll(val);
+				}
+				// - Last seen after timestamp
+				else if( strcmp(type, "last_seen_after") == 0 ) {
+					lastSeenAfter = atoll(val);
+				}
+				// - Sorting 
+				else if( strcmp(type, "sort") == 0 ) {
+					char	*dash = strchr(val, '-');
+					if( dash ) {
+						*dash = '\0';
+						dash ++;
+					}
+					if( strcmp(val, "name") == 0 ) {
+						sort = BANK_ITFLAG_SORT_NAME;
+					}
+					else if( strcmp(val, "balance") == 0 ) {
+						sort = BANK_ITFLAG_SORT_BAL;
+					}
+					else if( strcmp(val, "lastseen") == 0 ) {
+						sort = BANK_ITFLAG_SORT_LASTSEEN;
+					}
+					else {
+						sendf(Client->Socket, "407 Unknown sort field ('%s')\n", val);
+						return ;
+					}
+					// Handle sort direction
+					if( dash ) {
+						if( strcmp(dash, "desc") == 0 ) {
+							sort |= BANK_ITFLAG_REVSORT;
+						}
+						else {
+							sendf(Client->Socket, "407 Unknown sort direction '%s'\n", dash);
+							return ;
+						}
+						dash[-1] = '-';
+					}
+				}
+				else {
+					sendf(Client->Socket, "407 Unknown argument to ENUM_USERS '%s:%s'\n", type, val);
+					return ;
+				}
+				
+				val[-1] = ':';
+			}
+			else {
+				sendf(Client->Socket, "407 Unknown argument to ENUM_USERS '%s'\n", type);
+				return ;
+			}
+			
+			// Eat whitespace
+			if( space ) {
+				*space = ' ';	// Repair (to be nice)
+				space ++;
+				while(*space == ' ')	space ++;
+			}
+		}	while(space);
 	}
 	
 	// Create iterator
-	if( maxBal != INT_MAX )
-		it = Bank_Iterator(0, 0, sort|BANK_ITFLAG_MAXBALANCE, maxBal, 0);
-	else if( minBal != INT_MIN )
-		it = Bank_Iterator(0, 0, sort|BANK_ITFLAG_MINBALANCE, minBal, 0);
-	else
-		it = Bank_Iterator(0, 0, sort, 0, 0);
+	if( maxBal != INT_MAX ) {
+		flags = sort|BANK_ITFLAG_MAXBALANCE;
+		balValue = maxBal;
+	}
+	else if( minBal != INT_MIN ) {
+		flags = sort|BANK_ITFLAG_MINBALANCE;
+		balValue = minBal;
+	}
+	else {
+		flags = sort;
+		balValue = 0;
+	}
+	if( lastSeenBefore ) {
+		timeValue = lastSeenBefore;
+		flags |= BANK_ITFLAG_SEENBEFORE;
+	}
+	else if( lastSeenAfter ) {
+		timeValue = lastSeenAfter;
+		flags |= BANK_ITFLAG_SEENAFTER;
+	}
+	else {
+		timeValue = 0;
+	}
+	it = Bank_Iterator(flagMask, flagVal, flags, balValue, timeValue);
 	
 	// Get return number
 	while( (i = Bank_IteratorNext(it)) != -1 )
@@ -822,12 +922,7 @@ void Server_Cmd_ENUMUSERS(tClient *Client, char *Args)
 	
 	
 	// Create iterator
-	if( maxBal != INT_MAX )
-		it = Bank_Iterator(0, 0, sort|BANK_ITFLAG_MAXBALANCE, maxBal, 0);
-	else if( minBal != INT_MIN )
-		it = Bank_Iterator(0, 0, sort|BANK_ITFLAG_MINBALANCE, minBal, 0);
-	else
-		it = Bank_Iterator(0, 0, sort, 0, 0);
+	it = Bank_Iterator(flagMask, flagVal, flags, balValue, timeValue);
 	
 	while( (i = Bank_IteratorNext(it)) != -1 )
 	{
@@ -919,6 +1014,12 @@ void Server_Cmd_USERADD(tClient *Client, char *Args)
 	if( Bank_CreateAcct(username) == -1 ) {
 		sendf(Client->Socket, "404 User exists\n");
 		return ;
+	}
+	
+	{
+		char	*thisName = Bank_GetAcctName(Client->UID);
+		Log_Info("Account '%s' created by '%s'", username, thisName);
+		free(thisName);
 	}
 	
 	sendf(Client->Socket, "200 User Added\n");

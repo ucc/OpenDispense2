@@ -50,6 +50,7 @@ void	PopulateItemList(int Socket);
  int	DispenseItem(int Socket, int ItemID);
  int	Dispense_AlterBalance(int Socket, const char *Username, int Ammount, const char *Reason);
  int	Dispense_Give(int Socket, const char *Username, int Ammount, const char *Reason);
+ int	Dispense_Donate(int Socket, int Ammount, const char *Reason);
  int	Dispense_EnumUsers(int Socket);
  int	Dispense_ShowUser(int Socket, const char *Username);
 void	_PrintUserLine(const char *Line);
@@ -170,7 +171,7 @@ int main(int argc, char *argv[])
 		//
 		// `dispense give`
 		// - "Here, have some money."
-		else if( strcmp(arg, "give") == 0 )
+		if( strcmp(arg, "give") == 0 )
 		{
 			if( i + 3 >= argc ) {
 				fprintf(stderr, "`dispense give` takes three arguments\n");
@@ -197,7 +198,7 @@ int main(int argc, char *argv[])
 		// 
 		// `dispense user`
 		// - User administration (Wheel Only)
-		else if( strcmp(arg, "user") == 0 )
+		if( strcmp(arg, "user") == 0 )
 		{
 			// Check argument count
 			if( i + 1 >= argc ) {
@@ -244,6 +245,31 @@ int main(int argc, char *argv[])
 			}
 			return 0;
 		}
+		
+		// Donation!
+		if( strcmp(arg, "donate") == 0 )
+		{
+			// Check argument count
+			if( i + 2 >= argc ) {
+				fprintf(stderr, "Error: `dispense donate` requires two arguments\n");
+				ShowUsage();
+				exit(1);
+			}
+			
+			// Connect to server
+			sock = OpenConnection(gsDispenseServer, giDispensePort);
+			if( sock < 0 )	return -1;
+			
+			// Attempt authentication
+			if( Authenticate(sock) )
+				return -1;
+			
+			// Do donation
+			Dispense_Donate(sock, atoi(argv[i+1]), argv[i+1]);
+			
+			return 0;
+		}
+		
 		else {
 			// Item name / pattern
 			gsItemPattern = arg;
@@ -321,16 +347,18 @@ void ShowUsage(void)
 		"    dispense <item>\n"
 		"        Dispense named item\n"
 		"    dispense give <user> <ammount> \"<reason>\"\n"
-		"        Give some of your money away\n"
+		"        Give money to another user\n"
+		"    dispense donate <ammount> \"<reason>\"\n"
+		"        Donate to the club\n"
 		"    dispense acct [<user>]\n"
 		"        Show user balances\n"
 		"    dispense acct <user> [+-]<ammount> \"<reason>\"\n"
 		"        Alter a account value (Coke members only)\n"
 		"    dispense user add <user>\n"
-		"        Create new coke account (Wheel members only)\n"
-		"    dispense user type <flags>\n"
+		"        Create new coke account (Admins only)\n"
+		"    dispense user type <user> <flags>\n"
 		"        Alter a user's flags\n"
-		"        <flags> is a comma-separated list of user,coke,wheel,disabled\n"
+		"        <flags> is a comma-separated list of user, coke, admin or disabled\n"
 		"        Flags are removed by preceding the name with '-' or '!'\n"
 		"\n"
 		"General Options:\n"
@@ -970,7 +998,7 @@ int Dispense_AlterBalance(int Socket, const char *Username, int Ammount, const c
 }
 
 /**
- * \brief Alter a user's balance
+ * \brief Give money to another user
  */
 int Dispense_Give(int Socket, const char *Username, int Ammount, const char *Reason)
 {
@@ -1014,6 +1042,48 @@ int Dispense_Give(int Socket, const char *Username, int Ammount, const char *Rea
 	return -1;
 }
 
+
+/**
+ * \brief Donate money to the club
+ */
+int Dispense_Donate(int Socket, int Ammount, const char *Reason)
+{
+	char	*buf;
+	 int	responseCode;
+	
+	if( Ammount < 0 ) {
+		printf("Sorry, you can only give, you can't take.\n");
+		return -1;
+	}
+	
+	// Fast return on zero
+	if( Ammount == 0 ) {
+		printf("Are you actually going to give any?\n");
+		return 0;
+	}
+	
+	sendf(Socket, "DONATE %i %s\n", Ammount, Reason);
+	buf = ReadLine(Socket);
+	
+	responseCode = atoi(buf);
+	free(buf);
+	
+	switch(responseCode)
+	{
+	case 200:	return 0;	// OK
+	
+	case 402:	
+		fprintf(stderr, "Insufficient balance\n");
+		return 1;
+	
+	default:
+		fprintf(stderr, "Unknown response code %i\n", responseCode);
+		return -1;
+	}
+	
+	return -1;
+}
+
 /**
  * \brief Enumerate users
  */
@@ -1026,15 +1096,15 @@ int Dispense_EnumUsers(int Socket)
 	
 	if( giMinimumBalance != INT_MIN ) {
 		if( giMaximumBalance != INT_MAX ) {
-			sendf(Socket, "ENUM_USERS %i %i\n", giMinimumBalance, giMaximumBalance);
+			sendf(Socket, "ENUM_USERS min_balance:%i max_balance:%i\n", giMinimumBalance, giMaximumBalance);
 		}
 		else {
-			sendf(Socket, "ENUM_USERS %i\n", giMinimumBalance);
+			sendf(Socket, "ENUM_USERS min_balance:%i\n", giMinimumBalance);
 		}
 	}
 	else {
 		if( giMaximumBalance != INT_MAX ) {
-			sendf(Socket, "ENUM_USERS - %i\n", giMaximumBalance);
+			sendf(Socket, "ENUM_USERS max_balance:%i\n", giMaximumBalance);
 		}
 		else {
 			sendf(Socket, "ENUM_USERS\n");

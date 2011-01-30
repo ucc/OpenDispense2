@@ -1,0 +1,4 @@
+#!/bin/sh
+sudo ./dispense user add $USER
+sudo ./dispense user type $USER coke
+./dispense add $USER +1000 "initial"

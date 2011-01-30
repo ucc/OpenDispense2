@@ -28,20 +28,23 @@
  */
 typedef struct sAcctIterator	tAcctIterator;
 
+/**
+ * \brief Flag values for the \a Flags parameter to Bank_Iterator
+ */
 enum eBank_ItFlags
 {
-	BANK_ITFLAG_MINBALANCE	= 0x01,
-	BANK_ITFLAG_MAXBALANCE	= 0x02,
-	BANK_ITFLAG_SEENBEFORE	= 0x04,
-	BANK_ITFLAG_SEENAFTER	= 0x08,
+	BANK_ITFLAG_MINBALANCE	= 0x01,	//!< Balance value is Minium Balance
+	BANK_ITFLAG_MAXBALANCE	= 0x02,	//!< Balance value is Maximum Balance (higher priority)
+	BANK_ITFLAG_SEENAFTER	= 0x04,	//!< Last seen value is lower bound
+	BANK_ITFLAG_SEENBEFORE	= 0x08,	//!< Last seen value is upper bound (higher priority)
 	
-	BANK_ITFLAG_SORT_NONE	= 0x000,
-	BANK_ITFLAG_SORT_NAME	= 0x100,
-	BANK_ITFLAG_SORT_BAL	= 0x200,
-	BANK_ITFLAG_SORT_UNIXID	= 0x300,
-	BANK_ITFLAG_SORT_LASTSEEN	= 0x400,
-	BANK_ITFLAG_SORTMASK	= 0x700,
-	BANK_ITFLAG_REVSORT	= 0x800
+	BANK_ITFLAG_SORT_NONE	= 0x000,	//!< No sorting (up to the implementation)
+	BANK_ITFLAG_SORT_NAME	= 0x100,	//!< Sort alphabetically ascending by name
+	BANK_ITFLAG_SORT_BAL	= 0x200,	//!< Sort by balance, ascending
+	BANK_ITFLAG_SORT_UNIXID	= 0x300,	//!< Sort by UnixUID (TODO: Needed?)
+	BANK_ITFLAG_SORT_LASTSEEN = 0x400,	//!< Sort by last seen time (ascending)
+	BANK_ITFLAG_SORTMASK	= 0x700,	//!< Sort type mask
+	BANK_ITFLAG_REVSORT 	= 0x800	//!< Sort descending instead
 };
 
 /**
@@ -67,8 +70,8 @@ extern int	Bank_Initialise(const char *Argument);
 
 /**
  * \brief Transfer money from one account to another
- * \param SourceUser	UID (from \a Bank_GetUserID) to take the money from
- * \param DestUser	UID (from \a Bank_GetUserID) give money to
+ * \param SourceAcct	UID (from \a Bank_GetUserID) to take the money from
+ * \param DestAcct	UID (from \a Bank_GetUserID) give money to
  * \param Ammount	Amount of money (in cents) to transfer
  * \param Reason	Reason for the transfer
  */
@@ -98,11 +101,13 @@ extern int	Bank_GetBalance(int AcctID);
 extern char	*Bank_GetAcctName(int AcctID);
 /**
  * \brief Get an account ID from a passed name
+ * \param Name	Name to search for
+ * \return ID of the account, or -1 if not found
  */
 extern int	Bank_GetAcctByName(const char *Name);
 /**
  * \brief Create a new account
- * \param Username	Name for the new account (if NULL, an anoymous account is created)
+ * \param Name	Name for the new account (if NULL, an anoymous account is created)
  * \return ID of the new account
  */
 extern int	Bank_CreateAcct(const char *Name);
@@ -168,5 +173,11 @@ extern int	Bank_AddAcctCard(int AcctID, const char *CardID);
  * \return Heap string
  */
 extern char	*mkstr(const char *Format, ...);
+
+/**
+ * \brief Dispense log access
+ * \note Try not to over-use, only stuff that matters should go in here
+ */
+extern void	Log_Info(const char *Format, ...);
 
 #endif
