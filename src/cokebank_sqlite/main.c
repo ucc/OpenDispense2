@@ -14,24 +14,31 @@
 #include "../cokebank.h"
 #include <sqlite3.h>
 
-const char * const csBank_CreateAccountQry = "CREATE TABLE IF NOT EXISTS accounts ("
+const char * const csBank_DatabaseSetup = 
+"CREATE TABLE IF NOT EXISTS accounts ("
 "	acct_id INTEGER PRIMARY KEY NOT NULL,"
 "	acct_balance INTEGER NOT NULL DEFAULT 0,"
+"	acct_last_seen DATETIME NOT NULL DEFAULT (datetime('now')),"
 "	acct_name STRING UNIQUE,"
 "	acct_uid INTEGER UNIQUE DEFAULT NULL,"
-"	acct_pin INTEGER CHECK (acct_pin > 0 AND acct_pin < 10000) DEFAULT NULL,"
+"	acct_pin INTEGER DEFAULT NULL," //"	acct_pin INTEGER CHECK (acct_pin > 0 AND acct_pin < 10000) DEFAULT NULL,"
 "	acct_is_disabled BOOLEAN NOT NULL DEFAULT false,"
 "	acct_is_coke BOOLEAN NOT NULL DEFAULT false,"
-"	acct_is_wheel BOOLEAN NOT NULL DEFAULT false,"
+"	acct_is_admin BOOLEAN NOT NULL DEFAULT false,"
 "	acct_is_door BOOLEAN NOT NULL DEFAULT false,"
 "	acct_is_internal BOOLEAN NOT NULL DEFAULT false"
-")";
-const char * const csBank_CreateCardsQry = "CREATE TABLE IF NOT EXISTS cards ("
+");"
+"CREATE TABLE IF NOT EXISTS cards ("
 "	acct_id INTEGER NOT NULL,"
 "	card_name STRING NOT NULL UNIQUE,"
 "	FOREIGN KEY (acct_id) REFERENCES accounts (acct_id) ON DELETE CASCADE"
 //	                 Deletion of the account frees the card  ^ ^ ^
-")";
+");"
+"INSERT INTO accounts (acct_name,acct_is_admin,acct_uid) VALUES ('root',1,0);"
+"INSERT INTO accounts (acct_name,acct_is_internal,acct_uid) VALUES ('"COKEBANK_SALES_ACCT"',1,-1);"
+"INSERT INTO accounts (acct_name,acct_is_internal,acct_uid) VALUES ('"COKEBANK_DEBT_ACCT"',1,-2);"
+"INSERT INTO accounts (acct_name,acct_is_internal,acct_uid) VALUES ('"COKEBANK_FREE_ACCT"',1,-3);"
+;
 
 // === TYPES ===
 struct sAcctIterator	// Unused really, just used as a void type
@@ -41,8 +48,8 @@ struct sAcctIterator	// Unused really, just used as a void type
 // === PROTOYPES ===
  int	Bank_Initialise(const char *Argument);
  int	Bank_Transfer(int SourceAcct, int DestAcct, int Ammount, const char *Reason);
- int	Bank_GetUserFlags(int AcctID);
- int	Bank_SetUserFlags(int AcctID, int Mask, int Value);
+ int	Bank_GetFlags(int AcctID);
+ int	Bank_SetFlags(int AcctID, int Mask, int Value);
  int	Bank_GetBalance(int AcctID);
 char	*Bank_GetAcctName(int AcctID);
 sqlite3_stmt	*Bank_int_MakeStatemnt(sqlite3 *Database, const char *Query);
@@ -73,21 +80,13 @@ int Bank_Initialise(const char *Argument)
 	{
 		// NOP
 	}
-	else if( rv == SQLITE_NOTFOUND )
+	else if( rv == SQLITE_NOTFOUND || rv == SQLITE_ERROR )
 	{
 		sqlite3_free(errmsg);
 		// Create tables
-		// - Accounts
-		rv = sqlite3_exec(gBank_Database, csBank_CreateAccountQry, NULL, NULL, &errmsg);
+		rv = sqlite3_exec(gBank_Database, csBank_DatabaseSetup, NULL, NULL, &errmsg);
 		if( rv != SQLITE_OK ) {
-			fprintf(stderr, "SQLite Error: %s\n", errmsg);
-			sqlite3_free(errmsg);
-			return 1;
-		}
-		// - Mifare relation
-		rv = sqlite3_exec(gBank_Database, csBank_CreateCardsQry, NULL, NULL, &errmsg);
-		if( rv != SQLITE_OK ) {
-			fprintf(stderr, "SQLite Error: %s\n", errmsg);
+			fprintf(stderr, "Bank_Initialise - SQLite Error: %s\n", errmsg);
 			sqlite3_free(errmsg);
 			return 1;
 		}
@@ -95,7 +94,7 @@ int Bank_Initialise(const char *Argument)
 	else
 	{
 		// Unknown error
-		fprintf(stderr, "SQLite Error: %s\n", errmsg);
+		fprintf(stderr, "Bank_Initialise - SQLite Error: %s (rv = %i)\n", errmsg, rv);
 		sqlite3_free(errmsg);
 		return 1;
 	}
@@ -118,24 +117,26 @@ int Bank_Transfer(int SourceUser, int DestUser, int Ammount, const char *Reason)
 	sqlite3_exec(gBank_Database, "BEGIN TRANSACTION", NULL, NULL, NULL);
 
 	// Take from the source
-	query = mkstr("UPDATE accounts SET acct_balance=acct_balance-%i WHERE acct_id=%i", Ammount, SourceUser);
+	query = mkstr("UPDATE accounts SET acct_balance=acct_balance-%i,acct_last_seen=datetime('now') WHERE acct_id=%i", Ammount, SourceUser);
+	printf("query = \"%s\"\n", query);
 	rv = sqlite3_exec(gBank_Database, query, NULL, NULL, &errmsg);
 	free(query);
 	if( rv != SQLITE_OK )
 	{
-		fprintf(stderr, "SQLite Error: %s\n", errmsg);
+		fprintf(stderr, "Bank_Transfer - SQLite Error: %s\n", errmsg);
 		sqlite3_free(errmsg);
 		sqlite3_exec(gBank_Database, "ROLLBACK", NULL, NULL, NULL);
 		return 1;
 	}
 
 	// Give to the destination
-	query = mkstr("UPDATE accounts SET acct_balance=acct_balance+%i WHERE acct_id=%i", Ammount, DestUser);
+	query = mkstr("UPDATE accounts SET acct_balance=acct_balance+%i,acct_last_seen=datetime('now') WHERE acct_id=%i", Ammount, DestUser);
+	printf("query = \"%s\"\n", query);
 	rv = sqlite3_exec(gBank_Database, query, NULL, NULL, &errmsg);
 	free(query);
 	if( rv != SQLITE_OK )
 	{
-		fprintf(stderr, "SQLite Error: %s\n", errmsg);
+		fprintf(stderr, "Bank_Transfer - SQLite Error: %s\n", errmsg);
 		sqlite3_free(errmsg);
 		sqlite3_exec(gBank_Database, "ROLLBACK", NULL, NULL, NULL);
 		return 1;
@@ -150,7 +151,7 @@ int Bank_Transfer(int SourceUser, int DestUser, int Ammount, const char *Reason)
 /*
  * Get user flags
  */
-int Bank_GetUserFlags(int UserID)
+int Bank_GetFlags(int UserID)
 {
 	sqlite3_stmt	*statement;
 	char	*query;
@@ -173,11 +174,11 @@ int Bank_GetUserFlags(int UserID)
 	// - Coke
 	if( sqlite3_column_int(statement, 1) )	ret |= USER_FLAG_COKE;
 	// - Wheel
-	if( sqlite3_column_int(statement, 2) )	ret |= USER_FLAG_WHEEL;
+	if( sqlite3_column_int(statement, 2) )	ret |= USER_FLAG_ADMIN;
 	// - Door
 	if( sqlite3_column_int(statement, 3) )	ret |= USER_FLAG_DOORGROUP;
 	// - Internal
-	if( sqlite3_column_int(statement, 3) )	ret |= USER_FLAG_INTERNAL;
+	if( sqlite3_column_int(statement, 4) )	ret |= USER_FLAG_INTERNAL;
 	
 	// Destroy and return
 	sqlite3_finalize(statement);
@@ -188,7 +189,7 @@ int Bank_GetUserFlags(int UserID)
 /*
  * Set user flags
  */
-int Bank_SetUserFlags(int UserID, int Mask, int Value)
+int Bank_SetFlags(int UserID, int Mask, int Value)
 {
 	char	*query;
 	 int	rv;
@@ -196,25 +197,27 @@ int Bank_SetUserFlags(int UserID, int Mask, int Value)
 
 	#define MAP_FLAG(name, flag)	(Mask&(flag)?(Value&(flag)?","name"=1":","name"=0"):"")
 	query = mkstr(
-		"UDPATE accounts WHERE acct_id=%i SET acct_id=acct_id%s%s%s%s%s",
-		UserID,
+		"UPDATE accounts SET acct_id=acct_id%s%s%s%s%s WHERE acct_id=%i",// LIMIT 1",
 		MAP_FLAG("acct_is_coke", USER_FLAG_COKE),
-		MAP_FLAG("acct_is_wheel", USER_FLAG_WHEEL),
+		MAP_FLAG("acct_is_admin", USER_FLAG_ADMIN),
 		MAP_FLAG("acct_is_door", USER_FLAG_DOORGROUP),
 		MAP_FLAG("acct_is_internal", USER_FLAG_INTERNAL),
-		MAP_FLAG("acct_is_disabled", USER_FLAG_DISABLED)
+		MAP_FLAG("acct_is_disabled", USER_FLAG_DISABLED),
+		UserID
 		);
 	#undef MAP_FLAG
 
 	// Execute Query
 	rv = sqlite3_exec(gBank_Database, query, NULL, NULL, &errmsg);
-	free(query);
 	if( rv != SQLITE_OK )
 	{
-		fprintf(stderr, "SQLite Error: %s\n", errmsg);
+		fprintf(stderr, "Bank_SetUserFlags - SQLite Error: %s\n", errmsg);
+		fprintf(stderr, "query = '%s'\n", query);
+		free(query);
 		sqlite3_free(errmsg);
 		return -1;
 	}
+	free(query);
 	
 	return 0;
 }
@@ -280,6 +283,7 @@ int Bank_GetAcctByName(const char *Name)
 	if( !statement )	return -1;
 	
 	ret = sqlite3_column_int(statement, 0);
+	if( ret == 0 )	return -1;
 	
 	sqlite3_finalize(statement);
 	return ret;
@@ -307,7 +311,7 @@ int Bank_CreateAcct(const char *Name)
 	rv = sqlite3_exec(gBank_Database, query, NULL, NULL, &errmsg);
 	if( rv != SQLITE_OK )
 	{
-		fprintf(stderr, "SQLite Error: '%s'\n", errmsg);
+		fprintf(stderr, "Bank_CreateAcct - SQLite Error: '%s'\n", errmsg);
 		fprintf(stderr, "Query = '%s'\n", query);
 		sqlite3_free(errmsg);
 		free(query);
@@ -332,20 +336,20 @@ tAcctIterator *Bank_Iterator(int FlagMask, int FlagValues, int Flags, int MinMax
 	sqlite3_stmt	*ret;
 	
 	if( Flags & BANK_ITFLAG_MINBALANCE )
-		balanceClause = "acct_balance>=";
+		balanceClause = " AND acct_balance>=";
 	else if( Flags & BANK_ITFLAG_MAXBALANCE )
-		balanceClause = "acct_balance<=";
+		balanceClause = " AND acct_balance<=";
 	else {
-		balanceClause = "1!=";
+		balanceClause = " AND 1!=";
 		MinMaxBalance = 0;
 	}
 	
 	if( Flags & BANK_ITFLAG_SEENAFTER )
-		lastSeenClause = "acct_last_seen>=";
+		lastSeenClause = " AND acct_last_seen>=";
 	else if( Flags & BANK_ITFLAG_SEENBEFORE )
-		lastSeenClause = "acct_last_seen<=";
+		lastSeenClause = " AND acct_last_seen<=";
 	else {
-		lastSeenClause = "datetime(0,'unixepoch')!=";
+		lastSeenClause = " AND datetime(-1,'unixepoch')!=";
 	}
 	
 	switch( Flags & BANK_ITFLAG_SORTMASK )
@@ -381,7 +385,7 @@ tAcctIterator *Bank_Iterator(int FlagMask, int FlagValues, int Flags, int MinMax
 		"%s%s"	// Sort and direction
 		,
 		MAP_FLAG("acct_is_coke", USER_FLAG_COKE),
-		MAP_FLAG("acct_is_wheel", USER_FLAG_WHEEL),
+		MAP_FLAG("acct_is_admin", USER_FLAG_ADMIN),
 		MAP_FLAG("acct_is_door", USER_FLAG_DOORGROUP),
 		MAP_FLAG("acct_is_internal", USER_FLAG_INTERNAL),
 		MAP_FLAG("acct_is_disabled", USER_FLAG_DISABLED),
@@ -389,6 +393,7 @@ tAcctIterator *Bank_Iterator(int FlagMask, int FlagValues, int Flags, int MinMax
 		lastSeenClause, LastSeen,
 		orderClause, revSort
 		);
+	//printf("query = \"%s\"\n", query);
 	#undef MAP_FLAG
 	
 	ret = Bank_int_MakeStatemnt(gBank_Database, query);
@@ -409,7 +414,7 @@ int Bank_IteratorNext(tAcctIterator *It)
 	
 	if( rv == SQLITE_DONE )	return -1;
 	if( rv != SQLITE_ROW ) {
-		fprintf(stderr, "SQLite Error: %s\n", sqlite3_errmsg(gBank_Database));
+		fprintf(stderr, "Bank_IteratorNext - SQLite Error: %s\n", sqlite3_errmsg(gBank_Database));
 		return -1;
 	}
 	
@@ -490,7 +495,7 @@ int Bank_AddAcctCard(int AcctID, const char *CardID)
 	}
 	if( rv != SQLITE_OK )
 	{
-		fprintf(stderr, "SQLite Error: '%s'\n", errmsg);
+		fprintf(stderr, "Bank_AddAcctCard - SQLite Error: '%s'\n", errmsg);
 		fprintf(stderr, "Query = '%s'\n", query);
 		sqlite3_free(errmsg);
 		free(query);

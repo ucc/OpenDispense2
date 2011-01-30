@@ -3,6 +3,18 @@
 ARGS="--itemsfile items.cfg -p 11020"
 ARGS=$ARGS" --cokeport /dev/ttyUSB0"
 
+if [ "x$2" != "x" ]; then
+	_cokebank=$1
+else
+	_cokebank="sqlite"
+fi
+
+rm cokebank.so
+rm cokebank.db
+
+ln -s cokebank_$_cokebank.so cokebank.so
+ln -s cokebank_$_cokebank.db cokebank.db
+
 if [ "x$1" = "xdbg" ]; then 
 	LD_LIBRARY_PATH=. gdb --args ./dispsrv $ARGS
 else

@@ -80,7 +80,8 @@ extern char	*mkstr(const char *Format, ...);
 // --- Dispense ---
 extern int	DispenseItem(int ActualUser, int User, tItem *Item);
 extern int	DispenseGive(int ActualUser, int SrcUser, int DestUser, int Ammount, const char *ReasonGiven);
-extern int	DispenseAdd(int User, int ByUser, int Ammount, const char *ReasonGiven);
+extern int	DispenseAdd(int ActualUser, int User, int Ammount, const char *ReasonGiven);
+extern int	DispenseDonate(int ActualUser, int User, int Ammount, const char *ReasonGiven);
 
 // --- Logging ---
 extern void	Log_Error(const char *Format, ...);

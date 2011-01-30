@@ -1,5 +1,5 @@
 
-BIN := ../../cokebank.so
+BIN := ../../cokebank_basic.so
 OBJ := main.o
 
 CPPFLAGS := 

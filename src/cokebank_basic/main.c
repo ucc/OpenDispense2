@@ -397,7 +397,7 @@ int Bank_GetFlags(int ID)
 
 	// root
 	if( gaBank_Users[ID].UnixID == 0 ) {
-		gaBank_Users[ID].Flags |= USER_FLAG_WHEEL|USER_FLAG_COKE;
+		gaBank_Users[ID].Flags |= USER_FLAG_ADMIN|USER_FLAG_COKE;
 	}
 
 	#if USE_UNIX_GROUPS
@@ -424,17 +424,19 @@ int Bank_GetFlags(int ID)
 			}
 		}
 		
+		#if 0
 		// Check for additions to the "wheel" group
 		grp = getgrnam("wheel");
 		if( grp ) {
 			for( i = 0; grp->gr_mem[i]; i ++ )
 			{
 				if( strcmp(grp->gr_mem[i], pwd->pw_name) == 0 ) {
-					gaBank_Users[ID].Flags |= USER_FLAG_WHEEL;
+					gaBank_Users[ID].Flags |= USER_FLAG_ADMIN;
 					break ;
 				}
 			}
 		}
+		#endif
 	}
 	#endif
 
@@ -485,7 +487,7 @@ int Bank_int_GetMinAllowedBalance(int ID)
 		return INT_MIN;
 
 	// Wheel is allowed to go to -$100
-	if( (flags & USER_FLAG_WHEEL) )
+	if( (flags & USER_FLAG_ADMIN) )
 		return -10000;
 	
 	// Coke is allowed to go to -$20
@@ -534,7 +536,7 @@ int Bank_int_AddUser(const char *Username)
 		gaBank_Users[giBank_NumUsers].Flags = USER_FLAG_INTERNAL;
 	}
 	else if( strcmp(Username, "root") == 0 ) {
-		gaBank_Users[giBank_NumUsers].Flags = USER_FLAG_WHEEL|USER_FLAG_COKE;
+		gaBank_Users[giBank_NumUsers].Flags = USER_FLAG_ADMIN|USER_FLAG_COKE;
 	}
 
 	// Increment count

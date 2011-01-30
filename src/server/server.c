@@ -66,6 +66,7 @@ void	_SendUserInfo(tClient *Client, int UserID);
 void	Server_Cmd_USERADD(tClient *Client, char *Args);
 void	Server_Cmd_USERFLAGS(tClient *Client, char *Args);
 // --- Helpers ---
+ int	Server_int_ParseFlags(tClient *Client, const char *Str, int *Mask, int *Value);
  int	sendf(int Socket, const char *Format, ...);
 
 // === CONSTANTS ===
@@ -640,6 +641,64 @@ void Server_Cmd_GIVE(tClient *Client, char *Args)
 	}
 }
 
+void Server_Cmd_DONATE(tClient *Client, char *Args)
+{
+	char	*ammount, *reason;
+	 int	iAmmount;
+	 int	thisUid;
+	
+	if( !Client->bIsAuthed ) {
+		sendf(Client->Socket, "401 Not Authenticated\n");
+		return ;
+	}
+
+	ammount = Args;
+
+	// Get the start of the reason
+	reason = strchr(Args, ' ');
+	if( !ammount ) {
+		sendf(Client->Socket, "407 Invalid Argument, expected 2 parameters, 1 encountered\n");
+		return ;
+	}
+	*reason = '\0';
+	reason ++;
+	
+	// Check the end of the reason
+	if( strchr(reason, ' ') ) {
+		sendf(Client->Socket, "407 Invalid Argument, expected 2 parameters, more encountered\n");
+		return ;
+	}
+
+	// Parse ammount
+	iAmmount = atoi(ammount);
+	if( iAmmount <= 0 ) {
+		sendf(Client->Socket, "407 Invalid Argument, ammount must be > zero\n");
+		return ;
+	}
+	
+	// Handle effective users
+	if( Client->EffectiveUID != -1 ) {
+		thisUid = Client->EffectiveUID;
+	}
+	else {
+		thisUid = Client->UID;
+	}
+
+	// Do give
+	switch( DispenseDonate(Client->UID, thisUid, iAmmount, reason) )
+	{
+	case 0:
+		sendf(Client->Socket, "200 Give OK\n");
+		return ;
+	case 2:
+		sendf(Client->Socket, "402 Poor You\n");
+		return ;
+	default:
+		sendf(Client->Socket, "500 Unknown error\n");
+		return ;
+	}
+}
+
 void Server_Cmd_ADD(tClient *Client, char *Args)
 {
 	char	*user, *ammount, *reason;
@@ -695,7 +754,7 @@ void Server_Cmd_ADD(tClient *Client, char *Args)
 	}
 
 	// Do give
-	switch( DispenseAdd(uid, Client->UID, iAmmount, reason) )
+	switch( DispenseAdd(Client->UID, uid, iAmmount, reason) )
 	{
 	case 0:
 		sendf(Client->Socket, "200 Add OK\n");
@@ -815,13 +874,13 @@ void _SendUserInfo(tClient *Client, int UserID)
 		type = "internal";
 	}
 	else if( flags & USER_FLAG_COKE ) {
-		if( flags & USER_FLAG_WHEEL )
-			type = "coke,wheel";
+		if( flags & USER_FLAG_ADMIN )
+			type = "coke,admin";
 		else
 			type = "coke";
 	}
-	else if( flags & USER_FLAG_WHEEL ) {
-		type = "wheel";
+	else if( flags & USER_FLAG_ADMIN ) {
+		type = "admin";
 	}
 	else {
 		type = "user";
@@ -845,8 +904,8 @@ void Server_Cmd_USERADD(tClient *Client, char *Args)
 	char	*username, *space;
 	
 	// Check permissions
-	if( !(Bank_GetFlags(Client->UID) & USER_FLAG_WHEEL) ) {
-		sendf(Client->Socket, "403 Not Wheel\n");
+	if( !(Bank_GetFlags(Client->UID) & USER_FLAG_ADMIN) ) {
+		sendf(Client->Socket, "403 Not a coke admin\n");
 		return ;
 	}
 	
@@ -873,8 +932,8 @@ void Server_Cmd_USERFLAGS(tClient *Client, char *Args)
 	 int	uid;
 	
 	// Check permissions
-	if( !(Bank_GetFlags(Client->UID) & USER_FLAG_WHEEL) ) {
-		sendf(Client->Socket, "403 Not Wheel\n");
+	if( !(Bank_GetFlags(Client->UID) & USER_FLAG_ADMIN) ) {
+		sendf(Client->Socket, "403 Not a coke admin\n");
 		return ;
 	}
 	
@@ -902,55 +961,8 @@ void Server_Cmd_USERFLAGS(tClient *Client, char *Args)
 	}
 	
 	// Parse flags
-	do {
-		 int	bRemove = 0;
-		 int	i;
-		struct {
-			const char	*Name;
-			 int	Mask;
-			 int	Value;
-		}	cFLAGS[] = {
-			 {"disabled", USER_FLAG_DISABLED, USER_FLAG_DISABLED}
-			,{"door", USER_FLAG_DOORGROUP, USER_FLAG_DOORGROUP}
-			,{"coke", USER_FLAG_COKE, USER_FLAG_COKE}
-			,{"wheel", USER_FLAG_WHEEL, USER_FLAG_WHEEL}
-		//	,{"internal", USER_FLAG_INTERNAL, USER_FLAG_INTERNAL}
-		};
-		const int	ciNumFlags = sizeof(cFLAGS)/sizeof(cFLAGS[0]);
-		
-		while( *flags == ' ' )	flags ++;	// Eat whitespace
-		space = strchr(flags, ',');	// Find the end of the flag
-		if(space)	*space = '\0';
-		
-		// Check for inversion/removal
-		if( *flags == '!' || *flags == '-' ) {
-			bRemove = 1;
-			flags ++;
-		}
-		else if( *flags == '+' ) {
-			flags ++;
-		}
-		
-		// Check flag values
-		for( i = 0; i < ciNumFlags; i ++ )
-		{
-			if( strcmp(flags, cFLAGS[i].Name) == 0 ) {
-				mask |= cFLAGS[i].Mask;
-				value &= ~cFLAGS[i].Mask;
-				if( !bRemove )
-					value |= cFLAGS[i].Value;
-				break;
-			}
-		}
-		
-		// Error check
-		if( i == ciNumFlags ) {
-			sendf(Client->Socket, "407 Unknown flag value '%s'\n", flags);
-			return ;
-		}
-		
-		flags = space + 1;
-	} while(space);
+	if( Server_int_ParseFlags(Client, flags, &mask, &value) )
+		return ;
 	
 	// Apply flags
 	Bank_SetFlags(uid, mask, value);
@@ -981,4 +993,71 @@ int sendf(int Socket, const char *Format, ...)
 		
 		return send(Socket, buf, len, 0);
 	}
+}
+
+int Server_int_ParseFlags(tClient *Client, const char *Str, int *Mask, int *Value)
+{
+	struct {
+		const char	*Name;
+		 int	Mask;
+		 int	Value;
+	}	cFLAGS[] = {
+		 {"disabled", USER_FLAG_DISABLED, USER_FLAG_DISABLED}
+		,{"door", USER_FLAG_DOORGROUP, USER_FLAG_DOORGROUP}
+		,{"coke", USER_FLAG_COKE, USER_FLAG_COKE}
+		,{"admin", USER_FLAG_ADMIN, USER_FLAG_ADMIN}
+		,{"internal", USER_FLAG_INTERNAL, USER_FLAG_INTERNAL}
+	};
+	const int	ciNumFlags = sizeof(cFLAGS)/sizeof(cFLAGS[0]);
+	
+	char	*space;
+	
+	*Mask = 0;
+	*Value = 0;
+	
+	do {
+		 int	bRemove = 0;
+		 int	i;
+		 int	len;
+		
+		while( *Str == ' ' )	Str ++;	// Eat whitespace
+		space = strchr(Str, ',');	// Find the end of the flag
+		if(space)
+			len = space - Str;
+		else
+			len = strlen(Str);
+		
+		// Check for inversion/removal
+		if( *Str == '!' || *Str == '-' ) {
+			bRemove = 1;
+			Str ++;
+		}
+		else if( *Str == '+' ) {
+			Str ++;
+		}
+		
+		// Check flag values
+		for( i = 0; i < ciNumFlags; i ++ )
+		{
+			if( strncmp(Str, cFLAGS[i].Name, len) == 0 ) {
+				*Mask |= cFLAGS[i].Mask;
+				*Value &= ~cFLAGS[i].Mask;
+				if( !bRemove )
+					*Value |= cFLAGS[i].Value;
+				break;
+			}
+		}
+		
+		// Error check
+		if( i == ciNumFlags ) {
+			char	val[len+1];
+			strncpy(val, Str, len+1);
+			sendf(Client->Socket, "407 Unknown flag value '%s'\n", val);
+			return -1;
+		}
+		
+		Str = space + 1;
+	} while(space);
+	
+	return 0;
 }

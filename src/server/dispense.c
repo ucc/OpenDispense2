@@ -2,6 +2,10 @@
  */
 #include "common.h"
 #include <stdlib.h>
+#include <limits.h>
+
+ int	_GetMinBalance(int Account);
+ int	_Transfer(int Source, int Destination, int Ammount, const char *Reason);
 
 // === CODE ===
 /**
@@ -27,7 +31,7 @@ int DispenseItem(int ActualUser, int User, tItem *Item)
 	// Subtract the balance
 	reason = mkstr("Dispense - %s:%i %s", handler->Name, Item->ID, Item->Name);
 	if( !reason )	reason = Item->Name;	// TODO: Should I instead return an error?
-	ret = Bank_Transfer( User, Bank_GetAcctByName(COKEBANK_SALES_ACCT), Item->Price, reason);
+	ret = _Transfer( User, Bank_GetAcctByName(COKEBANK_SALES_ACCT), Item->Price, reason);
 	free(reason);
 	if(ret)	return 2;	// 2: No balance
 	
@@ -40,7 +44,7 @@ int DispenseItem(int ActualUser, int User, tItem *Item)
 		if(ret) {
 			Log_Error("Dispense failed after deducting cost (%s dispensing %s - %ic)",
 				username, Item->Name, Item->Price);
-			Bank_Transfer( Bank_GetAcctByName(COKEBANK_SALES_ACCT), User, Item->Price, "rollback" );
+			_Transfer( Bank_GetAcctByName(COKEBANK_SALES_ACCT), User, Item->Price, "rollback" );
 			free( username );
 			return -1;	// 1: Unkown Error again
 		}
@@ -49,7 +53,7 @@ int DispenseItem(int ActualUser, int User, tItem *Item)
 	actualUsername = Bank_GetAcctName(ActualUser);
 	
 	// And log that it happened
-	Log_Info("dispense '%s' (%s:%i) for %s by %s [cost %i, balance %i cents]",
+	Log_Info("dispense '%s' (%s:%i) for %s by %s [cost %i, balance %i]",
 		Item->Name, handler->Name, Item->ID,
 		username, actualUsername, Item->Price, Bank_GetBalance(User)
 		);
@@ -70,17 +74,18 @@ int DispenseGive(int ActualUser, int SrcUser, int DestUser, int Ammount, const c
 	
 	if( Ammount < 0 )	return 1;	// Um... negative give? Not on my watch!
 	
-	ret = Bank_Transfer( SrcUser, DestUser, Ammount, ReasonGiven );
+	ret = _Transfer( SrcUser, DestUser, Ammount, ReasonGiven );
 	if(ret)	return 2;	// No Balance
 	
 	
+	actualUsername = Bank_GetAcctName(ActualUser);
 	srcName = Bank_GetAcctName(SrcUser);
 	dstName = Bank_GetAcctName(DestUser);
-	actualUsername = Bank_GetAcctName(ActualUser);
 	
-	Log_Info("give %i to %s from %s by %s (%s) [balances %i, %i]",
-		Ammount, dstName, srcName, actualUsername, ReasonGiven,
-		Bank_GetBalance(SrcUser), Bank_GetBalance(DestUser)
+	Log_Info("give %i to %s from %s by %s [balances %i, %i] - %s",
+		Ammount, dstName, srcName, actualUsername,
+		Bank_GetBalance(SrcUser), Bank_GetBalance(DestUser),
+		ReasonGiven
 		);
 	
 	free(srcName);
@@ -93,23 +98,83 @@ int DispenseGive(int ActualUser, int SrcUser, int DestUser, int Ammount, const c
 /**
  * \brief Add money to an account
  */
-int DispenseAdd(int User, int ByUser, int Ammount, const char *ReasonGiven)
+int DispenseAdd(int ActualUser, int User, int Ammount, const char *ReasonGiven)
 {
 	 int	ret;
 	char	*dstName, *byName;
 	
-	ret = Bank_Transfer( Bank_GetAcctByName(COKEBANK_DEBT_ACCT), User, Ammount, ReasonGiven );
+	ret = _Transfer( Bank_GetAcctByName(COKEBANK_DEBT_ACCT), User, Ammount, ReasonGiven );
 	if(ret)	return 2;
 	
-	byName = Bank_GetAcctName(ByUser);
+	byName = Bank_GetAcctName(ActualUser);
 	dstName = Bank_GetAcctName(User);
 	
-	Log_Info("add %i to %s by %s (%s) [balance %i]",
-		Ammount, dstName, byName, ReasonGiven, Bank_GetBalance(User)
+	Log_Info("add %i to %s by %s [balance %i] - %s",
+		Ammount, dstName, byName, Bank_GetBalance(User), ReasonGiven
 		);
 	
 	free(byName);
 	free(dstName);
 	
 	return 0;
+}
+
+/**
+ * \brief Donate money to the club
+ */
+int DispenseDonate(int ActualUser, int User, int Ammount, const char *ReasonGiven)
+{
+	 int	ret;
+	char	*srcName, *byName;
+	
+	if( Ammount < 0 )	return 2;
+	
+	ret = _Transfer( User, Bank_GetAcctByName(COKEBANK_DEBT_ACCT), Ammount, ReasonGiven );
+	if(ret)	return 2;
+	
+	byName = Bank_GetAcctName(ActualUser);
+	srcName = Bank_GetAcctName(User);
+	
+	Log_Info("donate %i from %s by %s [balance %i] - %s",
+		Ammount, srcName, byName, Bank_GetBalance(User), ReasonGiven
+		);
+	
+	free(byName);
+	free(srcName);
+	
+	return 0;
+}
+
+// --- Internal Functions ---
+int _GetMinBalance(int Account)
+{
+	 int	flags = Bank_GetFlags(Account);
+	
+	// - Internal accounts have no lower bound
+	if( flags & USER_FLAG_INTERNAL )	return INT_MIN;
+	
+	// Admin to -$10
+	if( flags & USER_FLAG_ADMIN )	return -1000;
+	
+	// Coke to -$10
+	if( flags & USER_FLAG_COKE )	return -500;
+	
+	// Anyone else, non-negative
+	return 0;
+}
+
+int _Transfer(int Source, int Destination, int Ammount, const char *Reason)
+{
+	if( Ammount < 0 )
+	{
+		if( Bank_GetBalance(Source) + Ammount < _GetMinBalance(Source) )
+			return 1;
+	}
+	else
+	{
+		if( Bank_GetBalance(Destination) - Ammount < _GetMinBalance(Destination) )
+			return 1;
+	}
+	
+	return Bank_Transfer(Source, Destination, Ammount, Reason);
 }

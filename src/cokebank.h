@@ -18,6 +18,7 @@
 
 #define COKEBANK_SALES_ACCT	">sales"	//!< Sales made into
 #define COKEBANK_DEBT_ACCT	">liability"	//!< Credit taken out of
+#define COKEBANK_FREE_ACCT	">freeitems"	//!< ODay drink costs taken out of
 
 /**
  * \brief Account iterator opaque structure
@@ -50,7 +51,7 @@ enum eBank_ItFlags
  */
 enum eCokebank_Flags {	
 	USER_FLAG_COKE  	= 0x01,	//!< User is a coke member (can do coke accounting)
-	USER_FLAG_WHEEL 	= 0x02,	//!< User is a wheel member (can create, delete and lock accounts)
+	USER_FLAG_ADMIN 	= 0x02,	//!< User is a administrator (can create, delete and lock accounts)
 	USER_FLAG_DOORGROUP	= 0x04,	//!< User is in the door group (can open the clubroom door)
 	USER_FLAG_INTERNAL	= 0x40,	//!< Account is internal (cannot be authenticated, no lower balance limit)
 	USER_FLAG_DISABLED	= 0x80	//!< Account is disabled (no transactions allowed)
