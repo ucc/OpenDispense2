@@ -18,9 +18,9 @@
 #include <fcntl.h>
 #include <stdarg.h>
 #include <syslog.h>
+#include "../cokebank.h"
 
 // === IMPORTS ===
-extern void	Init_Cokebank(const char *Argument);	// cokebank.c
 extern void	Init_Handlers(void);
 extern void	Load_Itemlist(void);
 extern void	Server_Start(void);
@@ -85,7 +85,8 @@ int main(int argc, char *argv[])
 	
 	openlog("odispense2", 0, LOG_LOCAL4);
 	
-	Init_Cokebank(gsCokebankPath);
+	if( Bank_Initialise(gsCokebankPath) )
+		return -1;
 
 	Init_Handlers();
 

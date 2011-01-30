@@ -31,10 +31,13 @@ const char * const csBank_CreateCardsQry = "CREATE TABLE IF NOT EXISTS cards ("
 
 // === PROTOYPES ===
  int	Bank_Initialise(const char *Argument);
- int	Bank_Transfer(int SourceUser, int DestUser, int Ammount, const char *Reason);
- int	Bank_GetUserFlags(int UserID);
- int	Bank_SetUserFlags(int UserID, int Mask, int Value);
+ int	Bank_Transfer(int SourceAcct, int DestAcct, int Ammount, const char *Reason);
+ int	Bank_GetUserFlags(int AcctID);
+ int	Bank_SetUserFlags(int AcctID, int Mask, int Value);
+ int	Bank_GetBalance(int AcctID);
+char	*Bank_GetAcctName(int AcctID);
 sqlite3_stmt	*Bank_int_MakeStatemnt(sqlite3 *Database, const char *Query);
+sqlite3_stmt	*Bank_int_QuerySingle(sqlite3 *Database, const char *Query);
 
 // === GLOBALS ===
 sqlite3	*gBank_Database;
@@ -143,28 +146,14 @@ int Bank_GetUserFlags(int UserID)
 	 int	ret;
 
 	// Build Query
-	query = mkstr("SELECT acct_is_disabled,acct_is_coke,acct_is_wheel,acct_is_door,acct_is_internal FROM accounts WHERE acct_id=%i LIMIT 1", UserID);
-	rv = sqlite3_prepare_v2(gBank_Database, query, strlen(query)+1, &statement, NULL);
+	query = mkstr(
+		"SELECT acct_is_disabled,acct_is_coke,acct_is_wheel,acct_is_door,acct_is_internal"
+		" FROM accounts WHERE acct_id=%i LIMIT 1",
+		UserID
+		);
+	statement = Bank_int_QuerySingle(gBank_Database, query);
 	free(query);
-	if( rv != SQLITE_OK ) {
-		fprintf(stderr, "SQLite Error: %s\n", sqlite3_errmsg(gBank_Database));
-		return -1;
-	}
-
-	// Execute Query
-	rv = sqlite3_step(statement);
-	if( rv != SQLITE_ROW )
-	{
-		sqlite3_finalise(statement);
-		if( rv == SQLITE_DONE )
-		{
-			return -1;	// User not found
-		}
-		if( rv != SQLITE_OK ) {
-			fprintf(stderr, "SQLite Error: %s\n", sqlite3_errmsg(gBank_Database));
-			return -1;
-		}
-	}
+	if( !statement )	return -1;
 
 	// Get Flags
 	ret = 0;
@@ -221,16 +210,50 @@ int Bank_SetUserFlags(int UserID, int Mask, int Value)
 /*
  * Get user balance
  */
-int Bank_GetBalance(int User)
+int Bank_GetBalance(int AcctID)
 {
 	sqlite3_stmt	*statement;
 	char	*query;
+	 int	ret;
 	
-	query = mkstr("SELECT acct_balance FROM accounts WHERE acct_id=%i", User);
+	query = mkstr("SELECT acct_balance FROM accounts WHERE acct_id=%i LIMIT 1", AcctID);
+	statement = Bank_int_QuerySingle(gBank_Database, query);
+	free(query);
+	if( !statement )	return INT_MIN;
 	
+	// Read return value
+	ret = sqlite3_column_int(statement, 0);
+	
+	// Clean up and return
+	sqlite3_finalise(statement);
+	return ret;
 }
 
+/*
+ * Get the name of an account
+ */
+char *Bank_GetUserName(int AcctID)
+{
+	sqlite3_stmt	*statement;
+	char	*query;
+	char	*ret;
+	
+	query = mkstr("SELECT acct_name FROM accounts WHERE acct_id=%i LIMIT 1", AcctID);
+	statement = Bank_int_QuerySingle(gBank_Database, query);
+	free(query);
+	if( !statement )	return NULL;
+	
+	// Read return value
+	ret = strdup( sqlite3_column_text(statement, 0) );
+	
+	// Clean up and return
+	sqlite3_finalise(statement);
+	return ret;
+}
 
+/*
+ * Create a SQLite Statement
+ */
 sqlite3_stmt *Bank_int_MakeStatemnt(sqlite3 *Database, const char *Query)
 {
 	 int	rv;
@@ -238,6 +261,33 @@ sqlite3_stmt *Bank_int_MakeStatemnt(sqlite3 *Database, const char *Query)
 	rv = sqlite3_prepare_v2(Database, Query, strlen(Query)+1, &ret, NULL);
 	free(query);
 	if( rv != SQLITE_OK ) {
+		fprintf(stderr, "SQLite Error: %s\n", sqlite3_errmsg(Database));
+		fprintf(stderr, "query = \"%s\"\n", Query);
+		return NULL;
+	}
+	
+	return ret;
+}
+
+/*
+ * Create a SQLite statement and query it for the first row
+ * Returns NULL if the the set is empty
+ */
+sqlite3_stmt *Bank_int_QuerySingle(sqlite3 *Database, const char *Query)
+{
+	sqlite3_stmt	*ret;
+	 int	rv;
+	
+	// Prepare query
+	ret = Bank_int_MakeStatemnt(Database, Query);
+	if( !statement )	return NULL;
+	
+	// Get row
+	rv = sqlite3_step(statement);
+	// - Empty result set
+	if( rv == SQLITE_DONE )	return NULL;
+	// - Other error
+	if( rv != SQLITE_ROW ) {
 		fprintf(stderr, "SQLite Error: %s\n", sqlite3_errmsg(gBank_Database));
 		fprintf(stderr, "query = \"%s\"\n", Query);
 		return NULL;

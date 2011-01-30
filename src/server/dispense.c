@@ -27,12 +27,12 @@ int DispenseItem(int ActualUser, int User, tItem *Item)
 	// Subtract the balance
 	reason = mkstr("Dispense - %s:%i %s", handler->Name, Item->ID, Item->Name);
 	if( !reason )	reason = Item->Name;	// TODO: Should I instead return an error?
-	ret = Bank_Transfer( User, Bank_GetUserID(COKEBANK_SALES_ACCT), Item->Price, reason);
+	ret = Bank_Transfer( User, Bank_GetAcctByName(COKEBANK_SALES_ACCT), Item->Price, reason);
 	free(reason);
 	if(ret)	return 2;	// 2: No balance
 	
 	// Get username for debugging
-	username = Bank_GetUserName(User);
+	username = Bank_GetAcctName(User);
 	
 	// Actually do the dispense
 	if( handler->DoDispense ) {
@@ -40,13 +40,13 @@ int DispenseItem(int ActualUser, int User, tItem *Item)
 		if(ret) {
 			Log_Error("Dispense failed after deducting cost (%s dispensing %s - %ic)",
 				username, Item->Name, Item->Price);
-			Bank_Transfer( Bank_GetUserID(COKEBANK_SALES_ACCT), User, Item->Price, "rollback" );
+			Bank_Transfer( Bank_GetAcctByName(COKEBANK_SALES_ACCT), User, Item->Price, "rollback" );
 			free( username );
 			return -1;	// 1: Unkown Error again
 		}
 	}
 	
-	actualUsername = Bank_GetUserName(ActualUser);
+	actualUsername = Bank_GetAcctName(ActualUser);
 	
 	// And log that it happened
 	Log_Info("dispense '%s' (%s:%i) for %s by %s [cost %i, balance %i cents]",
@@ -74,9 +74,9 @@ int DispenseGive(int ActualUser, int SrcUser, int DestUser, int Ammount, const c
 	if(ret)	return 2;	// No Balance
 	
 	
-	srcName = Bank_GetUserName(SrcUser);
-	dstName = Bank_GetUserName(DestUser);
-	actualUsername = Bank_GetUserName(ActualUser);
+	srcName = Bank_GetAcctName(SrcUser);
+	dstName = Bank_GetAcctName(DestUser);
+	actualUsername = Bank_GetAcctName(ActualUser);
 	
 	Log_Info("give %i to %s from %s by %s (%s) [balances %i, %i]",
 		Ammount, dstName, srcName, actualUsername, ReasonGiven,
@@ -98,11 +98,11 @@ int DispenseAdd(int User, int ByUser, int Ammount, const char *ReasonGiven)
 	 int	ret;
 	char	*dstName, *byName;
 	
-	ret = Bank_Transfer( Bank_GetUserID(COKEBANK_DEBT_ACCT), User, Ammount, ReasonGiven );
+	ret = Bank_Transfer( Bank_GetAcctByName(COKEBANK_DEBT_ACCT), User, Ammount, ReasonGiven );
 	if(ret)	return 2;
 	
-	byName = Bank_GetUserName(ByUser);
-	dstName = Bank_GetUserName(User);
+	byName = Bank_GetAcctName(ByUser);
+	dstName = Bank_GetAcctName(User);
 	
 	Log_Info("add %i to %s by %s (%s) [balance %i]",
 		Ammount, dstName, byName, ReasonGiven, Bank_GetBalance(User)

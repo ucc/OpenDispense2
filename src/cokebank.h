@@ -69,40 +69,40 @@ extern int	Bank_Initialise(const char *Argument);
  * \param Ammount	Amount of money (in cents) to transfer
  * \param Reason	Reason for the transfer
  */
-extern int	Bank_Transfer(int SourceUser, int DestUser, int Ammount, const char *Reason);
+extern int	Bank_Transfer(int SourceAcct, int DestAcct, int Ammount, const char *Reason);
 /**
  * \brief Get flags on an account
- * \param User	UID to get flags from
+ * \param AcctID	UID to get flags from
  * \return Flag set as defined in eCokebank_Flags
  */
-extern int	Bank_GetFlags(int User);
+extern int	Bank_GetFlags(int AcctID);
 /**
  * \brief Set an account's flags
- * \param User	UID to set flags on
+ * \param AcctID	UID to set flags on
  * \param Mask	Mask of flags changed
  * \param Value	Final value of changed flags
  */
-extern int	Bank_SetFlags(int User, int Mask, int Value);
+extern int	Bank_SetFlags(int AcctID, int Mask, int Value);
 /**
  * \brief Get an account's balance
- * \param User	UID to query
+ * \param AcctID	Account to query
  */
-extern int	Bank_GetBalance(int User);
+extern int	Bank_GetBalance(int AcctID);
 /**
  * \brief Get the name associated with an account
  * \return Heap string
  */
-extern char	*Bank_GetUserName(int User);
+extern char	*Bank_GetAcctName(int AcctID);
 /**
- * \brief Get a UID from a passed name
+ * \brief Get an account ID from a passed name
  */
-extern int	Bank_GetUserID(const char *Username);
+extern int	Bank_GetAcctByName(const char *Name);
 /**
  * \brief Create a new account
  * \param Username	Name for the new account (if NULL, an anoymous account is created)
- * \return User ID of the new account
+ * \return ID of the new account
  */
-extern int	Bank_CreateUser(const char *Username);
+extern int	Bank_CreateAcct(const char *Name);
 
 /**
  * \brief Create an account iterator
@@ -119,7 +119,7 @@ extern tAcctIterator	*Bank_Iterator(int FlagMask, int FlagValues,
 /**
  * \brief Get the current entry in the iterator and move to the next
  * \param It	Iterator returned by Bank_Iterator
- * \return User ID or -1 for end of list
+ * \return Accoun ID, or -1 for end of list
  */
 extern int	Bank_IteratorNext(tAcctIterator *It);
 
@@ -139,14 +139,14 @@ extern void	Bank_DelIterator(tAcctIterator *It);
 extern int	Bank_GetUserAuth(const char *Salt, const char *Username, const char *Password);
 
 /**
- * \brief Get a User ID from a MIFARE card ID
+ * \brief Get an account ID from a MIFARE card ID
  * \param CardID	MIFARE card ID
- * \return User ID
+ * \return Account ID
  */
-extern int	Bank_GetUserByCard(const char *CardID);
+extern int	Bank_GetAcctByCard(const char *CardID);
 
 /**
- * \brief Add a card to a user's account
+ * \brief Add a card to an git account
  * \param User	User ID
  * \param CardID	MIFARE card ID
  * \return Boolean failure

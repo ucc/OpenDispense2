@@ -51,23 +51,12 @@ struct sAcctIterator
 };
 
 // === PROTOTYPES ===
-void	Init_Cokebank(const char *Argument);
 static int Bank_int_ReadDatabase(void);
 static int Bank_int_WriteEntry(int ID);
- int	Bank_Transfer(int SourceUser, int DestUser, int Ammount, const char *Reason);
- int	Bank_CreateUser(const char *Username);
-tAcctIterator	*Bank_Iterator(int FlagMask, int FlagValues,
-	int Flags, int MinMaxBalance, time_t LastSeen);
- int	Bank_GetUserID(const char *Username);
- int	Bank_GetBalance(int User);
- int	Bank_GetFlags(int User);
- int	Bank_SetFlags(int User, int Mask, int Value);
  int	Bank_int_AlterUserBalance(int ID, int Delta);
  int	Bank_int_GetMinAllowedBalance(int ID);
  int	Bank_int_AddUser(const char *Username);
-char	*Bank_GetUserName(int User);
  int	Bank_int_GetUnixID(const char *Username);
- int	Bank_GetUserAuth(const char *Salt, const char *Username, const char *Password);
 #if USE_LDAP
 char	*ReadLDAPValue(const char *Filter, char *Value);
 #endif
@@ -89,7 +78,7 @@ tUser	**gaBank_UsersByBalance;
 /*
  * \brief Load the cokebank database
  */
-void Init_Cokebank(const char *Argument)
+int Bank_Initialise(const char *Argument)
 {
 	#if USE_LDAP
 	 int	rv;
@@ -98,7 +87,10 @@ void Init_Cokebank(const char *Argument)
 	// Open Cokebank
 	gBank_File = fopen(Argument, "rb+");
 	if( !gBank_File )	gBank_File = fopen(Argument, "wb+");
-	if( !gBank_File )	perror("Opening coke bank");
+	if( !gBank_File ) {
+		perror("Opening coke bank");
+		return -1;
+	}
 	Bank_int_ReadDatabase();
 
 	// Open log file
@@ -112,19 +104,19 @@ void Init_Cokebank(const char *Argument)
 	rv = ldap_create(&gpLDAP);
 	if(rv) {
 		fprintf(stderr, "ldap_create: %s\n", ldap_err2string(rv));
-		exit(1);
+		return 1;
 	}
 	rv = ldap_initialize(&gpLDAP, gsLDAPPath);
 	if(rv) {
 		fprintf(stderr, "ldap_initialize: %s\n", ldap_err2string(rv));
-		exit(1);
+		return 1;
 	}
 	{ int ver = LDAP_VERSION3; ldap_set_option(gpLDAP, LDAP_OPT_PROTOCOL_VERSION, &ver); }
 	# if 0
 	rv = ldap_start_tls_s(gpLDAP, NULL, NULL);
 	if(rv) {
 		fprintf(stderr, "ldap_start_tls_s: %s\n", ldap_err2string(rv));
-		exit(1);
+		return 1;
 	}
 	# endif
 	{
@@ -136,10 +128,12 @@ void Init_Cokebank(const char *Argument)
 			"", &cred, NULL, NULL, &servcred);
 		if(rv) {
 			fprintf(stderr, "ldap_start_tls_s: %s\n", ldap_err2string(rv));
-			exit(1);
+			return 1;
 		}
 	}
 	#endif
+	
+	return 0;
 }
 
 /**
@@ -188,7 +182,7 @@ static int Bank_int_ReadDatabase(void)
 		gaBank_Users[i].UnixID = fu.UnixID;
 		gaBank_Users[i].Balance = fu.Balance;
 		gaBank_Users[i].Flags = fu.Flags;
-		gaBank_Users[i].Name = Bank_GetUserName(i);
+		gaBank_Users[i].Name = Bank_GetAcctName(i);
 		gaBank_UsersByName[i] = &gaBank_Users[i];	// Add to name index
 		gaBank_UsersByBalance[i] = &gaBank_Users[i];	// Add to balance index
 	}
@@ -259,14 +253,14 @@ int Bank_Transfer(int SourceUser, int DestUser, int Ammount, const char *Reason)
 	return 0;
 }
 
-int Bank_CreateUser(const char *Username)
+int Bank_CreateAcct(const char *Name)
 {
 	 int	ret;
 	
-	ret = Bank_GetUserID(Username);
+	ret = Bank_GetAcctByName(Name);
 	if( ret != -1 )	return -1;
 	
-	return Bank_int_AddUser(Username);
+	return Bank_int_AddUser(Name);
 }
 
 tAcctIterator *Bank_Iterator(int FlagMask, int FlagValues, int Flags, int MinMaxBalance, time_t LastSeen)
@@ -351,7 +345,7 @@ void Bank_DelIterator(tAcctIterator *It)
 /*
  * \brief Get the User ID of the named user
  */
-int Bank_GetUserID(const char *Username)
+int Bank_GetAcctByName(const char *Username)
 {	
 	#if 0
 	 int	i, size;
@@ -547,7 +541,7 @@ int Bank_int_AddUser(const char *Username)
 	giBank_NumUsers ++;
 	
 	// Get name
-	gaBank_Users[giBank_NumUsers-1].Name = Bank_GetUserName(giBank_NumUsers-1);
+	gaBank_Users[giBank_NumUsers-1].Name = Bank_GetAcctName(giBank_NumUsers-1);
 	
 	// Update indexes
 	qsort(gaBank_UsersByName, giBank_NumUsers, sizeof(tUser*), Bank_int_CompareNames);
@@ -563,7 +557,7 @@ int Bank_int_AddUser(const char *Username)
 // Unix user dependent code
 // TODO: Modify to keep its own list of usernames
 // ---
-char *Bank_GetUserName(int ID)
+char *Bank_GetAcctName(int ID)
 {
 	struct passwd	*pwd;
 	
@@ -631,13 +625,13 @@ int Bank_GetUserAuth(const char *Salt, const char *Username, const char *Passwor
 	
 	#if HACK_TPG_NOAUTH
 	if( strcmp(Username, "tpg") == 0 )
-		return Bank_GetUserID("tpg");
+		return Bank_GetAcctByName("tpg");
 	#endif
 	#if HACK_ROOT_NOAUTH
 	if( strcmp(Username, "root") == 0 ) {
-		int ret = Bank_GetUserID("root");
+		int ret = Bank_GetAcctByName("root");
 		if( ret == -1 )
-			return Bank_CreateUser("root");
+			return Bank_CreateAcct("root");
 		return ret;
 	}
 	#endif

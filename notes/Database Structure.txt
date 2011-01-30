@@ -12,7 +12,8 @@ User
 	DATETIME LastSeen
 	BOOL	bEnabled
 	BOOL	bCokeMember
-	BOOL	bWheelMember
+	BOOL	bDoorMember
+	BOOL	bAdministrator	; Database admin (create/delete/lock accounts)
 	BOOL	bInternal
 	
 	
