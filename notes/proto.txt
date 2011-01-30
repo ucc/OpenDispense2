@@ -4,6 +4,19 @@ Client/Server Dispense Protocol
 The protocol is ASCII based, similar to the FTP protocol
 All server responses are on one line and are prefixed by a three digit response code.
 
+== Paramaters ===
+<username> is a textual username unless the user does not have a username,
+in which case the username is of the form '#<id>' where <id> is a unique
+account number assigned by the server.
+<card_id_hex> is the hexadecimal byte stream representation of a MIFARE card.
+<item_id> is an item ID of the form '<type>:<id>', where <type> is an
+alpha-numeric diriver identifier, and <id> is an non-negative integer assigned
+by the driver.
+<ammount> is an integer number of cents representing the size of a transactio.
+Individual commands may restrict the range of the ammount to non-negative
+numbers.
+
+
 == Response Codes ==
 100	Information
 200	Command succeeded, no extra information
@@ -35,6 +48,10 @@ If the client is connecting from a trusted machine on a root port then
 automatic authentication is allowed
 c	AUTOAUTH <username>\n
 s	200 Auth OK\n or 404 Bad Username\n or 401 Untrusted\n
+--- Alternate Method (MIFARE Authentication)
+c	MIFARE <card_id_hex>\n
+s	200 Auth OK as <username>\n or 404 Bad Card ID\n or 401 Untrusted\n
+
 --- Set effective user (User in `dispense -u`) ---
 c	SETEUSER <username>\n
 s	200 User set\n or 403 Not in coke\n or 404 User not found\n
@@ -79,3 +96,6 @@ s	200 User Added\n or 403 Not Wheel\n or 404 User Exists\n
  - to remove the flag) Valid values are: user,coke,wheel,meta,disabled,door
 c	USER_FLAGS <username> <flags>\n
 s	200 User Updated\n or 403 Not Wheel\n or 404 Bad User\n or 407 Unknown Flags\n
+--- Add MIFARE ID ---
+c	ADD_CARD <card id hex>\n
+s	200 User Updated\n or 405 Card already registered\n

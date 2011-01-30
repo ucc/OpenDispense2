@@ -61,6 +61,11 @@ int Coke_CanDispense(int UNUSED(User), int Item)
 	// Sanity please
 	if( Item < 0 || Item > 6 )	return -1;	// -EYOURBAD
 	
+	// Can't dispense if the machine is not connected
+	if( giCoke_SerialFD == -1 )
+		return -2;
+	
+	// Wait for a prompt
 	ret = 0;
 	do {
 		write(giCoke_SerialFD, "d7\r\n", 4);
@@ -125,6 +130,10 @@ int Coke_DoDispense(int UNUSED(User), int Item)
 
 	// Sanity please
 	if( Item < 0 || Item > 6 )	return -1;
+
+	// Can't dispense if the machine is not connected
+	if( giCoke_SerialFD == -1 )
+		return -2;
 
 	// Wait for prompt
 	i = 0;

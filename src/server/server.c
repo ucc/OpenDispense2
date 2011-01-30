@@ -462,7 +462,7 @@ void Server_Cmd_ENUMITEMS(tClient *Client, char *Args)
 {
 	 int	i;
 
-	if( Args != NULL || strlen(Args) ) {
+	if( Args != NULL && strlen(Args) ) {
 		sendf(Client->Socket, "407 ENUM_ITEMS takes no arguments\n");
 		return ;
 	}
@@ -713,7 +713,8 @@ void Server_Cmd_ENUMUSERS(tClient *Client, char *Args)
 {
 	 int	i, numRet = 0;
 	 int	maxBal = INT_MAX, minBal = INT_MIN;
-	 int	numUsr = Bank_GetMaxID();
+	tAcctIterator	*it;
+	 int	sort = BANK_ITFLAG_SORT_NAME;
 	
 	// Parse arguments
 	if( Args && strlen(Args) )
@@ -734,8 +735,16 @@ void Server_Cmd_ENUMUSERS(tClient *Client, char *Args)
 			maxBal = atoi(max);
 	}
 	
+	// Create iterator
+	if( maxBal != INT_MAX )
+		it = Bank_Iterator(0, 0, sort|BANK_ITFLAG_MAXBALANCE, maxBal, 0);
+	else if( minBal != INT_MIN )
+		it = Bank_Iterator(0, 0, sort|BANK_ITFLAG_MINBALANCE, minBal, 0);
+	else
+		it = Bank_Iterator(0, 0, sort, 0, 0);
+	
 	// Get return number
-	for( i = 0; i < numUsr; i ++ )
+	while( (i = Bank_IteratorNext(it)) != -1 )
 	{
 		int bal = Bank_GetBalance(i);
 		
@@ -747,10 +756,21 @@ void Server_Cmd_ENUMUSERS(tClient *Client, char *Args)
 		numRet ++;
 	}
 	
+	Bank_DelIterator(it);
+	
 	// Send count
 	sendf(Client->Socket, "201 Users %i\n", numRet);
 	
-	for( i = 0; i < numUsr; i ++ )
+	
+	// Create iterator
+	if( maxBal != INT_MAX )
+		it = Bank_Iterator(0, 0, sort|BANK_ITFLAG_MAXBALANCE, maxBal, 0);
+	else if( minBal != INT_MIN )
+		it = Bank_Iterator(0, 0, sort|BANK_ITFLAG_MINBALANCE, minBal, 0);
+	else
+		it = Bank_Iterator(0, 0, sort, 0, 0);
+	
+	while( (i = Bank_IteratorNext(it)) != -1 )
 	{
 		int bal = Bank_GetBalance(i);
 		
@@ -761,6 +781,8 @@ void Server_Cmd_ENUMUSERS(tClient *Client, char *Args)
 		
 		_SendUserInfo(Client, i);
 	}
+	
+	Bank_DelIterator(it);
 	
 	sendf(Client->Socket, "200 List End\n");
 }

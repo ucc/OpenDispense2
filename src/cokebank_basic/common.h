@@ -12,8 +12,15 @@
 
 #include "../cokebank.h"
 
+typedef struct sFileUser {
+	 int	UnixID;
+	 int	Balance;
+	 int	Flags;
+}	tFileUser;
+
 typedef struct sUser {
 	 int	UnixID;
+	const char	*Name;
 	 int	Balance;
 	 int	Flags;
 }	tUser;

@@ -2,14 +2,14 @@
 User
 	INTEGER	UserID	PRIMARY_KEY
 	
-	STRING	Username	UNIQUE
+	STRING	Username	NULL, UNIQUE
 	
-	STRING	PasswordHash	; < Hmm... needed?
-	INTEGER	UnixUID	UNIQUE
-	INTEGER	PinCode
+	STRING	PasswordHash	NULL	; < Hmm... needed? (Nah, PAM only)
+	INTEGER	UnixUID 	NULL, UNIQUE
+	INTEGER	PinCode 	NULL
 	
 	INTEGER	Balance
-	DATETIME	LastSeen
+	DATETIME LastSeen
 	BOOL	bEnabled
 	BOOL	bCokeMember
 	BOOL	bWheelMember

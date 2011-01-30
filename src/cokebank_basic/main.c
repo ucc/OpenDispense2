@@ -3,6 +3,7 @@
  * UCC (University [of WA] Computer Club) Electronic Accounting System
  *
  * cokebank.c - Coke-Bank management
+ * > Simple custom database format (uses PAM for usernames)
  *
  * This file is licenced under the 3-clause BSD Licence. See the file COPYING
  * for full details.
@@ -33,13 +34,30 @@
 #define HACK_TPG_NOAUTH	1
 #define HACK_ROOT_NOAUTH	1
 
+#define indexof(array, ent)	(((intptr_t)(ent)-(intptr_t)(array))/sizeof((array)[0]))
+
+// === TYPES ===
+struct sAcctIterator
+{
+	 int	CurUser;
+	 
+	 int	Sort;
+	 
+	 int	MinBalance;
+	 int	MaxBalance;
+	 
+	 int	FlagMask;
+	 int	FlagValue;
+};
+
 // === PROTOTYPES ===
 void	Init_Cokebank(const char *Argument);
 static int Bank_int_ReadDatabase(void);
 static int Bank_int_WriteEntry(int ID);
  int	Bank_Transfer(int SourceUser, int DestUser, int Ammount, const char *Reason);
  int	Bank_CreateUser(const char *Username);
- int	Bank_GetMaxID(void);
+tAcctIterator	*Bank_Iterator(int FlagMask, int FlagValues,
+	int Flags, int MinMaxBalance, time_t LastSeen);
  int	Bank_GetUserID(const char *Username);
  int	Bank_GetBalance(int User);
  int	Bank_GetFlags(int User);
@@ -49,7 +67,7 @@ static int Bank_int_WriteEntry(int ID);
  int	Bank_int_AddUser(const char *Username);
 char	*Bank_GetUserName(int User);
  int	Bank_int_GetUnixID(const char *Username);
- int	Bank_GetUserAuth(const char *Salt, const char *Username, const char *PasswordString);
+ int	Bank_GetUserAuth(const char *Salt, const char *Username, const char *Password);
 #if USE_LDAP
 char	*ReadLDAPValue(const char *Filter, char *Value);
 #endif
@@ -64,9 +82,11 @@ LDAP	*gpLDAP;
 tUser	*gaBank_Users;
  int	giBank_NumUsers;
 FILE	*gBank_File;
+tUser	**gaBank_UsersByName;
+tUser	**gaBank_UsersByBalance;
 
 // === CODE ===
-/**
+/*
  * \brief Load the cokebank database
  */
 void Init_Cokebank(const char *Argument)
@@ -122,18 +142,60 @@ void Init_Cokebank(const char *Argument)
 	#endif
 }
 
+/**
+ * \brief Name compare function for qsort
+ */
+static int Bank_int_CompareNames(const void *Ent1, const void *Ent2)
+{
+	const tUser	*user1 = *(const tUser**)Ent1;
+	const tUser	*user2 = *(const tUser**)Ent2;
+	
+	return strcmp(user1->Name, user2->Name);
+}
+
+/**
+ * \brief Name compare function for qsort
+ */
+static int Bank_int_CompareBalance(const void *Ent1, const void *Ent2)
+{
+	const tUser	*user1 = *(const tUser**)Ent1;
+	const tUser	*user2 = *(const tUser**)Ent2;
+	
+	return user1->Balance - user2->Balance;
+}
+
 #if 1
 static int Bank_int_ReadDatabase(void)
 {
+	 int	i;
 	if( gaBank_Users )	return 1;
 	
 	// Get size
 	fseek(gBank_File, 0, SEEK_END);
-	giBank_NumUsers = ftell(gBank_File) / sizeof(gaBank_Users[0]);
+	giBank_NumUsers = ftell(gBank_File) / sizeof(tFileUser);
 	fseek(gBank_File, 0, SEEK_SET);
+	
+	// Allocate structures
+	gaBank_Users = malloc( giBank_NumUsers * sizeof(tUser) );
+	gaBank_UsersByName = malloc( giBank_NumUsers * sizeof(tUser*) );
+	gaBank_UsersByBalance = malloc( giBank_NumUsers * sizeof(tUser*) );
 	// Read data
-	gaBank_Users = malloc( giBank_NumUsers * sizeof(gaBank_Users[0]) );
-	fread(gaBank_Users, sizeof(gaBank_Users[0]), giBank_NumUsers, gBank_File);
+	for( i = 0; i < giBank_NumUsers; i ++ )
+	{
+		tFileUser	fu;
+		fread(&fu, sizeof(tFileUser), 1, gBank_File);
+		gaBank_Users[i].Name = NULL;
+		gaBank_Users[i].UnixID = fu.UnixID;
+		gaBank_Users[i].Balance = fu.Balance;
+		gaBank_Users[i].Flags = fu.Flags;
+		gaBank_Users[i].Name = Bank_GetUserName(i);
+		gaBank_UsersByName[i] = &gaBank_Users[i];	// Add to name index
+		gaBank_UsersByBalance[i] = &gaBank_Users[i];	// Add to balance index
+	}
+	
+	// Sort indexes
+	qsort(gaBank_UsersByName, giBank_NumUsers, sizeof(tUser*), Bank_int_CompareNames);
+	qsort(gaBank_UsersByBalance, giBank_NumUsers, sizeof(tUser*), Bank_int_CompareBalance);
 	
 	return 0;
 }
@@ -150,25 +212,30 @@ static int Bank_int_ReadDatabase(void)
 	{
 		fgets(buf, BUFSIZ-1, gBank_File);
 	}
-	#endif
 }
 #endif
 
 static int Bank_int_WriteEntry(int ID)
 {
+	tFileUser	fu;
 	if( ID < 0 || ID >= giBank_NumUsers ) {
 		return -1;
 	}
 	
 	// Commit to file
-	fseek(gBank_File, ID*sizeof(gaBank_Users[0]), SEEK_SET);
-	fwrite(&gaBank_Users[ID], sizeof(gaBank_Users[0]), 1, gBank_File);
+	fseek(gBank_File, ID*sizeof(fu), SEEK_SET);
+	
+	fu.UnixID = gaBank_Users[ID].UnixID;
+	fu.Balance = gaBank_Users[ID].Balance;
+	fu.Flags = gaBank_Users[ID].Flags;
+	
+	fwrite(&fu, sizeof(fu), 1, gBank_File);
 	
 	return 0;
 }
 
-/**
- * \brief Transfers money from one user to another
+/*
+ * Transfers money from one user to another
  * \param SourceUser	Source user
  * \param DestUser	Destination user
  * \param Ammount	Ammount of cents to move from \a SourceUser to \a DestUser
@@ -202,18 +269,112 @@ int Bank_CreateUser(const char *Username)
 	return Bank_int_AddUser(Username);
 }
 
-int Bank_GetMaxID(void)
+tAcctIterator *Bank_Iterator(int FlagMask, int FlagValues, int Flags, int MinMaxBalance, time_t LastSeen)
 {
-	return giBank_NumUsers;
+	tAcctIterator	*ret;
+	
+	ret = calloc( 1, sizeof(tAcctIterator) );
+	if( !ret )
+		return NULL;
+	ret->MinBalance = INT_MIN;
+	ret->MaxBalance = INT_MAX;
+	
+	ret->FlagMask = FlagMask;
+	ret->FlagValue = FlagValues & FlagMask;
+	
+	if(Flags & BANK_ITFLAG_MINBALANCE)
+		ret->MinBalance = MinMaxBalance;
+	if(Flags & BANK_ITFLAG_MAXBALANCE)
+		ret->MaxBalance = MinMaxBalance;
+	
+	ret->Sort = Flags & (BANK_ITFLAG_SORTMASK|BANK_ITFLAG_REVSORT);
+	
+	// Shut up GCC
+	LastSeen = 0;
+	
+	//if(Flags & BANK_ITFLAG_SEENBEFORE)
+	//	ret->MinBalance = MinMaxBalance;
+	//if(Flags & BANK_ITFLAG_SEENAFTER)
+	//	ret->MinBalance = MinMaxBalance;
+	
+	return ret;
 }
 
-/**
+int Bank_IteratorNext(tAcctIterator *It)
+{
+	 int	ret;
+	
+	while(It->CurUser < giBank_NumUsers)
+	{
+		switch(It->Sort)
+		{
+		case BANK_ITFLAG_SORT_NONE:
+		case BANK_ITFLAG_SORT_NONE | BANK_ITFLAG_REVSORT:
+			ret = It->CurUser;
+			break;
+		case BANK_ITFLAG_SORT_NAME:
+			ret = indexof(gaBank_Users, gaBank_UsersByName[It->CurUser]);
+			break;
+		case BANK_ITFLAG_SORT_NAME | BANK_ITFLAG_REVSORT:
+			ret = indexof(gaBank_Users, gaBank_UsersByName[giBank_NumUsers-It->CurUser]);
+			break;
+		case BANK_ITFLAG_SORT_BAL:
+			ret = indexof(gaBank_Users, gaBank_UsersByBalance[It->CurUser]);
+			printf("Sort by balance (ret = %i)\n", ret);
+			break;
+		case BANK_ITFLAG_SORT_BAL | BANK_ITFLAG_REVSORT:
+			ret = indexof(gaBank_Users, gaBank_UsersByBalance[giBank_NumUsers-It->CurUser]);
+			break;
+		default:
+			fprintf(stderr, "BUG: Unsupported sort in Bank_IteratorNext\n");
+			return -1;
+		}
+		It->CurUser ++;
+		
+		if( gaBank_Users[ret].Balance < It->MinBalance )
+			continue;
+		if( gaBank_Users[ret].Balance > It->MaxBalance )
+			continue;
+		if( (gaBank_Users[ret].Flags & It->FlagMask) != It->FlagValue )
+			continue;
+		
+		return ret;
+	}
+	return -1;
+}
+
+void Bank_DelIterator(tAcctIterator *It)
+{
+	free(It);
+}
+
+/*
  * \brief Get the User ID of the named user
  */
 int Bank_GetUserID(const char *Username)
-{
+{	
+	#if 0
+	 int	i, size;
+	i = giBank_NumUsers / 2;
+	size = giBank_NumUsers;
+	for(;;)
+	{
+		cmp = strcmp(gaBank_UsersByName[i]->Name, Username);
+		if( cmp == 0 )
+			return indexof(gaBank_Users, gaBank_UsersByName[i];
+		
+		// Not found
+		if( size == 0 )
+			return -1;
+		
+		if( cmp < 0 )
+			i += size;
+		else
+			i -= size;
+		size /= 2;
+	}
+	#else
 	 int	i, uid;
-	
 	uid = Bank_int_GetUnixID(Username);
 	
 	// Expensive search :(
@@ -222,6 +383,7 @@ int Bank_GetUserID(const char *Username)
 		if( gaBank_Users[i].UnixID == uid )
 			return i;
 	}
+	#endif
 
 	return -1;
 }
@@ -340,8 +502,8 @@ int Bank_int_GetMinAllowedBalance(int ID)
 	return 0;
 }
 
-/**
- * \brief Create a new user in our database
+/*
+ * Create a new user in our database
  */
 int Bank_int_AddUser(const char *Username)
 {
@@ -349,15 +511,28 @@ int Bank_int_AddUser(const char *Username)
 	 int	uid = Bank_int_GetUnixID(Username);
 
 	// Can has moar space plz?
+	// - Structures
 	tmp = realloc(gaBank_Users, (giBank_NumUsers+1)*sizeof(gaBank_Users[0]));
 	if( !tmp )	return -1;
 	gaBank_Users = tmp;
+	// - Name index
+	tmp = realloc(gaBank_UsersByName, (giBank_NumUsers+1)*sizeof(tUser*));
+	if( !tmp )	return -1;
+	gaBank_UsersByName = tmp;
+	// - Balance index
+	tmp = realloc(gaBank_UsersByBalance, (giBank_NumUsers+1)*sizeof(tUser*));
+	if( !tmp )	return -1;
+	gaBank_UsersByBalance = tmp;
 
 	// Crete new user
+	gaBank_Users[giBank_NumUsers].Name = NULL;
 	gaBank_Users[giBank_NumUsers].UnixID = uid;
 	gaBank_Users[giBank_NumUsers].Balance = 0;
 	gaBank_Users[giBank_NumUsers].Flags = 0;
+	gaBank_UsersByName[giBank_NumUsers] = &gaBank_Users[giBank_NumUsers];
+	gaBank_UsersByBalance[giBank_NumUsers] = &gaBank_Users[giBank_NumUsers];
 	
+	// Set default flags
 	if( strcmp(Username, COKEBANK_DEBT_ACCT) == 0 ) {
 		gaBank_Users[giBank_NumUsers].Flags = USER_FLAG_INTERNAL;
 	}
@@ -371,6 +546,14 @@ int Bank_int_AddUser(const char *Username)
 	// Increment count
 	giBank_NumUsers ++;
 	
+	// Get name
+	gaBank_Users[giBank_NumUsers-1].Name = Bank_GetUserName(giBank_NumUsers-1);
+	
+	// Update indexes
+	qsort(gaBank_UsersByName, giBank_NumUsers, sizeof(tUser*), Bank_int_CompareNames);
+	qsort(gaBank_UsersByBalance, giBank_NumUsers, sizeof(tUser*), Bank_int_CompareBalance);
+	
+	// Save
 	Bank_int_WriteEntry(giBank_NumUsers - 1);
 
 	return 0;
@@ -380,15 +563,16 @@ int Bank_int_AddUser(const char *Username)
 // Unix user dependent code
 // TODO: Modify to keep its own list of usernames
 // ---
-/**
- * \brief Return the name the passed user
- */
 char *Bank_GetUserName(int ID)
 {
 	struct passwd	*pwd;
 	
 	if( ID < 0 || ID >= giBank_NumUsers )
 		return NULL;
+	
+	if( gaBank_Users[ID].Name ) {
+		return strdup(gaBank_Users[ID].Name);
+	}
 	
 	if( gaBank_Users[ID].UnixID == -1 )
 		return strdup(COKEBANK_SALES_ACCT);
@@ -423,11 +607,10 @@ int Bank_int_GetUnixID(const char *Username)
 }
 
 
-/**
- * \brief Authenticate a user
- * \return User ID, or -1 if authentication failed
+/*
+ * Authenticate a user
  */
-int Bank_GetUserAuth(const char *Salt, const char *Username, const char *PasswordString)
+int Bank_GetUserAuth(const char *Salt, const char *Username, const char *Password)
 {
 	#if USE_LDAP
 	uint8_t	hash[20];
@@ -439,10 +622,10 @@ int Bank_GetUserAuth(const char *Salt, const char *Username, const char *Passwor
 	#endif
 	
 	#if 1
-	// Only here to shut GCC up (until password auth is implemented
+	// Only here to shut GCC up (until password auth is implemented)
 	if( Salt == NULL )
 		return -1;
-	if( PasswordString == NULL )
+	if( Password == NULL )
 		return -1;
 	#endif
 	
@@ -460,7 +643,7 @@ int Bank_GetUserAuth(const char *Salt, const char *Username, const char *Passwor
 	#endif
 	
 	#if USE_LDAP
-	HexBin(hash, 20, PasswordString);
+	HexBin(hash, 20, Password);
 	
 	// Build string to hash
 	strcpy(input, Username);
