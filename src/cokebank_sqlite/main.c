@@ -7,6 +7,7 @@
  * This file is licenced under the 3-clause BSD Licence. See the file
  * COPYING for full details.
  */
+#include <inttypes.h>
 #include <stdlib.h>
 #include <limits.h>
 #include <stdio.h>
@@ -386,7 +387,7 @@ tAcctIterator *Bank_Iterator(int FlagMask, int FlagValues, int Flags, int MinMax
 	query = mkstr("SELECT acct_id FROM accounts WHERE 1=1"
 		"%s%s%s%s%s"	// Flags
 		"%s%i"	// Balance
-		"%sdatetime(%lli,'unixepoch')"	// Last seen
+		"%sdatetime(%"PRIu64",'unixepoch')"	// Last seen
 		"%s%s"	// Sort and direction
 		,
 		MAP_FLAG("acct_is_coke", USER_FLAG_COKE),
@@ -395,7 +396,7 @@ tAcctIterator *Bank_Iterator(int FlagMask, int FlagValues, int Flags, int MinMax
 		MAP_FLAG("acct_is_internal", USER_FLAG_INTERNAL),
 		MAP_FLAG("acct_is_disabled", USER_FLAG_DISABLED),
 		balanceClause, MinMaxBalance,
-		lastSeenClause, LastSeen,
+		lastSeenClause, (uint64_t)LastSeen,
 		orderClause, revSort
 		);
 	//printf("query = \"%s\"\n", query);

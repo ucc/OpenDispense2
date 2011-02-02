@@ -18,6 +18,8 @@
 #include <fcntl.h>
 #include <regex.h>
 
+#define READ_TIMEOUT	2	// 2 seconds for ReadChar
+
 // === IMPORTS ===
 
 // === PROTOTYPES ===
@@ -191,7 +193,7 @@ char ReadChar()
 	 int	ret;
 	struct timeval	timeout;
 	
-	timeout.tv_sec = 5;	// 5 second timeout
+	timeout.tv_sec = READ_TIMEOUT;
 	timeout.tv_usec = 0;
 	
 	FD_ZERO(&readfs);

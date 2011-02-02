@@ -5,6 +5,7 @@
 #include <limits.h>
 
  int	_GetMinBalance(int Account);
+ int	_CanTransfer(int Source, int Destination, int Ammount);
  int	_Transfer(int Source, int Destination, int Ammount, const char *Reason);
 
 // === CODE ===
@@ -15,10 +16,17 @@
  */
 int DispenseItem(int ActualUser, int User, tItem *Item)
 {
-	 int	ret;
+	 int	ret, salesAcct;
 	tHandler	*handler;
 	char	*username, *actualUsername;
-	char	*reason;
+	
+	salesAcct = Bank_GetAcctByName(COKEBANK_SALES_ACCT);
+
+	// Check if the user can afford it
+	if( Item->Price && !_CanTransfer(User, salesAcct, Item->Price) )
+	{
+		return 2;	// 2: No balance
+	}
 	
 	handler = Item->Handler;
 	
@@ -26,16 +34,6 @@ int DispenseItem(int ActualUser, int User, tItem *Item)
 	if( handler->CanDispense ) {
 		ret = handler->CanDispense( User, Item->ID );
 		if(ret)	return 1;	// 1: Unable to dispense
-	}
-
-	// Subtract the balance
-	if( Item->Price )
-	{
-		reason = mkstr("Dispense - %s:%i %s", handler->Name, Item->ID, Item->Name);
-		if( !reason )	reason = Item->Name;	// TODO: Should I instead return an error?
-		ret = _Transfer( User, Bank_GetAcctByName(COKEBANK_SALES_ACCT), Item->Price, reason);
-		free(reason);
-		if(ret)	return 2;	// 2: No balance
 	}
 	
 	// Get username for debugging
@@ -45,13 +43,20 @@ int DispenseItem(int ActualUser, int User, tItem *Item)
 	if( handler->DoDispense ) {
 		ret = handler->DoDispense( User, Item->ID );
 		if(ret) {
-			Log_Error("Dispense failed after deducting cost (%s dispensing %s - %ic)",
+			Log_Error("Dispense failed (%s dispensing '%s' - %ic)",
 				username, Item->Name, Item->Price);
-			if( Item->Price )
-				_Transfer( Bank_GetAcctByName(COKEBANK_SALES_ACCT), User, Item->Price, "rollback" );
 			free( username );
-			return -1;	// 1: Unkown Error again
+			return -1;	// 1: Unknown Error again
 		}
+	}
+	
+	// Take away money
+	if( Item->Price )
+	{
+		char	*reason;
+		reason = mkstr("Dispense - %s:%i %s", handler->Name, Item->ID, Item->Name);
+		_Transfer( User, salesAcct, Item->Price, reason );
+		free(reason);
 	}
 	
 	actualUsername = Bank_GetAcctName(ActualUser);
@@ -123,6 +128,26 @@ int DispenseAdd(int ActualUser, int User, int Ammount, const char *ReasonGiven)
 	return 0;
 }
 
+int DispenseSet(int ActualUser, int User, int Balance, const char *ReasonGiven)
+{
+	 int	curBal = Bank_GetBalance(User);
+	char	*byName, *dstName;
+	
+	_Transfer( Bank_GetAcctByName(COKEBANK_DEBT_ACCT), User, Balance-curBal, ReasonGiven );
+	
+	byName = Bank_GetAcctName(ActualUser);
+	dstName = Bank_GetAcctName(User);
+	
+	Log_Info("set balance of %s to %i by %s [balance %i] - %s",
+		dstName, Balance, byName, Bank_GetBalance(User), ReasonGiven
+		);
+	
+	free(byName);
+	free(dstName);
+	
+	return 0;
+}
+
 /**
  * \brief Donate money to the club
  */
@@ -167,18 +192,27 @@ int _GetMinBalance(int Account)
 	return 0;
 }
 
-int _Transfer(int Source, int Destination, int Ammount, const char *Reason)
+/**
+ * \brief Check if a transfer is possible
+ */
+int _CanTransfer(int Source, int Destination, int Ammount)
 {
 	if( Ammount > 0 )
 	{
 		if( Bank_GetBalance(Source) + Ammount < _GetMinBalance(Source) )
-			return 1;
+			return 0;
 	}
 	else
 	{
 		if( Bank_GetBalance(Destination) - Ammount < _GetMinBalance(Destination) )
-			return 1;
+			return 0;
 	}
-	
+	return 1;
+}
+
+int _Transfer(int Source, int Destination, int Ammount, const char *Reason)
+{
+	if( !_CanTransfer(Source, Destination, Ammount) )
+		return 1;
 	return Bank_Transfer(Source, Destination, Ammount, Reason);
 }

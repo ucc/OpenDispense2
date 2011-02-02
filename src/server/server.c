@@ -771,6 +771,75 @@ void Server_Cmd_ADD(tClient *Client, char *Args)
 	}
 }
 
+void Server_Cmd_SET(tClient *Client, char *Args)
+{
+	char	*user, *ammount, *reason;
+	 int	uid, iAmmount;
+	
+	if( !Client->bIsAuthed ) {
+		sendf(Client->Socket, "401 Not Authenticated\n");
+		return ;
+	}
+
+	user = Args;
+
+	ammount = strchr(Args, ' ');
+	if( !ammount ) {
+		sendf(Client->Socket, "407 Invalid Argument, expected 3 parameters, 1 encountered\n");
+		return ;
+	}
+	*ammount = '\0';
+	ammount ++;
+
+	reason = strchr(ammount, ' ');
+	if( !reason ) {
+		sendf(Client->Socket, "407 Invalid Argument, expected 3 parameters, 2 encountered\n");
+		return ;
+	}
+	*reason = '\0';
+	reason ++;
+
+	// Check user permissions
+	if( !(Bank_GetFlags(Client->UID) & USER_FLAG_ADMIN)  ) {
+		sendf(Client->Socket, "403 Not an admin\n");
+		return ;
+	}
+
+	// Get recipient
+	uid = Bank_GetAcctByName(user);
+	if( uid == -1 ) {
+		sendf(Client->Socket, "404 Invalid user\n");
+		return ;
+	}
+	
+	// You can't alter an internal account
+	if( Bank_GetFlags(uid) & USER_FLAG_INTERNAL ) {
+		sendf(Client->Socket, "404 Invalid user\n");
+		return ;
+	}
+
+	// Parse ammount
+	iAmmount = atoi(ammount);
+	if( iAmmount == 0 && ammount[0] != '0' ) {
+		sendf(Client->Socket, "407 Invalid Argument\n");
+		return ;
+	}
+
+	// Do give
+	switch( DispenseSet(Client->UID, uid, iAmmount, reason) )
+	{
+	case 0:
+		sendf(Client->Socket, "200 Add OK\n");
+		return ;
+	case 2:
+		sendf(Client->Socket, "402 Poor Guy\n");
+		return ;
+	default:
+		sendf(Client->Socket, "500 Unknown error\n");
+		return ;
+	}
+}
+
 void Server_Cmd_ENUMUSERS(tClient *Client, char *Args)
 {
 	 int	i, numRet = 0;
