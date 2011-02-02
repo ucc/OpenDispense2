@@ -65,6 +65,12 @@ int Coke_CanDispense(int UNUSED(User), int Item)
 	if( giCoke_SerialFD == -1 )
 		return -2;
 	
+	// Flush the input buffer
+	{
+		char	tmpbuf[512];
+		read(giCoke_SerialFD, tmpbuf, sizeof(tmpbuf));
+	}
+	
 	// Wait for a prompt
 	ret = 0;
 	do {
@@ -134,6 +140,12 @@ int Coke_DoDispense(int UNUSED(User), int Item)
 	// Can't dispense if the machine is not connected
 	if( giCoke_SerialFD == -1 )
 		return -2;
+	
+	// Flush the input buffer
+	{
+		char	tmpbuf[512];
+		read(giCoke_SerialFD, tmpbuf, sizeof(tmpbuf));
+	}
 
 	// Wait for prompt
 	i = 0;

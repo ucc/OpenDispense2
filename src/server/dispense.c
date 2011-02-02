@@ -29,11 +29,14 @@ int DispenseItem(int ActualUser, int User, tItem *Item)
 	}
 
 	// Subtract the balance
-	reason = mkstr("Dispense - %s:%i %s", handler->Name, Item->ID, Item->Name);
-	if( !reason )	reason = Item->Name;	// TODO: Should I instead return an error?
-	ret = _Transfer( User, Bank_GetAcctByName(COKEBANK_SALES_ACCT), Item->Price, reason);
-	free(reason);
-	if(ret)	return 2;	// 2: No balance
+	if( Item->Price )
+	{
+		reason = mkstr("Dispense - %s:%i %s", handler->Name, Item->ID, Item->Name);
+		if( !reason )	reason = Item->Name;	// TODO: Should I instead return an error?
+		ret = _Transfer( User, Bank_GetAcctByName(COKEBANK_SALES_ACCT), Item->Price, reason);
+		free(reason);
+		if(ret)	return 2;	// 2: No balance
+	}
 	
 	// Get username for debugging
 	username = Bank_GetAcctName(User);
@@ -44,7 +47,8 @@ int DispenseItem(int ActualUser, int User, tItem *Item)
 		if(ret) {
 			Log_Error("Dispense failed after deducting cost (%s dispensing %s - %ic)",
 				username, Item->Name, Item->Price);
-			_Transfer( Bank_GetAcctByName(COKEBANK_SALES_ACCT), User, Item->Price, "rollback" );
+			if( Item->Price )
+				_Transfer( Bank_GetAcctByName(COKEBANK_SALES_ACCT), User, Item->Price, "rollback" );
 			free( username );
 			return -1;	// 1: Unkown Error again
 		}
@@ -156,7 +160,7 @@ int _GetMinBalance(int Account)
 	// Admin to -$10
 	if( flags & USER_FLAG_ADMIN )	return -1000;
 	
-	// Coke to -$10
+	// Coke to -$5
 	if( flags & USER_FLAG_COKE )	return -500;
 	
 	// Anyone else, non-negative

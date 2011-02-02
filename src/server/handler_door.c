@@ -28,11 +28,12 @@ tHandler	gDoor_Handler = {
 	Door_CanDispense,
 	Door_DoDispense
 };
-//char	*gsDoor_SerialPort = "/dev/ttyS0";
+char	*gsDoor_Password;
+char	*gsDoor_Command;
 // int	giDoor_SerialFD;
 
 // == CODE ===
-int Door_InitHandler()
+int Door_InitHandler(void)
 {
 //	printf("connecting to door...\n");
 //	giDoor_SerialFD = open(gsDoor_SerialPort, O_RDWR);
@@ -51,6 +52,9 @@ int Door_CanDispense(int User, int Item)
 	
 	if( !(Bank_GetFlags(User) & USER_FLAG_DOORGROUP) )
 		return 1;
+		
+	gsDoor_Command = malloc(sizeof("llogin door -w ")+strlen(gsDoor_Password));
+	sprintf(gsDoor_Command, "llogin door -w %s", gsDoor_Password);
 	
 	return 0;
 }
@@ -60,6 +64,7 @@ int Door_CanDispense(int User, int Item)
  */
 int Door_DoDispense(int User, int Item)
 {
+	FILE	*pipe;
 	// Sanity please
 	if( Item != 0 )	return -1;
 	
@@ -68,6 +73,15 @@ int Door_DoDispense(int User, int Item)
 		return 1;
 	
 	// llogin or other
+	pipe = popen(gsDoor_Command, "w");
+	if( !pipe || pipe == (void*)-1 )
+		return -1;
+	
+	fputs("ATH1F", pipe);
+	sleep(1);
+	fputs("ATH10", pipe);
+	
+	pclose(pipe);
 
 	return 0;
 }
