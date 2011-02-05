@@ -29,6 +29,11 @@
 typedef struct sAcctIterator	tAcctIterator;
 
 /**
+ * \brief Iterator for a collection of items
+ */
+typedef struct sItemIterator	tItemIterator;
+
+/**
  * \brief Flag values for the \a Flags parameter to Bank_Iterator
  */
 enum eBank_ItFlags

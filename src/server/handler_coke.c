@@ -19,6 +19,7 @@
 #include <regex.h>
 
 #define READ_TIMEOUT	2	// 2 seconds for ReadChar
+#define TRACE_COKE	1
 
 // === IMPORTS ===
 
@@ -67,6 +68,10 @@ int Coke_CanDispense(int UNUSED(User), int Item)
 	if( giCoke_SerialFD == -1 )
 		return -2;
 	
+	#if TRACE_COKE
+	printf("Coke_CanDispense: Flushing");
+	#endif
+	
 	// Flush the input buffer
 	{
 		char	tmpbuf[512];
@@ -76,6 +81,9 @@ int Coke_CanDispense(int UNUSED(User), int Item)
 	// Wait for a prompt
 	ret = 0;
 	do {
+		#if TRACE_COKE
+		printf("Coke_DoDispense: sending 'd7'");
+		#endif
 		write(giCoke_SerialFD, "d7\r\n", 4);
 	} while( WaitForColon() && ret++ < 3 );
 
@@ -86,10 +94,17 @@ int Coke_CanDispense(int UNUSED(User), int Item)
 
 	// TODO: Handle "not ok" response to D7
 	
+	#if TRACE_COKE
+	printf("Coke_CanDispense: sending 's%i'", Item);
+	#endif
+	
 	// Ask the coke machine
 	sprintf(tmp, "s%i\r\n", Item);
 	write(giCoke_SerialFD, tmp, 4);
 
+	#if TRACE_COKE
+	printf("Coke_CanDispense: reading response");
+	#endif
 	// Read from the machine (ignoring empty lines)
 	while( (ret = ReadLine(sizeof(tmp)-1, tmp)) == 0 );
 	printf("ret = %i, tmp = '%s'\n", ret, tmp);
@@ -106,6 +121,10 @@ int Coke_CanDispense(int UNUSED(User), int Item)
 		}
 		return -1;
 	}
+	
+	#if TRACE_COKE
+	printf("Coke_CanDispense: wait for the prompt again");
+	#endif
 
 	// Eat rest of response
 	WaitForColon();
@@ -121,6 +140,10 @@ int Coke_CanDispense(int UNUSED(User), int Item)
 	status = &tmp[ matches[3].rm_so ];
 
 	printf("Machine responded slot status '%s'\n", status);
+	
+	#if TRACE_COKE
+	printf("Coke_CanDispense: done");
+	#endif
 
 	if( strcmp(status, "full") == 0 )
 		return 0;
@@ -143,18 +166,27 @@ int Coke_DoDispense(int UNUSED(User), int Item)
 	if( giCoke_SerialFD == -1 )
 		return -2;
 	
+	#if TRACE_COKE
+	printf("Coke_DoDispense: flushing input");
+	#endif
 	// Flush the input buffer
 	{
 		char	tmpbuf[512];
 		read(giCoke_SerialFD, tmpbuf, sizeof(tmpbuf));
 	}
-
+	
 	// Wait for prompt
 	i = 0;
 	do {
+		#if TRACE_COKE
+		printf("Coke_DoDispense: sending 'd7'");
+		#endif
 		write(Item, "d7\r\n", 4);
 	} while( WaitForColon() && i++ < 3 );
 
+	#if TRACE_COKE
+	printf("Coke_DoDispense: sending 'd%i'", Item);
+	#endif
 	// Dispense
 	sprintf(tmp, "d%i\r\n", Item);
 	write(giCoke_SerialFD, tmp, 4);
@@ -172,6 +204,10 @@ int Coke_DoDispense(int UNUSED(User), int Item)
 	if( ret == -1 )	return -1;
 
 	WaitForColon();	// Eat up rest of response
+	
+	#if TRACE_COKE
+	printf("Coke_DoDispense: done");
+	#endif
 
 	// TODO: Regex
 	if( strcmp(tmp, "ok") == 0 ) {

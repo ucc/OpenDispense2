@@ -49,6 +49,7 @@ void	PrintAlign(int Row, int Col, int Width, const char *Left, char Pad1, const 
 void	PopulateItemList(int Socket);
  int	DispenseItem(int Socket, int ItemID);
  int	Dispense_AlterBalance(int Socket, const char *Username, int Ammount, const char *Reason);
+ int	Dispense_SetBalance(int Socket, const char *Username, int Balance, const char *Reason);
  int	Dispense_Give(int Socket, const char *Username, int Ammount, const char *Reason);
  int	Dispense_Donate(int Socket, int Ammount, const char *Reason);
  int	Dispense_EnumUsers(int Socket);
@@ -128,6 +129,9 @@ int main(int argc, char *argv[])
 			continue;
 		}
 		
+		//
+		// `dispense acct`
+		// - 
 		if( strcmp(arg, "acct") == 0 )
 		{
 			// Connect to server
@@ -158,8 +162,19 @@ int main(int argc, char *argv[])
 				// argv[i+2]: Ammount
 				// argv[i+3]: Reason
 				
-				// Alter balance
-				Dispense_AlterBalance(sock, argv[i+1], atoi(argv[i+2]), argv[i+3]);
+				if( argv[i+2][0] == '=' ) {
+					// Set balance
+					if( argv[i+2][1] != '0' && atoi(&argv[i+2][1]) == 0 ) {
+						fprintf(stderr, "Error: Invalid balance to be set\n");
+						exit(1);
+					}
+					
+					Dispense_SetBalance(sock, argv[i+1], atoi(argv[i+2]+1), argv[i+3]);
+				}
+				else {
+					// Alter balance
+					Dispense_AlterBalance(sock, argv[i+1], atoi(argv[i+2]), argv[i+3]);
+				}
 			}
 			
 			// Show user information
@@ -197,7 +212,7 @@ int main(int argc, char *argv[])
 		}
 		// 
 		// `dispense user`
-		// - User administration (Wheel Only)
+		// - User administration (Admin Only)
 		if( strcmp(arg, "user") == 0 )
 		{
 			// Check argument count
@@ -299,6 +314,7 @@ int main(int argc, char *argv[])
 	}
 	else
 	{
+		// Very basic dispense interface
 		for( i = 0; i < giNumItems; i ++ ) {		
 			printf("%2i %s:%i\t%3i %s\n", i, gaItems[i].Type, gaItems[i].ID,
 				gaItems[i].Price, gaItems[i].Desc);
@@ -342,6 +358,7 @@ void ShowUsage(void)
 {
 	printf(
 		"Usage:\n"
+		"  == Everyone ==\n"
 		"    dispense\n"
 		"        Show interactive list\n"
 		"    dispense <item>\n"
@@ -350,10 +367,14 @@ void ShowUsage(void)
 		"        Give money to another user\n"
 		"    dispense donate <ammount> \"<reason>\"\n"
 		"        Donate to the club\n"
+		"  == Coke members == \n"
 		"    dispense acct [<user>]\n"
 		"        Show user balances\n"
 		"    dispense acct <user> [+-]<ammount> \"<reason>\"\n"
-		"        Alter a account value (Coke members only)\n"
+		"        Alter a account value\n"
+		"  == Dispense administrators ==\n"
+		"    dispense acct <user> =<ammount> \"<reason>\"\n"
+		"        Set an account balance\n"
 		"    dispense user add <user>\n"
 		"        Create new coke account (Admins only)\n"
 		"    dispense user type <user> <flags>\n"
@@ -985,6 +1006,38 @@ int Dispense_AlterBalance(int Socket, const char *Username, int Ammount, const c
 		return 1;
 	case 403:	// Not in coke
 		fprintf(stderr, "You are not in coke (sucker)\n");
+		return 1;
+	case 404:	// Unknown user
+		fprintf(stderr, "Unknown user '%s'\n", Username);
+		return 2;
+	default:
+		fprintf(stderr, "Unknown response code %i\n", responseCode);
+		return -1;
+	}
+	
+	return -1;
+}
+
+/**
+ * \brief Set a user's balance
+ * \note Only avaliable to dispense admins
+ */
+int Dispense_SetBalance(int Socket, const char *Username, int Balance, const char *Reason)
+{
+	char	*buf;
+	 int	responseCode;
+	
+	sendf(Socket, "SET %s %i %s\n", Username, Balance, Reason);
+	buf = ReadLine(Socket);
+	
+	responseCode = atoi(buf);
+	free(buf);
+	
+	switch(responseCode)
+	{
+	case 200:	return 0;	// OK
+	case 403:	// Not in coke
+		fprintf(stderr, "You are not an admin\n");
 		return 1;
 	case 404:	// Unknown user
 		fprintf(stderr, "Unknown user '%s'\n", Username);

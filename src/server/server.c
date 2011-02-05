@@ -61,6 +61,7 @@ void	Server_Cmd_DISPENSE(tClient *Client, char *Args);
 void	Server_Cmd_GIVE(tClient *Client, char *Args);
 void	Server_Cmd_DONATE(tClient *Client, char *Args);
 void	Server_Cmd_ADD(tClient *Client, char *Args);
+void	Server_Cmd_SET(tClient *Client, char *Args);
 void	Server_Cmd_ENUMUSERS(tClient *Client, char *Args);
 void	Server_Cmd_USERINFO(tClient *Client, char *Args);
 void	_SendUserInfo(tClient *Client, int UserID);
@@ -86,6 +87,7 @@ const struct sClientCommand {
 	{"GIVE", Server_Cmd_GIVE},
 	{"DONATE", Server_Cmd_DONATE},
 	{"ADD", Server_Cmd_ADD},
+	{"SET", Server_Cmd_SET},
 	{"ENUM_USERS", Server_Cmd_ENUMUSERS},
 	{"USER_INFO", Server_Cmd_USERINFO},
 	{"USER_ADD", Server_Cmd_USERADD},
