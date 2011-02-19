@@ -68,6 +68,7 @@ void	_SendUserInfo(tClient *Client, int UserID);
 void	Server_Cmd_USERADD(tClient *Client, char *Args);
 void	Server_Cmd_USERFLAGS(tClient *Client, char *Args);
 // --- Helpers ---
+void	Debug(tClient *Client, const char *Format, ...);
  int	Server_int_ParseFlags(tClient *Client, const char *Str, int *Mask, int *Value);
  int	sendf(int Socket, const char *Format, ...);
 
@@ -341,7 +342,7 @@ void Server_Cmd_USER(tClient *Client, char *Args)
 	
 	// Debug!
 	if( giDebugLevel )
-		printf("Client %i authenticating as '%s'\n", Client->ID, Args);
+		Debug("Authenticating as '%s'", Args);
 	
 	// Save username
 	if(Client->Username)
@@ -402,7 +403,7 @@ void Server_Cmd_AUTOAUTH(tClient *Client, char *Args)
 	// Check if trusted
 	if( !Client->bIsTrusted ) {
 		if(giDebugLevel)
-			printf("Client %i: Untrusted client attempting to AUTOAUTH\n", Client->ID);
+			Debug("Untrusted client attempting to AUTOAUTH");
 		sendf(Client->Socket, "401 Untrusted\n");
 		return ;
 	}
@@ -411,7 +412,7 @@ void Server_Cmd_AUTOAUTH(tClient *Client, char *Args)
 	Client->UID = Bank_GetAcctByName( Args );	
 	if( Client->UID < 0 ) {
 		if(giDebugLevel)
-			printf("Client %i: Unknown user '%s'\n", Client->ID, Args);
+			Debug("Unknown user '%s'", Args);
 		sendf(Client->Socket, "401 Auth Failure\n");
 		return ;
 	}
@@ -426,7 +427,7 @@ void Server_Cmd_AUTOAUTH(tClient *Client, char *Args)
 	Client->bIsAuthed = 1;
 	
 	if(giDebugLevel)
-		printf("Client %i: Auto authenticated as '%s' (%i)\n", Client->ID, Args, Client->UID);
+		Debug("Auto authenticated as '%s' (%i)", Args, Client->UID);
 	
 	sendf(Client->Socket, "200 Auth OK\n");
 }
@@ -1030,6 +1031,9 @@ void Server_Cmd_USERINFO(tClient *Client, char *Args)
 	space = strchr(user, ' ');
 	if(space)	*space = '\0';
 	
+	if( giDebugLevel )
+		Debug(Client, "User Info '%s'", user);
+	
 	// Get recipient
 	uid = Bank_GetAcctByName(user);
 	if( uid == -1 ) {
@@ -1153,6 +1157,16 @@ void Server_Cmd_USERFLAGS(tClient *Client, char *Args)
 }
 
 // --- INTERNAL HELPERS ---
+void Debug(tClient *Client, const char *Format, ...)
+{
+	va_list	args;
+	printf("%010lli [%i] ", time(NULL), Client->ID);
+	va_start(args, Format);
+	vprintf(NULL, 0, Format, args);
+	va_end(args);
+	printf("\n");
+}
+
 int sendf(int Socket, const char *Format, ...)
 {
 	va_list	args;

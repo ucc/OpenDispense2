@@ -69,7 +69,7 @@ int Coke_CanDispense(int UNUSED(User), int Item)
 		return -2;
 	
 	#if TRACE_COKE
-	printf("Coke_CanDispense: Flushing");
+	printf("Coke_CanDispense: Flushing\n");
 	#endif
 	
 	// Flush the input buffer
@@ -82,7 +82,7 @@ int Coke_CanDispense(int UNUSED(User), int Item)
 	ret = 0;
 	do {
 		#if TRACE_COKE
-		printf("Coke_DoDispense: sending 'd7'");
+		printf("Coke_DoDispense: sending 'd7'\n");
 		#endif
 		write(giCoke_SerialFD, "d7\r\n", 4);
 	} while( WaitForColon() && ret++ < 3 );
@@ -95,7 +95,7 @@ int Coke_CanDispense(int UNUSED(User), int Item)
 	// TODO: Handle "not ok" response to D7
 	
 	#if TRACE_COKE
-	printf("Coke_CanDispense: sending 's%i'", Item);
+	printf("Coke_CanDispense: sending 's%i'\n", Item);
 	#endif
 	
 	// Ask the coke machine
@@ -103,7 +103,7 @@ int Coke_CanDispense(int UNUSED(User), int Item)
 	write(giCoke_SerialFD, tmp, 4);
 
 	#if TRACE_COKE
-	printf("Coke_CanDispense: reading response");
+	printf("Coke_CanDispense: reading response\n");
 	#endif
 	// Read from the machine (ignoring empty lines)
 	while( (ret = ReadLine(sizeof(tmp)-1, tmp)) == 0 );
@@ -123,7 +123,7 @@ int Coke_CanDispense(int UNUSED(User), int Item)
 	}
 	
 	#if TRACE_COKE
-	printf("Coke_CanDispense: wait for the prompt again");
+	printf("Coke_CanDispense: wait for the prompt again\n");
 	#endif
 
 	// Eat rest of response
@@ -167,7 +167,7 @@ int Coke_DoDispense(int UNUSED(User), int Item)
 		return -2;
 	
 	#if TRACE_COKE
-	printf("Coke_DoDispense: flushing input");
+	printf("Coke_DoDispense: flushing input\n");
 	#endif
 	// Flush the input buffer
 	{
@@ -179,13 +179,13 @@ int Coke_DoDispense(int UNUSED(User), int Item)
 	i = 0;
 	do {
 		#if TRACE_COKE
-		printf("Coke_DoDispense: sending 'd7'");
+		printf("Coke_DoDispense: sending 'd7'\n");
 		#endif
 		write(Item, "d7\r\n", 4);
 	} while( WaitForColon() && i++ < 3 );
 
 	#if TRACE_COKE
-	printf("Coke_DoDispense: sending 'd%i'", Item);
+	printf("Coke_DoDispense: sending 'd%i'\n", Item);
 	#endif
 	// Dispense
 	sprintf(tmp, "d%i\r\n", Item);
@@ -206,7 +206,7 @@ int Coke_DoDispense(int UNUSED(User), int Item)
 	WaitForColon();	// Eat up rest of response
 	
 	#if TRACE_COKE
-	printf("Coke_DoDispense: done");
+	printf("Coke_DoDispense: done\n");
 	#endif
 
 	// TODO: Regex
