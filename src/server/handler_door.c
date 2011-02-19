@@ -38,10 +38,19 @@ tHandler	gDoor_Handler = {
 	Door_DoDispense
 };
 char	*gsDoor_Password = "";
+volatile int	giDoor_ChildStatus;
 
 // == CODE ===
+void Door_SIGCHLDHandler(int signum)
+{
+	signum = 0;
+	printf("SIGCHLD\n");
+	giDoor_ChildStatus ++;
+}
+
 int Door_InitHandler(void)
-{	
+{
+	signal(SIGCHLD, Door_SIGCHLDHandler);
 	return 0;
 }
 
@@ -80,6 +89,7 @@ int Door_DoDispense(int User, int Item)
 	 int	stdin_pair[2];
 	 int	stdout_pair[2];
 	pid_t	childPid;
+	pid_t	parentPid;
 	
 	#if DEBUG
 	printf("Door_DoDispense: (User=%i,Item=%i)\n", User, Item);
@@ -104,6 +114,8 @@ int Door_DoDispense(int User, int Item)
 		return -1;
 	}
 	
+	giDoor_ChildStatus = 0;	// Set child status to zero
+	parentPid = getpid();
 	childPid = fork();
 	
 	if( childPid < 0 )
@@ -115,6 +127,7 @@ int Door_DoDispense(int User, int Item)
 	// Child process
 	if( childPid == 0 )
 	{
+		
 		// Close write end of stdin, and set it to #0
 		close(stdin_pair[1]);	dup2(stdin_pair[0], 0);
 		// Close read end of stdout, and set it to #1
@@ -129,7 +142,7 @@ int Door_DoDispense(int User, int Item)
 	close(stdin_pair[0]);	// child stdin read
 	close(stdout_pair[1]);	// child stdout write
 	
-	if(read(stdout_pair[1], buf, 512) < 0) {
+	if( giDoor_ChildStatus || read(stdout_pair[0], buf, 512) < 0) {
 		#if DEBUG
 		printf("Door_DoDispense: fread fail\n");
 		#endif
@@ -137,7 +150,7 @@ int Door_DoDispense(int User, int Item)
 	}
 	
 	// Send password
-	if( fputs(gsDoor_Password, child_stdin) <= 0 ) {
+	if( giDoor_ChildStatus || fputs(gsDoor_Password, child_stdin) <= 0 ) {
 		#if DEBUG
 		printf("Door_DoDispense: fputs password\n");
 		#endif
@@ -151,7 +164,7 @@ int Door_DoDispense(int User, int Item)
 	#endif
 	
 	// ATH1 - Unlock door
-	if( fputs("ATH1\n", child_stdin) <= 0) {
+	if( giDoor_ChildStatus || fputs("ATH1\n", child_stdin) <= 0) {
 		#if DEBUG
 		printf("Door_DoDispense: fputs unlock\n");
 		#endif
@@ -167,7 +180,7 @@ int Door_DoDispense(int User, int Item)
 	#endif
 
 	// Re-lock the door
-	if( fputs("ATH0\n", child_stdin) <= 0 ) {
+	if( giDoor_ChildStatus || fputs("ATH0\n", child_stdin) == 0 ) {
 		#if DEBUG
 		printf("Door_DoDispense: fputs lock\n");
 		#endif
