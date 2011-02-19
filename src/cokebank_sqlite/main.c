@@ -35,6 +35,14 @@ const char * const csBank_DatabaseSetup =
 "	FOREIGN KEY (acct_id) REFERENCES accounts (acct_id) ON DELETE CASCADE"
 //	                 Deletion of the account frees the card  ^ ^ ^
 ");"
+"CREATE TABLE IF NOT EXISTS items ("
+"	item_id INTEGER PRIMARY KEY NOT NULL,"
+"	item_handler STRING NOT NULL,"
+"	item_index INTEGER NOT NULL,"
+"	item_name STRING NOT NULL,"
+"	item_price INTEGER NOT NULL,"
+"	item_is_enabled BOOLEAN NOT NULL DEFAULT true"
+");"
 "INSERT INTO accounts (acct_name,acct_is_admin,acct_uid) VALUES ('root',1,0);"
 "INSERT INTO accounts (acct_name,acct_is_internal,acct_uid) VALUES ('"COKEBANK_SALES_ACCT"',1,-1);"
 "INSERT INTO accounts (acct_name,acct_is_internal,acct_uid) VALUES ('"COKEBANK_DEBT_ACCT"',1,-2);"
@@ -286,9 +294,9 @@ int Bank_GetAcctByName(const char *Name)
 	if( !statement )	return -1;
 	
 	ret = sqlite3_column_int(statement, 0);
-	if( ret == 0 )	return -1;
-	
 	sqlite3_finalize(statement);
+	
+	if( ret == 0 )	return -1;
 	return ret;
 }
 
@@ -538,14 +546,24 @@ sqlite3_stmt *Bank_int_QuerySingle(sqlite3 *Database, const char *Query)
 	sqlite3_stmt	*ret;
 	 int	rv;
 	
+	#if DEBUG
+	printf("Bank_int_QuerySingle: (Query='%s')\n", Query);
+	#endif
+	
 	// Prepare query
 	ret = Bank_int_MakeStatemnt(Database, Query);
-	if( !ret )	return NULL;
+	if( !ret ) {
+		printf("Bank_int_QuerySingle: RETURN NULL ret=NULL\n");
+		return NULL;
+	}
 	
 	// Get row
 	rv = sqlite3_step(ret);
 	// - Empty result set
-	if( rv == SQLITE_DONE )	return NULL;
+	if( rv == SQLITE_DONE ) {
+		printf("Bank_int_QuerySingle: RETURN NULL (rv == SQLITE_DONE)\n");
+		return NULL;
+	}
 	// - Other error
 	if( rv != SQLITE_ROW ) {
 		fprintf(stderr, "SQLite Error: %s\n", sqlite3_errmsg(gBank_Database));
@@ -553,6 +571,7 @@ sqlite3_stmt *Bank_int_QuerySingle(sqlite3 *Database, const char *Query)
 		return NULL;
 	}
 	
+	printf("Bank_int_QuerySingle: RETURN %p\n", ret);
 	return ret;
 }
 

@@ -1163,7 +1163,7 @@ void Debug(tClient *Client, const char *Format, ...)
 	//printf("%010i [%i] ", (int)time(NULL), Client->ID);
 	printf("[%i] ", Client->ID);
 	va_start(args, Format);
-	vprintf(NULL, 0, Format, args);
+	vprintf(Format, args);
 	va_end(args);
 	printf("\n");
 }

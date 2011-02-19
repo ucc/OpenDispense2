@@ -72,22 +72,22 @@ int Coke_CanDispense(int UNUSED(User), int Item)
 	printf("Coke_CanDispense: Flushing\n");
 	#endif
 	
-	// Flush the input buffer
-	{
-		char	tmpbuf[512];
-		read(giCoke_SerialFD, tmpbuf, sizeof(tmpbuf));
-	}
 	
 	// Wait for a prompt
 	ret = 0;
-	do {
+	while( WaitForColon() && ret < 3 )
+	{
+		// Flush the input buffer
+		char	tmpbuf[512];
+		read(giCoke_SerialFD, tmpbuf, sizeof(tmpbuf));
 		#if TRACE_COKE
-		printf("Coke_DoDispense: sending 'd7'\n");
+		printf("Coke_CanDispense: sending 'd7'\n");
 		#endif
 		write(giCoke_SerialFD, "d7\r\n", 4);
-	} while( WaitForColon() && ret++ < 3 );
+		ret ++;
+	}
 
-	if( ret == 3 ) {
+	if( !(ret < 3) ) {
 		fprintf(stderr, "Coke machine timed out\n");
 		return -2;	// -EMYBAD
 	}
@@ -169,20 +169,19 @@ int Coke_DoDispense(int UNUSED(User), int Item)
 	#if TRACE_COKE
 	printf("Coke_DoDispense: flushing input\n");
 	#endif
-	// Flush the input buffer
-	{
-		char	tmpbuf[512];
-		read(giCoke_SerialFD, tmpbuf, sizeof(tmpbuf));
-	}
 	
 	// Wait for prompt
-	i = 0;
-	do {
+	ret = 0;
+	while( WaitForColon() && ret < 3 )
+	{
+		// Flush the input buffer
+		char	tmpbuf[512];
+		read(giCoke_SerialFD, tmpbuf, sizeof(tmpbuf));
 		#if TRACE_COKE
 		printf("Coke_DoDispense: sending 'd7'\n");
 		#endif
 		write(Item, "d7\r\n", 4);
-	} while( WaitForColon() && i++ < 3 );
+	}
 
 	#if TRACE_COKE
 	printf("Coke_DoDispense: sending 'd%i'\n", Item);
