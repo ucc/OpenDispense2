@@ -77,11 +77,9 @@ int Door_DoDispense(int User, int Item)
 {
 	FILE	*child_stdin;
 	char	buf[512];
-	#if !USE_POPEN
 	 int	stdin_pair[2];
 	 int	stdout_pair[2];
 	pid_t	childPid;
-	#endif
 	
 	#if DEBUG
 	printf("Door_DoDispense: (User=%i,Item=%i)\n", User, Item);
@@ -99,7 +97,6 @@ int Door_DoDispense(int User, int Item)
 		return 1;
 	}
 	
-	#if !USE_POPEN
 	// Create stdin/stdout
 	if( pipe(stdin_pair) || pipe(stdout_pair) )
 	{
@@ -132,18 +129,7 @@ int Door_DoDispense(int User, int Item)
 	close(stdin_pair[0]);	// child stdin read
 	close(stdout_pair[1]);	// child stdout write
 	
-	#else
-	// llogin or other
-	child_stdin = popen("llogin door -w -", "w");
-	if( !child_stdin || child_stdin == (void*)-1 ) {
-		#if DEBUG
-		printf("Door_DoDispense: llogin failure\n");
-		#endif
-		return -1;
-	}
-	#endif
-	
-	if(fread(buf, 1, 512, child_stdin) == 0) {
+	if(read(stdout_pair[1], buf, 512) < 0) {
 		#if DEBUG
 		printf("Door_DoDispense: fread fail\n");
 		#endif
@@ -188,13 +174,9 @@ int Door_DoDispense(int User, int Item)
 		return -1;
 	}
 	
-	#if !USE_POPEN
 	fclose(child_stdin);
 	close(stdin_pair[1]);	// child stdin write
 	close(stdout_pair[0]);	// child stdout read
-	#else
-	pclose(child_stdin);
-	#endif
 	
 	#if DEBUG
 	printf("Door_DoDispense: User %i opened door\n", User);
