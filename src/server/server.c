@@ -145,18 +145,24 @@ void Server_Start(void)
 		uint	len = sizeof(client_addr);
 		 int	bTrusted = 0;
 		
+		// Accept a connection
 		client_socket = accept(giServer_Socket, (struct sockaddr *) &client_addr, &len);
 		if(client_socket < 0) {
 			fprintf(stderr, "ERROR: Unable to accept client connection\n");
 			return ;
 		}
 		
+		// Debug: Print the connection string
 		if(giDebugLevel >= 2) {
 			char	ipstr[INET_ADDRSTRLEN];
 			inet_ntop(AF_INET, &client_addr.sin_addr, ipstr, INET_ADDRSTRLEN);
 			printf("Client connection from %s:%i\n",
 				ipstr, ntohs(client_addr.sin_port));
 		}
+		
+		// Doesn't matter what, localhost is trusted
+		if( ntohl( client_addr.sin_addr.s_addr ) == 0x7F000001 )
+			bTrusted = 1;
 		
 		// Trusted Connections
 		if( ntohs(client_addr.sin_port) < 1024 )
@@ -166,6 +172,7 @@ void Server_Start(void)
 			{
 			case 0x7F000001:	// 127.0.0.1	localhost
 			//case 0x825E0D00:	// 130.95.13.0
+			case 0x825E0D07:	// 130.95.13.7	motsugo
 			case 0x825E0D12:	// 130.95.13.18	mussel
 			case 0x825E0D17:	// 130.95.13.23	martello
 				bTrusted = 1;
@@ -439,7 +446,7 @@ void Server_Cmd_SETEUSER(tClient *Client, char *Args)
 	}
 
 	// Check user permissions
-	if( !(Bank_GetFlags(Client->UID) & USER_FLAG_COKE) ) {
+	if( !(Bank_GetFlags(Client->UID) & (USER_FLAG_COKE|USER_FLAG_ADMIN)) ) {
 		sendf(Client->Socket, "403 Not in coke\n");
 		return ;
 	}
@@ -733,7 +740,7 @@ void Server_Cmd_ADD(tClient *Client, char *Args)
 	reason ++;
 
 	// Check user permissions
-	if( !(Bank_GetFlags(Client->UID) & USER_FLAG_COKE)  ) {
+	if( !(Bank_GetFlags(Client->UID) & (USER_FLAG_COKE|USER_FLAG_ADMIN))  ) {
 		sendf(Client->Socket, "403 Not in coke\n");
 		return ;
 	}
