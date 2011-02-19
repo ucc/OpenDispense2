@@ -21,7 +21,7 @@
 #include <sys/wait.h>
 #include <pty.h>
 
-#define DOOR_UNLOCKED_DELAY	10	// 10 seconds before it re-locks
+#define DOOR_UNLOCKED_DELAY	5	// Time in seconds before the door re-locks
 
 // === IMPORTS ===
 
@@ -112,18 +112,7 @@ int Door_DoDispense(int User, int Item)
 	
 	giDoor_ChildStatus = 0;	// Set child status to zero
 	parentPid = getpid();
-	#if 0
-	// Create stdin/stdout
-	if( pipe(stdin_pair) || pipe(stdout_pair) )
-	{
-		perror("pipe");
-		return -1;
-	}
-	
-	childPid = fork();
-	#else
 	childPid = forkpty(&child_stdin_fd, NULL, NULL, NULL);
-	#endif
 	
 	if( childPid < 0 )
 	{
@@ -134,97 +123,75 @@ int Door_DoDispense(int User, int Item)
 	// Child process
 	if( childPid == 0 )
 	{
-		#if 0
-		// Close write end of stdin, and set it to #0
-		close(stdin_pair[1]);	dup2(stdin_pair[0], 0);
-		// Close read end of stdout, and set it to #1
-		close(stdout_pair[0]);	dup2(stdout_pair[1], 1);
-		#endif
-		
-		//execl("/bin/sh", "sh", "-c", "llogin door -w-", NULL);
 		execl("/usr/bin/llogin", "llogin", "door", "-w-", NULL);
 		perror("execl");
 		exit(-1);
 	}
 	
-	#if 0
-	child_stdin = fdopen(stdin_pair[1], "w");
-	close(stdin_pair[0]);	// child stdin read
-	close(stdout_pair[1]);	// child stdout write
-	#else
 	child_stdin = fdopen(child_stdin_fd, "w");
-	#endif
-	
+
+	int read_child_output()	
 	{
 		char	buf[1024];
 		 int	len;
-		#if 0
-		if( giDoor_ChildStatus || (len = read(stdout_pair[0], buf, sizeof buf)) < 0)
-		#else
 		if( giDoor_ChildStatus || (len = read(child_stdin_fd, buf, sizeof buf)) < 0)
-		#endif
 		{
 			#if DEBUG
-			int child_exit;
-			waitpid(childPid, &child_exit, 0);
-			printf("Door_DoDispense: fread fail (child status %i)\n", child_exit);
+			printf("Door_DoDispense: fread fail\n");
 			#endif
 			return -1;
 		}
 		buf[len] = '\0';
 		
-		#if DEBUG
+		#if DEBUG > 1
 		printf("Door_DoDispense: buf = %i '%s'\n", len, buf);
 		#endif
+		return 0;
 	}
+
+	if( read_child_output() )	return -1;
 	
 	// Send password
 	if( giDoor_ChildStatus || fputs(gsDoor_Password, child_stdin) <= 0 ) {
-		#if DEBUG
-		int child_exit;
-		waitpid(childPid, &child_exit, 0);
-		printf("Door_DoDispense: fputs password fail (child status %i)\n", child_exit);
-		#endif
+		printf("Door_DoDispense: fputs password fail\n");
 		return -1;
 	}
 	fputs("\n", child_stdin);
+	fflush(child_stdin);
 	
+	if( read_child_output() )	return -1;
 	
 	#if DEBUG
 	printf("Door_DoDispense: Door unlock\n");
 	#endif
-	
 	// ATH1 - Unlock door
-	if( giDoor_ChildStatus || fputs("ATH1\n", child_stdin) <= 0) {
+	if( giDoor_ChildStatus || fputs("ATH1\n", child_stdin) == 0) {
 		#if DEBUG
-		printf("Door_DoDispense: fputs unlock\n");
+		printf("Door_DoDispense: fputs unlock failed (or child terminated)\n");
 		#endif
 		return -1;
 	}
+	fflush(child_stdin);
 	
 	// Wait before re-locking
 	sleep(DOOR_UNLOCKED_DELAY);
 
-
 	#if DEBUG
 	printf("Door_DoDispense: Door re-lock\n");
 	#endif
-
 	// Re-lock the door (and quit llogin)
-	if( giDoor_ChildStatus || fputs("ATH0\n\x1D", child_stdin) == 0 ) {
-		#if DEBUG
-		printf("Door_DoDispense: fputs lock\n");
-		#endif
+	if( giDoor_ChildStatus || fputs("ATH0\n", child_stdin) == 0 ) {
+		fprintf(stderr, "Oh F**k, the door may be stuck unlocked, someone use llogin!\n");
 		return -1;
 	}
+	fflush(child_stdin);
+	fputs("\x1D", child_stdin);
+
+	// Wait a little so llogin can send the lock message
+	sleep(1);
 	
 	fclose(child_stdin);
-	#if 0
-	close(stdin_pair[1]);	// child stdin write
-	close(stdout_pair[0]);	// child stdout read
-	#else
 	close(child_stdin_fd);
-	#endif
 	
 	#if DEBUG
 	printf("Door_DoDispense: User %i opened door\n", User);
