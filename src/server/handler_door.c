@@ -44,8 +44,8 @@ volatile int	giDoor_ChildStatus;
 void Door_SIGCHLDHandler(int signum)
 {
 	signum = 0;
-	printf("SIGCHLD\n");
 	giDoor_ChildStatus ++;
+	printf("SIGCHLD: giDoor_ChildStatus = %i \n", giDoor_ChildStatus);
 }
 
 int Door_InitHandler(void)
@@ -127,7 +127,6 @@ int Door_DoDispense(int User, int Item)
 	// Child process
 	if( childPid == 0 )
 	{
-		
 		// Close write end of stdin, and set it to #0
 		close(stdin_pair[1]);	dup2(stdin_pair[0], 0);
 		// Close read end of stdout, and set it to #1
@@ -142,11 +141,20 @@ int Door_DoDispense(int User, int Item)
 	close(stdin_pair[0]);	// child stdin read
 	close(stdout_pair[1]);	// child stdout write
 	
-	if( giDoor_ChildStatus || read(stdout_pair[0], buf, 512) < 0) {
+	{
+		 int	len;
+		if( giDoor_ChildStatus || (len = read(stdout_pair[0], buf, 512)) < 0)
+		{
+			#if DEBUG
+			printf("Door_DoDispense: fread fail\n");
+			#endif
+			return -1;
+		}
+		buf[len] = '\0';
+		
 		#if DEBUG
-		printf("Door_DoDispense: fread fail\n");
+		printf("Door_DoDispense: buf = %i '%s'\n", len, buf);
 		#endif
-		return -1;
 	}
 	
 	// Send password
@@ -194,6 +202,8 @@ int Door_DoDispense(int User, int Item)
 	#if DEBUG
 	printf("Door_DoDispense: User %i opened door\n", User);
 	#endif
+
+	kill(childPid, SIGKILL);
 
 	return 0;
 }
