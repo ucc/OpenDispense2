@@ -29,7 +29,6 @@
  int	Door_InitHandler();
  int	Door_CanDispense(int User, int Item);
  int	Door_DoDispense(int User, int Item);
-void	Door_int_SIGCHLDHandler(int signum);
 
 // === GLOBALS ===
 tHandler	gDoor_Handler = {
@@ -39,12 +38,10 @@ tHandler	gDoor_Handler = {
 	Door_DoDispense
 };
 char	*gsDoor_Password = "";
-volatile int	giDoor_ChildTerminated;
 
 // == CODE ===
 int Door_InitHandler(void)
 {	
-	signal(SIGCHLD, Door_int_SIGCHLDHandler);
 	return 0;
 }
 
@@ -84,7 +81,6 @@ int Door_DoDispense(int User, int Item)
 	 int	stdin_pair[2];
 	 int	stdout_pair[2];
 	pid_t	childPid;
-	pid_t	parent_pid;
 	#endif
 	
 	#if DEBUG
@@ -111,7 +107,6 @@ int Door_DoDispense(int User, int Item)
 		return -1;
 	}
 	
-	parent_pid = getpid();
 	childPid = fork();
 	
 	if( childPid < 0 )
@@ -129,7 +124,6 @@ int Door_DoDispense(int User, int Item)
 		close(stdout_pair[0]);	dup2(stdout_pair[1], 1);
 		
 		execl("/bin/sh", "sh", "-c", "llogin door -w-", NULL);
-		kill(parent_pid, SIGCHLD);
 		perror("execl");
 		exit(-1);
 	}
@@ -149,10 +143,20 @@ int Door_DoDispense(int User, int Item)
 	}
 	#endif
 	
-	if(fread(buf, 1, 512, child_stdin) == 0)	return -1;
+	if(fread(buf, 1, 512, child_stdin) == 0) {
+		#if DEBUG
+		printf("Door_DoDispense: fread fail\n");
+		#endif
+		return -1;
+	}
 	
 	// Send password
-	if( fputs(gsDoor_Password, child_stdin) <= 0 )	return -1;
+	if( fputs(gsDoor_Password, child_stdin) <= 0 ) {
+		#if DEBUG
+		printf("Door_DoDispense: fputs password\n");
+		#endif
+		return -1;
+	}
 	fputs("\n", child_stdin);
 	
 	
@@ -161,7 +165,12 @@ int Door_DoDispense(int User, int Item)
 	#endif
 	
 	// ATH1 - Unlock door
-	if( fputs("ATH1\n", child_stdin) <= 0)	return -1;
+	if( fputs("ATH1\n", child_stdin) <= 0) {
+		#if DEBUG
+		printf("Door_DoDispense: fputs unlock\n");
+		#endif
+		return -1;
+	}
 	
 	// Wait before re-locking
 	sleep(DOOR_UNLOCKED_DELAY);
@@ -172,7 +181,12 @@ int Door_DoDispense(int User, int Item)
 	#endif
 
 	// Re-lock the door
-	if( fputs("ATH0\n", child_stdin) <= 0 )	return -1;
+	if( fputs("ATH0\n", child_stdin) <= 0 ) {
+		#if DEBUG
+		printf("Door_DoDispense: fputs lock\n");
+		#endif
+		return -1;
+	}
 	
 	#if !USE_POPEN
 	fclose(child_stdin);
@@ -187,11 +201,5 @@ int Door_DoDispense(int User, int Item)
 	#endif
 
 	return 0;
-}
-
-void Door_int_SIGCHLDHandler(int signum)
-{
-	signum = 0;	// Snut up
-	giDoor_ChildTerminated = 1;
 }
 
