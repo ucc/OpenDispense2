@@ -28,10 +28,23 @@
  */
 typedef struct sAcctIterator	tAcctIterator;
 
+#if 0
 /**
  * \brief Iterator for a collection of items
  */
 typedef struct sItemIterator	tItemIterator;
+
+/**
+ * \brief Item structure
+ */
+typedef struct
+{
+	char	*Handler;
+	 int	ID;
+	 int	Price;
+	char	Name[];
+}	tItem;
+#endif
 
 /**
  * \brief Flag values for the \a Flags parameter to Bank_Iterator
@@ -50,6 +63,19 @@ enum eBank_ItFlags
 	BANK_ITFLAG_SORT_LASTSEEN = 0x400,	//!< Sort by last seen time (ascending)
 	BANK_ITFLAG_SORTMASK	= 0x700,	//!< Sort type mask
 	BANK_ITFLAG_REVSORT 	= 0x800	//!< Sort descending instead
+};
+/**
+ * \brief Flag values for the \a Flags parameter to Items_Iterator
+ */
+enum eItems_ItFlags
+{
+	ITEMS_ITFLAG_SHOWDISABLED = 0x001,	//!< Show disabled items
+	ITEMS_ITFLAG_SORT_NONE	= 0x000,	//!< No sorting (up to the implementation)
+	ITEMS_ITFLAG_SORT_NAME	= 0x100,	//!< Sort alphabetically ascending by name
+	ITEMS_ITFLAG_SORT_PRICE	= 0x200,	//!< Sort by price, ascending
+	ITEMS_ITFLAG_SORT_IDENT	= 0x300,	//!< Sort by Identifier (handler:id)
+	ITEMS_ITFLAG_SORTMASK	= 0x700,	//!< Sort type mask
+	ITEMS_ITFLAG_REVSORT 	= 0x800	//!< Sort descending instead
 };
 
 /**
@@ -168,6 +194,29 @@ extern int	Bank_GetAcctByCard(const char *CardID);
  * \retval 2	Card in use
  */
 extern int	Bank_AddAcctCard(int AcctID, const char *CardID);
+
+// === Item Manipulation ===
+#if 0
+extern tItem	*Items_GetItem(char *Handler, int ID);
+/**
+ * \brief Create an item iterator
+ * \return Pointer to an iterator across the selected data set
+ */
+extern tItemIterator	*Items_Iterator(int Flags, char *Handler, int MaxPrice);
+
+/**
+ * \brief Get the current entry in the iterator and move to the next
+ * \param It	Iterator returned by Items_Iterator
+ * \return Item ID, or -1 for end of list
+ */
+extern tItem	*Items_IteratorNext(tItemIterator *It);
+
+/**
+ * \brief Free an allocated iterator
+ * \param It	Iterator returned by Items_Iterator
+ */
+extern void	Items_DelIterator(tItemIterator *It);
+#endif
 
 // ---
 // Server provided helper functions

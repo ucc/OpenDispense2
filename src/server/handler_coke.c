@@ -17,6 +17,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <regex.h>
+#include <stdarg.h>
 
 #define READ_TIMEOUT	2	// 2 seconds for ReadChar
 #define TRACE_COKE	1

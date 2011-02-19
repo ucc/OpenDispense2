@@ -23,6 +23,7 @@
 // Statistics
 #define MAX_CONNECTION_QUEUE	5
 #define INPUT_BUFFER_SIZE	256
+#define CLIENT_TIMEOUT	10	// Seconds
 
 #define HASH_TYPE	SHA1
 #define HASH_LENGTH	20
@@ -153,6 +154,18 @@ void Server_Start(void)
 			return ;
 		}
 		
+		// Set a timeout on the user conneciton
+		{
+			struct timeval tv;
+			tv.tv_sec = CLIENT_TIMEOUT;
+			tv.tv_usec = 0;
+			if( setsockopt(client_socket, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) )
+			{
+				perror("setsockopt");
+				return ;
+			}
+		}
+		
 		// Debug: Print the connection string
 		if(giDebugLevel >= 2) {
 			char	ipstr[INET_ADDRSTRLEN];
@@ -225,6 +238,7 @@ void Server_HandleClient(int Socket, int bTrusted)
 	 *   it is saved to the beginning of `inbuf` and `buf` is updated to
 	 *   the end of it.
 	 */
+	// TODO: Use select() instead (to give a timeout)
 	while( (bytes = recv(Socket, buf, remspace, 0)) > 0 )
 	{
 		char	*eol, *start;
