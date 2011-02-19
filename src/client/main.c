@@ -295,12 +295,12 @@ int main(int argc, char *argv[])
 	// Connect to server
 	sock = OpenConnection(gsDispenseServer, giDispensePort);
 	if( sock < 0 )	return -1;
-	
-	// Authenticate
-	Authenticate(sock);
 
 	// Get items
 	PopulateItemList(sock);
+	
+	// Disconnect from server
+	close(sock);
 	
 	if( gsItemPattern )
 	{
@@ -344,6 +344,14 @@ int main(int argc, char *argv[])
 			}
 		}
 	}
+	
+	
+	// Connect to server again
+	sock = OpenConnection(gsDispenseServer, giDispensePort);
+	if( sock < 0 )	return -1;
+	
+	// Authenticate
+	Authenticate(sock);
 	
 	// Check for a valid item ID
 	if( i >= 0 )
