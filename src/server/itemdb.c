@@ -13,6 +13,10 @@
 #include <ctype.h>
 #include "common.h"
 #include <regex.h>
+#include <sys/inotify.h>
+#include <signal.h>
+#include <sys/fcntl.h>
+#include <unistd.h>
 
 // === IMPORTS ===
 extern tHandler	gCoke_Handler;
@@ -20,6 +24,8 @@ extern tHandler	gSnack_Handler;
 extern tHandler	gDoor_Handler;
 
 // === PROTOTYPES ===
+void	Init_Handlers(void);
+void	ItemList_Changed(int signum);
 void	Load_Itemlist(void);
 char	*trim(char *__str);
 
@@ -30,6 +36,9 @@ tHandler	gPseudo_Handler = {Name:"pseudo"};
 tHandler	*gaHandlers[] = {&gPseudo_Handler, &gCoke_Handler, &gSnack_Handler, &gDoor_Handler};
  int	giNumHandlers = sizeof(gaHandlers)/sizeof(gaHandlers[0]);
 char	*gsItemListFile = DEFAULT_ITEM_FILE;
+#if USE_INOTIFY
+ int	giItem_INotifyFD;
+#endif
 
 // === CODE ===
 void Init_Handlers()
@@ -40,7 +49,36 @@ void Init_Handlers()
 		if( gaHandlers[i]->Init )
 			gaHandlers[i]->Init(0, NULL);	// TODO: Arguments
 	}
+	
+	// Use inotify to watch the snack config file
+	#if USE_INOTIFY
+	{
+		int oflags;
+		
+		giItem_INotifyFD = inotify_init();
+		inotify_add_watch(giItem_INotifyFD, gsItemListFile, IN_MODIFY);
+		
+		// Handle SIGIO
+		signal(SIGIO, &ItemList_Changed);
+		
+		// Fire SIGIO when data is ready on the FD
+		fcntl(giItem_INotifyFD, F_SETOWN, getpid());
+		oflags = fcntl(giItem_INotifyFD, F_GETFL);
+		fcntl(giItem_INotifyFD, F_SETFL, oflags | FASYNC);
+	}
+	#endif
 }
+
+#if USE_INOTIFY
+void ItemList_Changed(int signum)
+{
+	char	buf[512];
+	read(giItem_INotifyFD, buf, 512);
+	Load_Itemlist();
+	
+	signum = 0;	// Shut up GCC
+}
+#endif
 
 /**
  * \brief Read the item list from disk
@@ -55,7 +93,7 @@ void Load_Itemlist(void)
 	regex_t	regex;
 	regmatch_t	matches[5];
 	
-	i = regcomp(&regex, "^([a-zA-Z][a-zA-Z0-9]*)\\s+([0-9]+)\\s+([0-9]+)\\s+(.*)", REG_EXTENDED);
+	i = regcomp(&regex, "^-?([a-zA-Z][a-zA-Z0-9]*)\\s+([0-9]+)\\s+([0-9]+)\\s+(.*)", REG_EXTENDED);
 	if( i )
 	{
 		size_t	len = regerror(i, &regex, NULL, 0);
@@ -142,6 +180,7 @@ void Load_Itemlist(void)
 		gaItems[giNumItems].ID = num;
 		gaItems[giNumItems].Price = price;
 		gaItems[giNumItems].Name = strdup(desc);
+		gaItems[giNumItems].bHidden = (line[0] == '-');
 		giNumItems ++;
 	}	
 }

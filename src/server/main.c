@@ -28,6 +28,7 @@ extern int	giServer_Port;
 extern char	*gsItemListFile;
 extern char	*gsCoke_SerialPort;
 extern char	*gsSnack_SerialPort;
+extern char	*gsDoor_Password;
 
 // === GLOBALS ===
  int	giDebugLevel = 0;
@@ -52,9 +53,11 @@ int main(int argc, char *argv[])
 			switch(arg[1])
 			{
 			case 'p':
+				if( i + 1 >= argc )	return -1;
 				giServer_Port = atoi(argv[++i]);
 				break;
 			case 'd':
+				if( i + 1 >= argc )	return -1;
 				giDebugLevel = atoi(argv[++i]);
 				break;
 			default:
@@ -64,13 +67,20 @@ int main(int argc, char *argv[])
 		}
 		else if( arg[0] == '-' && arg[1] == '-' ) {
 			if( strcmp(arg, "--itemsfile") == 0 ) {
+				if( i + 1 >= argc )	return -1;
 				gsItemListFile = argv[++i];
 			}
 			else if( strcmp(arg, "--cokeport") == 0 ) {
+				if( i + 1 >= argc )	return -1;
 				gsCoke_SerialPort = argv[++i];
 			}
 			else if( strcmp(arg, "--snackport") == 0 ) {
+				if( i + 1 >= argc )	return -1;
 				gsSnack_SerialPort = argv[++i];
+			}
+			else if( strcmp(arg, "--doorpass") == 0 ) {
+				if( i + 1 >= argc )	return -1;
+				gsDoor_Password = argv[++i];
 			}
 			else {
 				// Usage error?

@@ -346,18 +346,16 @@ int main(int argc, char *argv[])
 	}
 	
 	
-	// Connect to server again
-	sock = OpenConnection(gsDispenseServer, giDispensePort);
-	if( sock < 0 )	return -1;
-	
-	// Authenticate
-	Authenticate(sock);
-	
 	// Check for a valid item ID
 	if( i >= 0 )
+	{
+		// Connect, Authenticate, dispense and close
+		sock = OpenConnection(gsDispenseServer, giDispensePort);
+		if( sock < 0 )	return -1;
+		Authenticate(sock);
 		DispenseItem(sock, i);
-
-	close(sock);
+		close(sock);
+	}
 
 	return 0;
 }

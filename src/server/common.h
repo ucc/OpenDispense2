@@ -32,6 +32,7 @@ struct sItem
 {
 	char	*Name;	//!< Display Name
 	 int	Price;	//!< Price
+	 int	bHidden;	//!< Hidden item?
 	
 	tHandler	*Handler;	//!< Handler for the item
 	short	ID;	//!< Item ID

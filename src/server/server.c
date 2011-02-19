@@ -490,16 +490,24 @@ void Server_Cmd_SETEUSER(tClient *Client, char *Args)
  */
 void Server_Cmd_ENUMITEMS(tClient *Client, char *Args)
 {
-	 int	i;
+	 int	i, count;
 
 	if( Args != NULL && strlen(Args) ) {
 		sendf(Client->Socket, "407 ENUM_ITEMS takes no arguments\n");
 		return ;
 	}
+	
+	// Count shown items
+	count = 0;
+	for( i = 0; i < giNumItems; i ++ ) {
+		if( gaItems[i].bHidden )	continue;
+		count ++;
+	}
 
-	sendf(Client->Socket, "201 Items %i\n", giNumItems);
+	sendf(Client->Socket, "201 Items %i\n", count);
 
 	for( i = 0; i < giNumItems; i ++ ) {
+		if( gaItems[i].bHidden )	continue;
 		sendf(Client->Socket,
 			"202 Item %s:%i %i %s\n",
 			 gaItems[i].Handler->Name, gaItems[i].ID, gaItems[i].Price, gaItems[i].Name

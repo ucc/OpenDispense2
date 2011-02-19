@@ -3,6 +3,7 @@
 #include "common.h"
 #include <stdlib.h>
 #include <limits.h>
+#include <string.h>
 
  int	_GetMinBalance(int Account);
  int	_CanTransfer(int Source, int Destination, int Ammount);
