@@ -422,9 +422,11 @@ void Server_Cmd_AUTOAUTH(tClient *Client, char *Args)
 		sendf(Client->Socket, "401 Auth Failure\n");
 		return ;
 	}
+
+	Client->bIsAuthed = 1;
 	
 	if(giDebugLevel)
-		printf("Client %i: Authenticated as '%s' (%i)\n", Client->ID, Args, Client->UID);
+		printf("Client %i: Auto authenticated as '%s' (%i)\n", Client->ID, Args, Client->UID);
 	
 	sendf(Client->Socket, "200 Auth OK\n");
 }
