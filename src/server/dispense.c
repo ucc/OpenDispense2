@@ -179,6 +179,19 @@ int _GetMinBalance(int Account)
 {
 	 int	flags = Bank_GetFlags(Account);
 	
+	// Evil little piece of HACK:
+	// root's balance cannot be changed by any of the above functions
+	// - Stops dispenses as root by returning insufficent balance.
+	{
+		char	*username = Bank_GetAcctName(Account);
+		if( strcmp(username, "root") == 0 )
+		{
+			free(username);
+			return INT_MAX;
+		}
+		free(username);
+	}
+	
 	// - Internal accounts have no lower bound
 	if( flags & USER_FLAG_INTERNAL )	return INT_MIN;
 	
