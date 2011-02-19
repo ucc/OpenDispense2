@@ -128,7 +128,7 @@ int Door_DoDispense(int User, int Item)
 		// Close read end of stdout, and set it to #1
 		close(stdout_pair[0]);	dup2(stdout_pair[1], 1);
 		
-		execl("llogin", "door", "-w-", NULL);
+		execl("/bin/sh", "sh", "-c", "llogin door -w-", NULL);
 		kill(parent_pid, SIGCHLD);
 		perror("execl");
 		exit(-1);
