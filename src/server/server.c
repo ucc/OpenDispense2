@@ -342,7 +342,7 @@ void Server_Cmd_USER(tClient *Client, char *Args)
 	
 	// Debug!
 	if( giDebugLevel )
-		Debug("Authenticating as '%s'", Args);
+		Debug(Client, "Authenticating as '%s'", Args);
 	
 	// Save username
 	if(Client->Username)
@@ -403,7 +403,7 @@ void Server_Cmd_AUTOAUTH(tClient *Client, char *Args)
 	// Check if trusted
 	if( !Client->bIsTrusted ) {
 		if(giDebugLevel)
-			Debug("Untrusted client attempting to AUTOAUTH");
+			Debug(Client, "Untrusted client attempting to AUTOAUTH");
 		sendf(Client->Socket, "401 Untrusted\n");
 		return ;
 	}
@@ -412,7 +412,7 @@ void Server_Cmd_AUTOAUTH(tClient *Client, char *Args)
 	Client->UID = Bank_GetAcctByName( Args );	
 	if( Client->UID < 0 ) {
 		if(giDebugLevel)
-			Debug("Unknown user '%s'", Args);
+			Debug(Client, "Unknown user '%s'", Args);
 		sendf(Client->Socket, "401 Auth Failure\n");
 		return ;
 	}
@@ -427,7 +427,7 @@ void Server_Cmd_AUTOAUTH(tClient *Client, char *Args)
 	Client->bIsAuthed = 1;
 	
 	if(giDebugLevel)
-		Debug("Auto authenticated as '%s' (%i)", Args, Client->UID);
+		Debug(Client, "Auto authenticated as '%s' (%i)", Args, Client->UID);
 	
 	sendf(Client->Socket, "200 Auth OK\n");
 }
