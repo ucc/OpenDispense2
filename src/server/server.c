@@ -1095,9 +1095,9 @@ void _SendUserInfo(tClient *Client, int UserID)
 	
 	// TODO: User flags/type
 	sendf(
-		Client->Socket, "202 User %s %i %s%s\n",
+		Client->Socket, "202 User %s %i %s%s%s\n",
 		Bank_GetAcctName(UserID), Bank_GetBalance(UserID),
-		type, disabled
+		type, disabled, door
 		);
 }
 
@@ -1171,6 +1171,10 @@ void Server_Cmd_USERFLAGS(tClient *Client, char *Args)
 	// Parse flags
 	if( Server_int_ParseFlags(Client, flags, &mask, &value) )
 		return ;
+	
+	if( giDebugLevel )
+		Debug(Client, "Set %i(%s) flags to %x (masked %x)\n",
+			uid, username, mask, value);
 	
 	// Apply flags
 	Bank_SetFlags(uid, mask, value);

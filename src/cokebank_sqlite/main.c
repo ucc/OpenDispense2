@@ -220,6 +220,10 @@ int Bank_SetFlags(int UserID, int Mask, int Value)
 		);
 	#undef MAP_FLAG
 
+	#if DEBUG
+	printf("Bank_SetFlags: query=\"%s\"\n", query);
+	#endif
+
 	// Execute Query
 	rv = sqlite3_exec(gBank_Database, query, NULL, NULL, &errmsg);
 	if( rv != SQLITE_OK )
