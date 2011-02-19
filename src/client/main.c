@@ -27,6 +27,7 @@
 
 #define	USE_NCURSES_INTERFACE	0
 #define DEBUG_TRACE_SERVER	0
+#define USE_AUTOAUTH	1
 
 // === TYPES ===
 typedef struct sItem {
@@ -65,7 +66,7 @@ char	*trim(char *string);
 void	CompileRegex(regex_t *regex, const char *pattern, int flags);
 
 // === GLOBALS ===
-char	*gsDispenseServer = "localhost";
+char	*gsDispenseServer = "heathred";
  int	giDispensePort = 11020;
 
 tItem	*gaItems;
@@ -678,16 +679,24 @@ int OpenConnection(const char *Host, int Port)
 		return -1;
 	}
 	
-	#if USE_AUTOAUTH
+	if( geteuid() == 0 )
 	{
+		 int	i;
 		struct sockaddr_in	localAddr;
 		memset(&localAddr, 0, sizeof(localAddr));
 		localAddr.sin_family = AF_INET;	// IPv4
-		localAddr.sin_port = 1023;	// IPv4
-		// Attempt to bind to low port for autoauth
-		bind(sock, &localAddr, sizeof(localAddr));
+		
+		// Loop through all the top ports until one is avaliable
+		for( i = 1001; i < 1024; i ++)
+		{
+			localAddr.sin_port = htons(i);	// IPv4
+			// Attempt to bind to low port for autoauth
+			if( bind(sock, (struct sockaddr*)&localAddr, sizeof(localAddr)) == 0 )
+				break;
+		}
+		if( i == 1024 )
+			printf("Warning: AUTOAUTH unavaliable\n");
 	}
-	#endif
 	
 	if( connect(sock, (struct sockaddr *) &serverAddr, sizeof(serverAddr)) < 0 ) {
 		fprintf(stderr, "Failed to connect to server\n");

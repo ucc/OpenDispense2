@@ -456,7 +456,7 @@ int Bank_GetUserAuth(const char *Salt, const char *Username, const char *Passwor
 {
 	Salt = Password = Username;	// Shut up GCC
 	// DEBUG HACKS!
-	#if 1
+	#if 0
 	return Bank_GetAcctByName(Username);
 	#else
 	return -1;

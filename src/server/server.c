@@ -70,8 +70,9 @@ void	Server_Cmd_USERADD(tClient *Client, char *Args);
 void	Server_Cmd_USERFLAGS(tClient *Client, char *Args);
 // --- Helpers ---
 void	Debug(tClient *Client, const char *Format, ...);
- int	Server_int_ParseFlags(tClient *Client, const char *Str, int *Mask, int *Value);
  int	sendf(int Socket, const char *Format, ...);
+ int	Server_int_ParseArgs(int bUseLongArg, char *ArgStr, ...);
+ int	Server_int_ParseFlags(tClient *Client, const char *Str, int *Mask, int *Value);
 
 // === CONSTANTS ===
 // - Commands
@@ -185,8 +186,9 @@ void Server_Start(void)
 			switch( ntohl( client_addr.sin_addr.s_addr ) )
 			{
 			case 0x7F000001:	// 127.0.0.1	localhost
-			//case 0x825E0D00:	// 130.95.13.0
+		//	case 0x825E0D00:	// 130.95.13.0
 			case 0x825E0D07:	// 130.95.13.7	motsugo
+			case 0x825E0D11:	// 130.95.13.17	mermaid
 			case 0x825E0D12:	// 130.95.13.18	mussel
 			case 0x825E0D17:	// 130.95.13.23	martello
 				bTrusted = 1;
@@ -292,40 +294,17 @@ void Server_HandleClient(int Socket, int bTrusted)
  */
 void Server_ParseClientCommand(tClient *Client, char *CommandString)
 {
-	char	*space, *args;
+	char	*command, *args;
 	 int	i;
 	#if 0
 	char	**argList;
 	 int	numArgs = 0;
 	#endif
 	
-	// Split at first space
-	space = strchr(CommandString, ' ');
-	if(space == NULL) {
-		args = NULL;
-	}
-	else {
-		*space = '\0';
-		args = space + 1;
-		while( *space == ' ' )	space ++;
-		
-		#if 0
-		// Count arguments
-		numArgs = 1;
-		for( i = 0; args[i]; )
-		{
-			while( CommandString[i] != ' ' ) {
-				if( CommandString[i] == '"' ) {
-					while( !(CommandString[i] != '\\' CommandString[i+1] == '"' ) )
-						i ++;
-					i ++;
-				}
-				i ++;
-			}
-			numArgs ++;
-			while( CommandString[i] == ' ' )	i ++;
-		}
-		#endif
+	if( Server_int_ParseArgs(1, CommandString, &command, &args, NULL) )
+	{
+		// Is this an error? (just ignore for now)
+		args = "";
 	}
 	
 	
@@ -351,17 +330,18 @@ void Server_ParseClientCommand(tClient *Client, char *CommandString)
  */
 void Server_Cmd_USER(tClient *Client, char *Args)
 {
-	char	*space = strchr(Args, ' ');
-	if(space)	*space = '\0';	// Remove characters after the ' '
+	char	*username;
+	
+	Server_int_ParseArgs(0, Args, &username, NULL);
 	
 	// Debug!
 	if( giDebugLevel )
-		Debug(Client, "Authenticating as '%s'", Args);
+		Debug(Client, "Authenticating as '%s'", username);
 	
 	// Save username
 	if(Client->Username)
 		free(Client->Username);
-	Client->Username = strdup(Args);
+	Client->Username = strdup(username);
 	
 	#if USE_SALT
 	// Create a salt (that changes if the username is changed)
@@ -389,11 +369,12 @@ void Server_Cmd_USER(tClient *Client, char *Args)
  */
 void Server_Cmd_PASS(tClient *Client, char *Args)
 {
-	char	*space = strchr(Args, ' ');
-	if(space)	*space = '\0';	// Remove characters after the ' '
+	char	*passhash;
+	
+	Server_int_ParseArgs(0, Args, &passhash, NULL);
 	
 	// Pass on to cokebank
-	Client->UID = Bank_GetUserAuth(Client->Salt, Client->Username, Args);
+	Client->UID = Bank_GetUserAuth(Client->Salt, Client->Username, passhash);
 
 	if( Client->UID != -1 ) {
 		Client->bIsAuthed = 1;
@@ -411,8 +392,9 @@ void Server_Cmd_PASS(tClient *Client, char *Args)
  */
 void Server_Cmd_AUTOAUTH(tClient *Client, char *Args)
 {
-	char	*space = strchr(Args, ' ');
-	if(space)	*space = '\0';	// Remove characters after the ' '
+	char	*username;
+	
+	Server_int_ParseArgs(0, Args, &username, NULL);
 	
 	// Check if trusted
 	if( !Client->bIsTrusted ) {
@@ -423,10 +405,10 @@ void Server_Cmd_AUTOAUTH(tClient *Client, char *Args)
 	}
 	
 	// Get UID
-	Client->UID = Bank_GetAcctByName( Args );	
+	Client->UID = Bank_GetAcctByName( username );	
 	if( Client->UID < 0 ) {
 		if(giDebugLevel)
-			Debug(Client, "Unknown user '%s'", Args);
+			Debug(Client, "Unknown user '%s'", username);
 		sendf(Client->Socket, "401 Auth Failure\n");
 		return ;
 	}
@@ -441,7 +423,7 @@ void Server_Cmd_AUTOAUTH(tClient *Client, char *Args)
 	Client->bIsAuthed = 1;
 	
 	if(giDebugLevel)
-		Debug(Client, "Auto authenticated as '%s' (%i)", Args, Client->UID);
+		Debug(Client, "Auto authenticated as '%s' (%i)", username, Client->UID);
 	
 	sendf(Client->Socket, "200 Auth OK\n");
 }
@@ -451,11 +433,9 @@ void Server_Cmd_AUTOAUTH(tClient *Client, char *Args)
  */
 void Server_Cmd_SETEUSER(tClient *Client, char *Args)
 {
-	char	*space;
+	char	*username;
 	
-	space = strchr(Args, ' ');
-	
-	if(space)	*space = '\0';
+	Server_int_ParseArgs(0, Args, &username, NULL);
 	
 	if( !strlen(Args) ) {
 		sendf(Client->Socket, "407 SETEUSER expects an argument\n");
@@ -469,7 +449,7 @@ void Server_Cmd_SETEUSER(tClient *Client, char *Args)
 	}
 	
 	// Set id
-	Client->EffectiveUID = Bank_GetAcctByName(Args);
+	Client->EffectiveUID = Bank_GetAcctByName(username);
 	if( Client->EffectiveUID == -1 ) {
 		sendf(Client->Socket, "404 User not found\n");
 		return ;
@@ -559,7 +539,14 @@ tItem *_GetItemFromString(char *String)
  */
 void Server_Cmd_ITEMINFO(tClient *Client, char *Args)
 {
-	tItem	*item = _GetItemFromString(Args);
+	tItem	*item;
+	char	*itemname;
+	
+	if( Server_int_ParseArgs(0, Args, &itemname, NULL) ) {
+		sendf(Client->Socket, "407 ITEMINFO takes 1 argument\n");
+		return ;
+	}
+	item = _GetItemFromString(Args);
 	
 	if( !item ) {
 		sendf(Client->Socket, "406 Bad Item ID\n");
@@ -577,13 +564,19 @@ void Server_Cmd_DISPENSE(tClient *Client, char *Args)
 	tItem	*item;
 	 int	ret;
 	 int	uid;
+	char	*itemname;
+	
+	if( Server_int_ParseArgs(0, Args, &itemname, NULL) ) {
+		sendf(Client->Socket, "407 DISPENSE takes only 1 argument\n");
+		return ;
+	}
 	 
 	if( !Client->bIsAuthed ) {
 		sendf(Client->Socket, "401 Not Authenticated\n");
 		return ;
 	}
 
-	item = _GetItemFromString(Args);
+	item = _GetItemFromString(itemname);
 	if( !item ) {
 		sendf(Client->Socket, "406 Bad Item ID\n");
 		return ;
@@ -613,28 +606,16 @@ void Server_Cmd_GIVE(tClient *Client, char *Args)
 	 int	uid, iAmmount;
 	 int	thisUid;
 	
+	// Parse arguments
+	if( Server_int_ParseArgs(1, Args, &recipient, &ammount, &reason, NULL) ) {
+		sendf(Client->Socket, "407 GIVE takes only 3 arguments\n");
+		return ;
+	}
+	// Check for authed
 	if( !Client->bIsAuthed ) {
 		sendf(Client->Socket, "401 Not Authenticated\n");
 		return ;
 	}
-
-	recipient = Args;
-
-	ammount = strchr(Args, ' ');
-	if( !ammount ) {
-		sendf(Client->Socket, "407 Invalid Argument, expected 3 parameters, 1 encountered\n");
-		return ;
-	}
-	*ammount = '\0';
-	ammount ++;
-
-	reason = strchr(ammount, ' ');
-	if( !reason ) {
-		sendf(Client->Socket, "407 Invalid Argument, expected 3 parameters, 2 encountered\n");
-		return ;
-	}
-	*reason = '\0';
-	reason ++;
 
 	// Get recipient
 	uid = Bank_GetAcctByName(recipient);
@@ -684,25 +665,14 @@ void Server_Cmd_DONATE(tClient *Client, char *Args)
 	 int	iAmmount;
 	 int	thisUid;
 	
+	// Parse arguments
+	if( Server_int_ParseArgs(1, Args, &ammount, &reason, NULL) ) {
+		sendf(Client->Socket, "407 DONATE takes 2 arguments\n");
+		return ;
+	}
+	
 	if( !Client->bIsAuthed ) {
 		sendf(Client->Socket, "401 Not Authenticated\n");
-		return ;
-	}
-
-	ammount = Args;
-
-	// Get the start of the reason
-	reason = strchr(Args, ' ');
-	if( !ammount ) {
-		sendf(Client->Socket, "407 Invalid Argument, expected 2 parameters, 1 encountered\n");
-		return ;
-	}
-	*reason = '\0';
-	reason ++;
-	
-	// Check the end of the reason
-	if( strchr(reason, ' ') ) {
-		sendf(Client->Socket, "407 Invalid Argument, expected 2 parameters, more encountered\n");
 		return ;
 	}
 
@@ -741,28 +711,16 @@ void Server_Cmd_ADD(tClient *Client, char *Args)
 	char	*user, *ammount, *reason;
 	 int	uid, iAmmount;
 	
+	// Parse arguments
+	if( Server_int_ParseArgs(1, Args, &user, &ammount, &reason, NULL) ) {
+		sendf(Client->Socket, "407 ADD takes 3 arguments\n");
+		return ;
+	}
+	
 	if( !Client->bIsAuthed ) {
 		sendf(Client->Socket, "401 Not Authenticated\n");
 		return ;
 	}
-
-	user = Args;
-
-	ammount = strchr(Args, ' ');
-	if( !ammount ) {
-		sendf(Client->Socket, "407 Invalid Argument, expected 3 parameters, 1 encountered\n");
-		return ;
-	}
-	*ammount = '\0';
-	ammount ++;
-
-	reason = strchr(ammount, ' ');
-	if( !reason ) {
-		sendf(Client->Socket, "407 Invalid Argument, expected 3 parameters, 2 encountered\n");
-		return ;
-	}
-	*reason = '\0';
-	reason ++;
 
 	// Check user permissions
 	if( !(Bank_GetFlags(Client->UID) & (USER_FLAG_COKE|USER_FLAG_ADMIN))  ) {
@@ -810,28 +768,16 @@ void Server_Cmd_SET(tClient *Client, char *Args)
 	char	*user, *ammount, *reason;
 	 int	uid, iAmmount;
 	
+	// Parse arguments
+	if( Server_int_ParseArgs(1, Args, &user, &ammount, &reason, NULL) ) {
+		sendf(Client->Socket, "407 SET takes 3 arguments\n");
+		return ;
+	}
+	
 	if( !Client->bIsAuthed ) {
 		sendf(Client->Socket, "401 Not Authenticated\n");
 		return ;
 	}
-
-	user = Args;
-
-	ammount = strchr(Args, ' ');
-	if( !ammount ) {
-		sendf(Client->Socket, "407 Invalid Argument, expected 3 parameters, 1 encountered\n");
-		return ;
-	}
-	*ammount = '\0';
-	ammount ++;
-
-	reason = strchr(ammount, ' ');
-	if( !reason ) {
-		sendf(Client->Socket, "407 Invalid Argument, expected 3 parameters, 2 encountered\n");
-		return ;
-	}
-	*reason = '\0';
-	reason ++;
 
 	// Check user permissions
 	if( !(Bank_GetFlags(Client->UID) & USER_FLAG_ADMIN)  ) {
@@ -894,6 +840,7 @@ void Server_Cmd_ENUMUSERS(tClient *Client, char *Args)
 		do
 		{
 			type = space;
+			while(*type == ' ')	type ++;
 			// Get next space
 			space = strchr(space, ' ');
 			if(space)	*space = '\0';
@@ -1047,11 +994,13 @@ void Server_Cmd_ENUMUSERS(tClient *Client, char *Args)
 void Server_Cmd_USERINFO(tClient *Client, char *Args)
 {
 	 int	uid;
-	char	*user = Args;
-	char	*space;
+	char	*user;
 	
-	space = strchr(user, ' ');
-	if(space)	*space = '\0';
+	// Parse arguments
+	if( Server_int_ParseArgs(0, Args, &user, NULL) ) {
+		sendf(Client->Socket, "407 USER_INFO takes 1 argument\n");
+		return ;
+	}
 	
 	if( giDebugLevel )	Debug(Client, "User Info '%s'", user);
 	
@@ -1103,19 +1052,19 @@ void _SendUserInfo(tClient *Client, int UserID)
 
 void Server_Cmd_USERADD(tClient *Client, char *Args)
 {
-	char	*username, *space;
+	char	*username;
+	
+	// Parse arguments
+	if( Server_int_ParseArgs(0, Args, &username, NULL) ) {
+		sendf(Client->Socket, "407 USER_ADD takes 1 argument\n");
+		return ;
+	}
 	
 	// Check permissions
 	if( !(Bank_GetFlags(Client->UID) & USER_FLAG_ADMIN) ) {
 		sendf(Client->Socket, "403 Not a coke admin\n");
 		return ;
 	}
-	
-	// Read arguments
-	username = Args;
-	while( *username == ' ' )	username ++;
-	space = strchr(username, ' ');
-	if(space)	*space = '\0';
 	
 	// Try to create user
 	if( Bank_CreateAcct(username) == -1 ) {
@@ -1135,31 +1084,20 @@ void Server_Cmd_USERADD(tClient *Client, char *Args)
 void Server_Cmd_USERFLAGS(tClient *Client, char *Args)
 {
 	char	*username, *flags;
-	char	*space;
 	 int	mask=0, value=0;
 	 int	uid;
+	
+	// Parse arguments
+	if( Server_int_ParseArgs(0, Args, &username, &flags, NULL) ) {
+		sendf(Client->Socket, "407 USER_FLAGS takes 2 arguments\n");
+		return ;
+	}
 	
 	// Check permissions
 	if( !(Bank_GetFlags(Client->UID) & USER_FLAG_ADMIN) ) {
 		sendf(Client->Socket, "403 Not a coke admin\n");
 		return ;
 	}
-	
-	// Read arguments
-	// - Username
-	username = Args;
-	while( *username == ' ' )	username ++;
-	space = strchr(username, ' ');
-	if(!space) {
-		sendf(Client->Socket, "407 USER_FLAGS requires 2 arguments, 1 given\n");
-		return ;
-	}
-	*space = '\0';
-	// - Flags
-	flags = space + 1;
-	while( *flags == ' ' )	flags ++;
-	space = strchr(flags, ' ');
-	if(space)	*space = '\0';
 	
 	// Get UID
 	uid = Bank_GetAcctByName(username);
@@ -1216,6 +1154,65 @@ int sendf(int Socket, const char *Format, ...)
 		
 		return send(Socket, buf, len, 0);
 	}
+}
+
+// Takes a series of char *'s in
+/**
+ * \brief Parse space-separated entries into 
+ */
+int Server_int_ParseArgs(int bUseLongLast, char *ArgStr, ...)
+{
+	va_list args;
+	char	savedChar = *ArgStr;
+	char	**dest;
+	va_start(args, ArgStr);
+	
+	while( (dest = va_arg(args, char **)) )
+	{
+		// Trim leading spaces
+		while( *ArgStr == ' ' || *ArgStr == '\t' )
+			ArgStr ++;
+		
+		// ... oops, not enough arguments
+		if( *ArgStr == '\0' )
+		{
+			// NULL unset arguments
+			do {
+				*dest = NULL;
+			}	while( (dest = va_arg(args, char **)) );
+			return -1;
+		}
+		
+		// Set destination
+		*dest = ArgStr;
+		
+		if( *ArgStr == '"' )
+		{
+			// Read until quote
+			while( *ArgStr && *ArgStr != '"' )
+				ArgStr ++;
+		}
+		else
+		{
+			// Read until a space
+			while( *ArgStr && *ArgStr != ' ' && *ArgStr != '\t' )
+				ArgStr ++;
+		}
+		savedChar = *ArgStr;	// savedChar is used to un-mangle the last string
+		*ArgStr = '\0';
+	}
+	
+	// Oops, extra arguments, and greedy not set
+	if( savedChar == ' ' && bUseLongLast )
+		return -1;
+	
+	// Un-mangle last
+	if(bUseLongLast)
+		*ArgStr = savedChar;
+	
+	va_end(args);
+	
+	return 0;	// Success!
 }
 
 int Server_int_ParseFlags(tClient *Client, const char *Str, int *Mask, int *Value)

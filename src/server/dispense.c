@@ -197,10 +197,10 @@ int _GetMinBalance(int Account)
 	if( flags & USER_FLAG_INTERNAL )	return INT_MIN;
 	
 	// Admin to -$10
-	if( flags & USER_FLAG_ADMIN )	return -1000;
+	//if( flags & USER_FLAG_ADMIN )	return -1000;
 	
 	// Coke to -$5
-	if( flags & USER_FLAG_COKE )	return -500;
+	//if( flags & USER_FLAG_COKE )	return -500;
 	
 	// Anyone else, non-negative
 	return 0;
