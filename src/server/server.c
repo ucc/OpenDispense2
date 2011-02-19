@@ -1160,7 +1160,7 @@ void Server_Cmd_USERFLAGS(tClient *Client, char *Args)
 void Debug(tClient *Client, const char *Format, ...)
 {
 	va_list	args;
-	printf("%010lli [%i] ", time(NULL), Client->ID);
+	printf("%010i [%i] ", (int)time(NULL), Client->ID);
 	va_start(args, Format);
 	vprintf(NULL, 0, Format, args);
 	va_end(args);
