@@ -27,6 +27,7 @@
  int	Coke_InitHandler();
  int	Coke_CanDispense(int User, int Item);
  int	Coke_DoDispense(int User, int Item);
+ int	Writef(const char *Format, ...);
  int	WaitForColon();
  int	ReadLine(int len, char *output);
 
@@ -54,19 +55,19 @@ int Coke_InitHandler()
 		// Reset the slot names.
 		// - Dunno why this is needed, but the machine plays silly
 		//   sometimes.
-		write(giCoke_SerialFD, "n0 Slot0\n", 9);
+		Writef("n0 Slot0\n");
 		WaitForColon();
-		write(giCoke_SerialFD, "n1 Slot0\n", 9);
+		Writef("n1 Slot1\n");
 		WaitForColon();
-		write(giCoke_SerialFD, "n2 Slot0\n", 9);
+		Writef("n2 Slot2\n");
 		WaitForColon();
-		write(giCoke_SerialFD, "n3 Slot0\n", 9);
+		Writef("n3 Slot3\n");
 		WaitForColon();
-		write(giCoke_SerialFD, "n4 Slot0\n", 9);
+		Writef("n4 Slot4\n");
 		WaitForColon();
-		write(giCoke_SerialFD, "n5 Slot0\n", 9);
+		Writef("n5 Slot5\n");
 		WaitForColon();
-		write(giCoke_SerialFD, "n6 Coke\n", 8);
+		Writef("n6 Coke\n");
 	}
 	
 	CompileRegex(&gCoke_StatusRegex, "^slot\\s+([0-9]+)\\s+([^:]+):([a-zA-Z]+)\\s*", REG_EXTENDED);
@@ -101,13 +102,22 @@ int Coke_CanDispense(int UNUSED(User), int Item)
 		#if TRACE_COKE
 		printf("Coke_CanDispense: sending 'd7'\n");
 		#endif
-		write(giCoke_SerialFD, "d7\r\n", 4);
+		Writef("d7\r\n");
 		ret ++;
 	}
-
+	// Check for a timeout error
 	if( !(ret < 3) ) {
 		fprintf(stderr, "Coke machine timed out\n");
 		return -2;	// -EMYBAD
+	}
+	
+	// You need to do a 'd7' before reading the status
+	// - Otherwise it sometimes reports a full slot as empty
+	//   [TPG] (2011-02-19)
+	if( ret == 0 )
+	{
+		Writef("d7\r\n");
+		WaitForColon();
 	}
 
 	// TODO: Handle "not ok" response to D7
@@ -117,15 +127,16 @@ int Coke_CanDispense(int UNUSED(User), int Item)
 	#endif
 	
 	// Ask the coke machine
-	sprintf(tmp, "s%i\r\n", Item);
-	write(giCoke_SerialFD, tmp, 4);
+	Writef("s%i\r\n", Item);
 
 	#if TRACE_COKE
 	printf("Coke_CanDispense: reading response\n");
 	#endif
 	// Read from the machine (ignoring empty lines)
 	while( (ret = ReadLine(sizeof(tmp)-1, tmp)) == 0 );
+	#if TRACE_COKE
 	printf("ret = %i, tmp = '%s'\n", ret, tmp);
+	#endif
 	// Read back-echoed lines
 	while( tmp[0] == ':' || tmp[1] != 'l' )
 	{
@@ -158,11 +169,9 @@ int Coke_CanDispense(int UNUSED(User), int Item)
 	// Get slot status
 	tmp[ matches[3].rm_eo ] = '\0';
 	status = &tmp[ matches[3].rm_so ];
-
-	printf("Machine responded slot status '%s'\n", status);
 	
 	#if TRACE_COKE
-	printf("Coke_CanDispense: done");
+	printf("Coke_CanDispense: Machine responded slot status '%s'\n", status);
 	#endif
 
 	if( strcmp(status, "full") == 0 )
@@ -200,15 +209,14 @@ int Coke_DoDispense(int UNUSED(User), int Item)
 		#if TRACE_COKE
 		printf("Coke_DoDispense: sending 'd7'\n");
 		#endif
-		write(Item, "d7\r\n", 4);
+		Writef("d7\r\n");
 	}
 
 	#if TRACE_COKE
 	printf("Coke_DoDispense: sending 'd%i'\n", Item);
 	#endif
 	// Dispense
-	sprintf(tmp, "d%i\r\n", Item);
-	write(giCoke_SerialFD, tmp, 4);
+	Writef("d%i\r\n", Item);
 	
 	// Read empty lines and echo-backs
 	do {
@@ -265,6 +273,30 @@ char ReadChar()
 	}
 	
 	return ch;
+}
+
+int Writef(const char *Format, ...)
+{
+	va_list	args;
+	 int	len;
+	
+	va_start(args, Format);
+	len = vsnprintf(NULL, 0, Format, args);
+	va_end(args);
+	
+	{
+		char	buf[len+1];
+		va_start(args, Format);
+		vsnprintf(buf, len+1, Format, args);
+		va_end(args);
+		
+		#if DEBUG
+		printf("Writef: %s", buf);
+		#endif
+		
+		return write(giCoke_SerialFD, buf, len);
+	}
+	
 }
 
 int WaitForColon()
