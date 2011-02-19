@@ -108,7 +108,9 @@ int Coke_CanDispense(int UNUSED(User), int Item)
 	// Read from the machine (ignoring empty lines)
 	while( (ret = ReadLine(sizeof(tmp)-1, tmp)) == 0 );
 	printf("ret = %i, tmp = '%s'\n", ret, tmp);
-	if( tmp[0] == ':' ) {
+	// Read back-echoed lines
+	while( tmp[0] == ':' || tmp[1] != 'l' )
+	{
 		ret = ReadLine(sizeof(tmp)-1, tmp);
 		printf("ret = %i, tmp = '%s'\n", ret, tmp);
 	}
@@ -157,7 +159,7 @@ int Coke_CanDispense(int UNUSED(User), int Item)
 int Coke_DoDispense(int UNUSED(User), int Item)
 {
 	char	tmp[32];
-	 int	i, ret;
+	 int	ret;
 
 	// Sanity please
 	if( Item < 0 || Item > 6 )	return -1;
@@ -190,17 +192,14 @@ int Coke_DoDispense(int UNUSED(User), int Item)
 	sprintf(tmp, "d%i\r\n", Item);
 	write(giCoke_SerialFD, tmp, 4);
 	
-	// Read empty lines
-	while( (ret = ReadLine(sizeof(tmp)-1, tmp)) == -1 );
-	if( ret == -1 )	return -1;
-	// Read d%i
-	while( tmp[0] == ':' ) {
+	// Read empty lines and echo-backs
+	do {
 		ret = ReadLine(sizeof(tmp)-1, tmp);
 		if( ret == -1 )	return -1;
-	}
-	// Get status
-	ret = ReadLine(sizeof(tmp)-1, tmp);
-	if( ret == -1 )	return -1;
+		#if TRACE_COKE
+		printf("Coke_DoDispense: read %i '%s'\n", ret, tmp);
+		#endif
+	} while( ret == 0 || tmp[0] == ':' || tmp[0] == 'd' );
 
 	WaitForColon();	// Eat up rest of response
 	

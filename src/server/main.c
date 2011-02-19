@@ -103,6 +103,9 @@ int RunRegex(regex_t *regex, const char *string, int nMatches, regmatch_t *match
 	 int	ret;
 	
 	ret = regexec(regex, string, nMatches, matches, 0);
+	if( ret == REG_NOMATCH ) {
+		return -1;
+	}
 	if( ret ) {
 		size_t  len = regerror(ret, regex, NULL, 0);
 		char    errorStr[len];

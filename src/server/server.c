@@ -1031,13 +1031,14 @@ void Server_Cmd_USERINFO(tClient *Client, char *Args)
 	space = strchr(user, ' ');
 	if(space)	*space = '\0';
 	
-	if( giDebugLevel )
-		Debug(Client, "User Info '%s'", user);
+	if( giDebugLevel )	Debug(Client, "User Info '%s'", user);
 	
 	// Get recipient
 	uid = Bank_GetAcctByName(user);
+	
+	if( giDebugLevel >= 2 )	Debug(Client, "uid = %i", uid);
 	if( uid == -1 ) {
-		sendf(Client->Socket, "404 Invalid user");
+		sendf(Client->Socket, "404 Invalid user\n");
 		return ;
 	}
 	
