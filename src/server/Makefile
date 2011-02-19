@@ -8,7 +8,7 @@ BIN := ../../dispsrv
 
 DEPFILES := $(OBJ:%.o=%.d)
 
-LINKFLAGS := -g ../../cokebank.so
+LINKFLAGS := -g ../../cokebank.so -lutil
 CPPFLAGS := 
 CFLAGS := -Wall -Wextra -Werror -g
 

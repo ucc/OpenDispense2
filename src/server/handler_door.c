@@ -19,6 +19,7 @@
 #include <signal.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <pty.h>
 
 #define DOOR_UNLOCKED_DELAY	10	// 10 seconds before it re-locks
 
@@ -84,8 +85,12 @@ int Door_CanDispense(int User, int Item)
 int Door_DoDispense(int User, int Item)
 {
 	FILE	*child_stdin;
+	#if 0
 	 int	stdin_pair[2];
 	 int	stdout_pair[2];
+	#else
+	 int	child_stdin_fd;
+	#endif
 	pid_t	childPid;
 	pid_t	parentPid;
 	
@@ -105,6 +110,9 @@ int Door_DoDispense(int User, int Item)
 		return 1;
 	}
 	
+	giDoor_ChildStatus = 0;	// Set child status to zero
+	parentPid = getpid();
+	#if 0
 	// Create stdin/stdout
 	if( pipe(stdin_pair) || pipe(stdout_pair) )
 	{
@@ -112,9 +120,10 @@ int Door_DoDispense(int User, int Item)
 		return -1;
 	}
 	
-	giDoor_ChildStatus = 0;	// Set child status to zero
-	parentPid = getpid();
 	childPid = fork();
+	#else
+	childPid = forkpty(&child_stdin_fd, NULL, NULL, NULL);
+	#endif
 	
 	if( childPid < 0 )
 	{
@@ -125,10 +134,12 @@ int Door_DoDispense(int User, int Item)
 	// Child process
 	if( childPid == 0 )
 	{
+		#if 0
 		// Close write end of stdin, and set it to #0
 		close(stdin_pair[1]);	dup2(stdin_pair[0], 0);
 		// Close read end of stdout, and set it to #1
 		close(stdout_pair[0]);	dup2(stdout_pair[1], 1);
+		#endif
 		
 		//execl("/bin/sh", "sh", "-c", "llogin door -w-", NULL);
 		execl("/usr/bin/llogin", "llogin", "door", "-w-", NULL);
@@ -136,14 +147,22 @@ int Door_DoDispense(int User, int Item)
 		exit(-1);
 	}
 	
+	#if 0
 	child_stdin = fdopen(stdin_pair[1], "w");
 	close(stdin_pair[0]);	// child stdin read
 	close(stdout_pair[1]);	// child stdout write
+	#else
+	child_stdin = fdopen(child_stdin_fd, "w");
+	#endif
 	
 	{
 		char	buf[1024];
 		 int	len;
+		#if 0
 		if( giDoor_ChildStatus || (len = read(stdout_pair[0], buf, sizeof buf)) < 0)
+		#else
+		if( giDoor_ChildStatus || (len = read(child_stdin_fd, buf, sizeof buf)) < 0)
+		#endif
 		{
 			#if DEBUG
 			int child_exit;
@@ -200,8 +219,12 @@ int Door_DoDispense(int User, int Item)
 	}
 	
 	fclose(child_stdin);
+	#if 0
 	close(stdin_pair[1]);	// child stdin write
 	close(stdout_pair[0]);	// child stdout read
+	#else
+	close(child_stdin_fd);
+	#endif
 	
 	#if DEBUG
 	printf("Door_DoDispense: User %i opened door\n", User);
