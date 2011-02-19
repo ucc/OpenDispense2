@@ -84,7 +84,6 @@ int Door_CanDispense(int User, int Item)
 int Door_DoDispense(int User, int Item)
 {
 	FILE	*child_stdin;
-	char	buf[512];
 	 int	stdin_pair[2];
 	 int	stdout_pair[2];
 	pid_t	childPid;
@@ -132,7 +131,7 @@ int Door_DoDispense(int User, int Item)
 		close(stdout_pair[0]);	dup2(stdout_pair[1], 1);
 		
 		//execl("/bin/sh", "sh", "-c", "llogin door -w-", NULL);
-		execl("/usr/bin/llogin", "llogin" "door" "-w-", NULL);
+		execl("/usr/bin/llogin", "llogin", "door", "-w-", NULL);
 		perror("execl");
 		exit(-1);
 	}
@@ -142,8 +141,9 @@ int Door_DoDispense(int User, int Item)
 	close(stdout_pair[1]);	// child stdout write
 	
 	{
+		char	buf[1024];
 		 int	len;
-		if( giDoor_ChildStatus || (len = read(stdout_pair[0], buf, 512)) < 0)
+		if( giDoor_ChildStatus || (len = read(stdout_pair[0], buf, sizeof buf)) < 0)
 		{
 			#if DEBUG
 			int child_exit;
