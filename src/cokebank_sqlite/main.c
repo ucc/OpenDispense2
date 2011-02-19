@@ -553,7 +553,9 @@ sqlite3_stmt *Bank_int_QuerySingle(sqlite3 *Database, const char *Query)
 	// Prepare query
 	ret = Bank_int_MakeStatemnt(Database, Query);
 	if( !ret ) {
+		#if DEBUG
 		printf("Bank_int_QuerySingle: RETURN NULL ret=NULL\n");
+		#endif
 		return NULL;
 	}
 	
@@ -561,7 +563,9 @@ sqlite3_stmt *Bank_int_QuerySingle(sqlite3 *Database, const char *Query)
 	rv = sqlite3_step(ret);
 	// - Empty result set
 	if( rv == SQLITE_DONE ) {
+		#if DEBUG
 		printf("Bank_int_QuerySingle: RETURN NULL (rv == SQLITE_DONE)\n");
+		#endif
 		return NULL;
 	}
 	// - Other error
@@ -571,7 +575,9 @@ sqlite3_stmt *Bank_int_QuerySingle(sqlite3 *Database, const char *Query)
 		return NULL;
 	}
 	
+	#if DEBUG
 	printf("Bank_int_QuerySingle: RETURN %p\n", ret);
+	#endif
 	return ret;
 }
 
