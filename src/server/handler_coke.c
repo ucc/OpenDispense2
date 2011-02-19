@@ -50,6 +50,24 @@ int Coke_InitHandler()
 	if( giCoke_SerialFD == -1 ) {
 		fprintf(stderr, "ERROR: Unable to open coke serial port ('%s')\n", gsCoke_SerialPort);
 	}
+	else {
+		// Reset the slot names.
+		// - Dunno why this is needed, but the machine plays silly
+		//   sometimes.
+		write(giCoke_SerialFD, "n0 Slot0\n", 9);
+		WaitForColon();
+		write(giCoke_SerialFD, "n1 Slot0\n", 9);
+		WaitForColon();
+		write(giCoke_SerialFD, "n2 Slot0\n", 9);
+		WaitForColon();
+		write(giCoke_SerialFD, "n3 Slot0\n", 9);
+		WaitForColon();
+		write(giCoke_SerialFD, "n4 Slot0\n", 9);
+		WaitForColon();
+		write(giCoke_SerialFD, "n5 Slot0\n", 9);
+		WaitForColon();
+		write(giCoke_SerialFD, "n6 Coke\n", 8);
+	}
 	
 	CompileRegex(&gCoke_StatusRegex, "^slot\\s+([0-9]+)\\s+([^:]+):([a-zA-Z]+)\\s*", REG_EXTENDED);
 	return 0;
