@@ -47,6 +47,7 @@ void	PrintAlign(int Row, int Col, int Width, const char *Left, char Pad1, const 
 // --- Coke Server Communication ---
  int	OpenConnection(const char *Host, int Port);
  int	Authenticate(int Socket);
+ int	GetUserBalance(int Socket);
 void	PopulateItemList(int Socket);
  int	Dispense_ItemInfo(int Socket, const char *Type, int ID);
  int	DispenseItem(int Socket, const char *Type, int ID);
@@ -81,6 +82,9 @@ char	*gsEffectiveUser;	//!< '-u' Dispense as another user
  int	gbDryRun = 0;	//!< '-n' Read-only
  int	giMinimumBalance = INT_MIN;	//!< '-m' Minumum balance for `dispense acct`
  int	giMaximumBalance = INT_MAX;	//!< '-M' Maximum balance for `dispense acct`
+char	*gsUserName;	//!< User that dispense will happen as
+char	*gsUserFlags;	//!< User's flag set
+ int	giUserBalance=-1;	//!< User balance (set by Authenticate)
 
 // === CODE ===
 int main(int argc, char *argv[])
@@ -330,6 +334,9 @@ int main(int argc, char *argv[])
 	sock = OpenConnection(gsDispenseServer, giDispensePort);
 	if( sock < 0 )	return -1;
 
+	// Get the user's balance
+	GetUserBalance(sock);
+
 	// Get items
 	PopulateItemList(sock);
 	
@@ -410,9 +417,13 @@ int main(int argc, char *argv[])
 				}
 				else {
 					// TODO: Allow ambiguous matches?
+					// or just print a wanrning
+					printf("Warning - Ambiguous pattern, stopping\n");
+					return 1;
 				}
 			}
 			
+			// Was a match found?
 			if( best == -1 )
 			{
 				fprintf(stderr, "No item matches the passed string\n");
@@ -430,8 +441,11 @@ int main(int argc, char *argv[])
 	{
 		// Very basic dispense interface
 		for( i = 0; i < giNumItems; i ++ ) {
-			printf("%2i %s:%i\t%3i %s\n", i, gaItems[i].Type, gaItems[i].ID,
-				gaItems[i].Price, gaItems[i].Desc);
+			if( strcmp(gaItems[i].Desc, "-") == 0 )
+				printf("\n");
+			else
+				printf("%2i %s:%i\t%3i %s\n", i, gaItems[i].Type, gaItems[i].ID,
+					gaItems[i].Price, gaItems[i].Desc);
 		}
 		printf(" q Quit\n");
 		for(;;)
@@ -539,9 +553,23 @@ int ShowNCursesUI(void)
 	 int	itemBase = 0;
 	 int	currentItem = 0;
 	 int	ret = -2;	// -2: Used for marking "no return yet"
+	
+	char	balance_str[5+1+2+1];	// If $9999.99 is too little, something's wrong
+	char	*username;
+	struct passwd *pwd;
 	 
 	 int	height, width;
 	 
+	// Get Username
+	if( gsEffectiveUser )
+		username = gsEffectiveUser;
+	else {
+		pwd = getpwuid( getuid() );
+		username = pwd->pw_name;
+	}
+	// Get balance
+	snprintf(balance_str, sizeof balance_str, "$%i.%02i", giUserBalance/100, giUserBalance%100);
+	
 	// Enter curses mode
 	initscr();
 	raw(); noecho();
@@ -577,7 +605,7 @@ int ShowNCursesUI(void)
 				printw("|    ");
 			}
 			
-			// Check for ... row
+			// Check for the '...' row
 			// - Oh god, magic numbers!
 			if( i == 0 && itemBase > 0 ) {
 				printw("   ...");
@@ -621,6 +649,12 @@ int ShowNCursesUI(void)
 		// Footer
 		PrintAlign(yBase+height-2, xBase, width, "\\", '-', "", '-', "/");
 		
+		// User line
+		// - Username, balance, flags
+		PrintAlign(yBase+height-1, xBase+1, width-2,
+			username, ' ', balance_str, ' ', gsUserFlags);
+		
+		
 		// Get input
 		ch = getch();
 		
@@ -636,22 +670,38 @@ int ShowNCursesUI(void)
 					//	itemBase ++;
 					if( currentItem < giNumItems - 1 )
 						currentItem ++;
-					if( itemBase + itemCount - 1 <= currentItem && itemBase + itemCount < giNumItems )
-						itemBase ++;
+					else {
+						currentItem = 0;
+					}
 					break;
 				case 'A':
 					//if( itemBase > 0 )
 					//	itemBase --;
 					if( currentItem > 0 )
 						currentItem --;
-					if( itemBase + 1 > currentItem && itemBase > 0 )
-						itemBase --;
+					else {
+						currentItem = giNumItems - 1;
+					}
 					break;
 				}
 			}
 			else {
 				
 			}
+			
+			if( currentItem < itemBase + 1 && itemBase > 0 )
+				itemBase = currentItem - 1;
+			if( currentItem > itemBase + itemCount - 1 && itemBase < itemCount-1 )
+				itemBase = currentItem - itemCount + 1;
+			
+			#if 0
+			if( itemBase + itemCount - 1 <= currentItem && itemBase + itemCount < giNumItems )
+			{
+				itemBase += ;
+			}
+			if( itemBase + 1 > currentItem && itemBase > 0 )
+				itemBase --;
+			#endif
 		}
 		else {
 			switch(ch)
@@ -695,6 +745,12 @@ void ShowItemAt(int Row, int Col, int Width, int Index)
 	else {
 		name = gaItems[Index].Desc;
 		price = gaItems[Index].Price;
+	}
+	
+	// Spacer hack (Desc = "-")
+	if( gaItems[Index].Desc[0] == '-' && gaItems[Index].Desc[1] == '\0' )
+	{
+		return;
 	}
 
 	printw("%02i %s", Index, name);
@@ -748,7 +804,7 @@ void PrintAlign(int Row, int Col, int Width, const char *Left, char Pad1,
 		addstr(tmp);
 	}
 	// - Left padding
-	times = Width/2 - mLen/2 - lLen;
+	times = (Width - mLen)/2 - lLen;
 	while(times--)	addch(Pad1);
 	// - Middle
 	{
@@ -757,7 +813,8 @@ void PrintAlign(int Row, int Col, int Width, const char *Left, char Pad1,
 		addstr(tmp);
 	}
 	// - Right Padding
-	times = Width/2 - mLen/2 - rLen;
+	times = (Width - mLen)/2 - rLen;
+	if( (Width - mLen) % 2 )	times ++;
 	while(times--)	addch(Pad2);
 	// - Right
 	{
@@ -968,6 +1025,53 @@ int Authenticate(int Socket)
 	}
 	
 	gbIsAuthenticated = 1;
+	
+	return 0;
+}
+
+int GetUserBalance(int Socket)
+{
+	regmatch_t	matches[6];
+	struct passwd	*pwd;
+	char	*buf;
+	 int	responseCode;
+	
+	if( !gsUserName )
+	{
+		if( gsEffectiveUser ) {
+			gsUserName = gsEffectiveUser;
+		}
+		else {
+			pwd = getpwuid( getuid() );
+			gsUserName = strdup(pwd->pw_name);
+		}
+	}
+	
+	sendf(Socket, "USER_INFO %s\n", gsUserName);
+	buf = ReadLine(Socket);
+	responseCode = atoi(buf);
+	switch(responseCode)
+	{
+	case 202:	break;	// Ok
+	
+	case 404:
+		printf("Invalid user? (USER_INFO failed)\n");
+		free(buf);
+		return -1;
+	
+	default:
+		fprintf(stderr, "Unkown response code %i from server\n", responseCode);
+		printf("%s\n", buf);
+		free(buf);
+		exit(-1);
+	}
+
+	RunRegex(&gUserInfoRegex, buf, 6, matches, "Malformed server response");
+	
+	giUserBalance = atoi( buf + matches[4].rm_so );
+	gsUserFlags = strdup( buf + matches[5].rm_so );
+	
+	free(buf);
 	
 	return 0;
 }
