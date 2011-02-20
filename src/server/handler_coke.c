@@ -196,6 +196,7 @@ int Coke_DoDispense(int UNUSED(User), int Item)
 		printf("Coke_DoDispense: sending 'd7'\n");
 		#endif
 		Writef("d7\r\n");
+		ret ++;
 	}
 
 	#if TRACE_COKE
