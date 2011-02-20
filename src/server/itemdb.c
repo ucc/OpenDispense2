@@ -13,10 +13,8 @@
 #include <ctype.h>
 #include "common.h"
 #include <regex.h>
-#include <sys/inotify.h>
-#include <signal.h>
-#include <sys/fcntl.h>
-#include <unistd.h>
+#include <sys/stat.h>
+#include <time.h>
 
 // === IMPORTS ===
 extern tHandler	gCoke_Handler;
@@ -25,13 +23,14 @@ extern tHandler	gDoor_Handler;
 
 // === PROTOTYPES ===
 void	Init_Handlers(void);
-void	ItemList_Changed(int signum);
 void	Load_Itemlist(void);
+void	Items_ReadFromFile(void);
 char	*trim(char *__str);
 
 // === GLOBALS ===
  int	giNumItems = 0;
 tItem	*gaItems = NULL;
+time_t	gItems_LastUpdated;
 tHandler	gPseudo_Handler = {Name:"pseudo"};
 tHandler	*gaHandlers[] = {&gPseudo_Handler, &gCoke_Handler, &gSnack_Handler, &gDoor_Handler};
  int	giNumHandlers = sizeof(gaHandlers)/sizeof(gaHandlers[0]);
@@ -39,6 +38,7 @@ char	*gsItemListFile = DEFAULT_ITEM_FILE;
 #if USE_INOTIFY
  int	giItem_INotifyFD;
 #endif
+regex_t	gItemFile_Regex;
 
 // === CODE ===
 void Init_Handlers()
@@ -81,30 +81,55 @@ void ItemList_Changed(int signum)
 #endif
 
 /**
- * \brief Read the item list from disk
+ * \brief Read the initiali item list
  */
 void Load_Itemlist(void)
 {
-	FILE	*fp = fopen(gsItemListFile, "r");
+	 int	rv;
+	rv = regcomp(&gItemFile_Regex, "^-?([a-zA-Z][a-zA-Z]*)\\s+([0-9]+)\\s+([0-9]+)\\s+(.*)", REG_EXTENDED);
+	if( rv )
+	{
+		size_t	len = regerror(rv, &gItemFile_Regex, NULL, 0);
+		char	errorStr[len];
+		regerror(rv, &gItemFile_Regex, errorStr, len);
+		fprintf(stderr, "Rexex compilation failed - %s\n", errorStr);
+		exit(-1);
+	}
+	
+	Items_ReadFromFile();
+	
+	// Re-read the item file periodically
+	// TODO: Be less lazy here and check the timestamp
+	AddPeriodicFunction( Items_ReadFromFile );
+}
+/**
+ * \brief Read the item list from disk
+ */
+void Items_ReadFromFile(void)
+{
+	FILE	*fp;
 	char	buffer[BUFSIZ];
 	char	*line;
 	 int	lineNum = 0;
-	 int	i;
-	regex_t	regex;
+	 int	i, numItems = 0;
+	tItem	*items = NULL;
 	regmatch_t	matches[5];
-	
-	i = regcomp(&regex, "^-?([a-zA-Z][a-zA-Z]*)\\s+([0-9]+)\\s+([0-9]+)\\s+(.*)", REG_EXTENDED);
-	if( i )
+
+	if( gItems_LastUpdated ) 
 	{
-		size_t	len = regerror(i, &regex, NULL, 0);
-		char	*errorStr = malloc(len);
-		regerror(i, &regex, errorStr, len);
-		fprintf(stderr, "Rexex compilation failed - %s\n", errorStr);
-		free(errorStr);
-		exit(-1);
+		struct stat buf;
+		if( stat(gsItemListFile, &buf) ) {
+			fprintf(stderr, "Unable to stat() item file '%s'\n", gsItemListFile);
+			return ;
+		}
+		
+		// Check if the update is needed
+		if( gItems_LastUpdated > buf.st_mtime )
+			return ;
 	}
 
 	// Error check
+	fp = fopen(gsItemListFile, "r");
 	if(!fp) {
 		fprintf(stderr, "Unable to open item file '%s'\n", gsItemListFile);
 		perror("Unable to open item file");
@@ -131,13 +156,9 @@ void Load_Itemlist(void)
 		if(strlen(line) == 0)	continue;
 		
 		// Pass regex over line
-		if( (i = regexec(&regex, line, 5, matches, 0)) ) {
-			size_t  len = regerror(i, &regex, NULL, 0);
-			char    *errorStr = malloc(len);
-			regerror(i, &regex, errorStr, len);
-			fprintf(stderr, "Syntax error on line %i of item file '%s'\n%s", lineNum, gsItemListFile, errorStr);
-			free(errorStr);
-			exit(-1);
+		if( RunRegex( &gItemFile_Regex, line, 5, matches, NULL) ) {
+			fprintf(stderr, "Syntax error on line %i of item file '%s'\n", lineNum, gsItemListFile);
+			return ;
 		}
 
 		// Read line data
@@ -162,27 +183,41 @@ void Load_Itemlist(void)
 			continue ;
 		}
 
-		for( i = 0; i < giNumItems; i ++ )
+		for( i = 0; i < numItems; i ++ )
 		{
-			if( gaItems[i].Handler != handler )	continue;
-			if( gaItems[i].ID != num )	continue;
+			if( items[i].Handler != handler )	continue;
+			if( items[i].ID != num )	continue;
 
 			printf("Redefinition of %s:%i, updated\n", handler->Name, num);
-			gaItems[i].Price = price;
-			free(gaItems[i].Name);
-			gaItems[i].Name = strdup(desc);
+			items[i].Price = price;
+			free(items[i].Name);
+			items[i].Name = strdup(desc);
 			break;
 		}
-		if( i < giNumItems )	continue;
+		if( i < numItems )	continue;
 
-		gaItems = realloc( gaItems, (giNumItems + 1)*sizeof(gaItems[0]) );
-		gaItems[giNumItems].Handler = handler;
-		gaItems[giNumItems].ID = num;
-		gaItems[giNumItems].Price = price;
-		gaItems[giNumItems].Name = strdup(desc);
-		gaItems[giNumItems].bHidden = (line[0] == '-');
-		giNumItems ++;
-	}	
+		items = realloc( items, (numItems + 1)*sizeof(items[0]) );
+		items[numItems].Handler = handler;
+		items[numItems].ID = num;
+		items[numItems].Price = price;
+		items[numItems].Name = strdup(desc);
+		items[numItems].bHidden = (line[0] == '-');
+		numItems ++;
+	}
+	
+	// Clean up old
+	if( giNumItems )
+	{
+		giNumItems = 0;
+		free(gaItems);
+		gaItems = NULL;
+	}
+	
+	// Replace with new
+	giNumItems = numItems;
+	gaItems = items;
+	
+	gItems_LastUpdated = time(NULL);
 }
 
 char *trim(char *__str)
