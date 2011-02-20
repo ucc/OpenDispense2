@@ -210,7 +210,7 @@ int Coke_DoDispense(int UNUSED(User), int Item)
 	if( ret == 3 )
 	{
 		#if TRACE_COKE
-		printf("Coke_DoDispense: timed out\n", Item);
+		printf("Coke_DoDispense: timed out\n");
 		#endif
 		pthread_mutex_unlock(&gCoke_Mutex);
 		return -1;

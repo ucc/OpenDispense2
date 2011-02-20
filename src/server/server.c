@@ -186,11 +186,12 @@ void Server_Start(void)
 			switch( ntohl( client_addr.sin_addr.s_addr ) )
 			{
 			case 0x7F000001:	// 127.0.0.1	localhost
-		//	case 0x825E0D00:	// 130.95.13.0
-			case 0x825E0D07:	// 130.95.13.7	motsugo
-			case 0x825E0D11:	// 130.95.13.17	mermaid
-			case 0x825E0D12:	// 130.95.13.18	mussel
-			case 0x825E0D17:	// 130.95.13.23	martello
+		//	case 0x825F0D00:	// 130.95.13.0
+			case 0x825F0D07:	// 130.95.13.7	motsugo
+			case 0x825F0D11:	// 130.95.13.17	mermaid
+			case 0x825F0D12:	// 130.95.13.18	mussel
+			case 0x825F0D17:	// 130.95.13.23	martello
+			case 0x825F0D42:	// 130.95.13.66	heathred
 				bTrusted = 1;
 				break;
 			default:
@@ -302,6 +303,7 @@ void Server_ParseClientCommand(tClient *Client, char *CommandString)
 	
 	if( Server_int_ParseArgs(1, CommandString, &command, &args, NULL) )
 	{
+		printf("command=%s, args=%s\n", command, args);
 		// Is this an error? (just ignore for now)
 		//args = "";
 	}
@@ -333,7 +335,11 @@ void Server_Cmd_USER(tClient *Client, char *Args)
 {
 	char	*username;
 	
-	Server_int_ParseArgs(0, Args, &username, NULL);
+	if( Server_int_ParseArgs(0, Args, &username, NULL) )
+	{
+		sendf(Client->Socket, "407 USER takes 1 argument\n");
+		return ;
+	}
 	
 	// Debug!
 	if( giDebugLevel )
@@ -372,7 +378,11 @@ void Server_Cmd_PASS(tClient *Client, char *Args)
 {
 	char	*passhash;
 	
-	Server_int_ParseArgs(0, Args, &passhash, NULL);
+	if( Server_int_ParseArgs(0, Args, &passhash, NULL) )
+	{
+		sendf(Client->Socket, "407 PASS takes 1 argument\n");
+		return ;
+	}
 	
 	// Pass on to cokebank
 	Client->UID = Bank_GetUserAuth(Client->Salt, Client->Username, passhash);
@@ -442,7 +452,11 @@ void Server_Cmd_SETEUSER(tClient *Client, char *Args)
 {
 	char	*username;
 	
-	Server_int_ParseArgs(0, Args, &username, NULL);
+	if( Server_int_ParseArgs(0, Args, &username, NULL) )
+	{
+		sendf(Client->Socket, "407 SETEUSER takes 1 argument\n");
+		return ;
+	}
 	
 	if( !strlen(Args) ) {
 		sendf(Client->Socket, "407 SETEUSER expects an argument\n");
@@ -1207,6 +1221,7 @@ int Server_int_ParseArgs(int bUseLongLast, char *ArgStr, ...)
 	
 	while( (dest = va_arg(args, char **)) )
 	{
+		printf(" dest = %p\n", dest);
 		// Trim leading spaces
 		while( *ArgStr == ' ' || *ArgStr == '\t' )
 			ArgStr ++;
