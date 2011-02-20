@@ -473,6 +473,32 @@ void Server_Cmd_SETEUSER(tClient *Client, char *Args)
 }
 
 /**
+ * \brief Send an item status to the client
+ * \param Client	Who to?
+ * \param Item	Item to send
+ */
+void Server_int_SendItem(tClient *Client, tItem *Item)
+{
+	char	*status = "avail";
+	
+	if( Item->Handler->CanDispense )
+	{
+		switch(Item->Handler->CanDispense(Item->ID, Client->UID))
+		{
+		case  0:	status = "avail";	break;
+		case  1:	status = "sold";	break;
+		default:
+		case -1:	status = "error";	break;
+		}
+	}
+	
+	sendf(Client->Socket,
+		"202 Item %s:%i %s %i %s\n",
+		Item->Handler->Name, Item->ID, status, Item->Price, Item->Name
+		);
+}
+
+/**
  * \brief Enumerate the items that the server knows about
  */
 void Server_Cmd_ENUMITEMS(tClient *Client, char *Args)
@@ -495,10 +521,7 @@ void Server_Cmd_ENUMITEMS(tClient *Client, char *Args)
 
 	for( i = 0; i < giNumItems; i ++ ) {
 		if( gaItems[i].bHidden )	continue;
-		sendf(Client->Socket,
-			"202 Item %s:%i %i %s\n",
-			 gaItems[i].Handler->Name, gaItems[i].ID, gaItems[i].Price, gaItems[i].Name
-			 );
+		Server_int_SendItem( Client, &gaItems[i] );
 	}
 
 	sendf(Client->Socket, "200 List end\n");
@@ -560,10 +583,7 @@ void Server_Cmd_ITEMINFO(tClient *Client, char *Args)
 		return ;
 	}
 	
-	sendf(Client->Socket,
-		"202 Item %s:%i %i %s\n",
-		 item->Handler->Name, item->ID, item->Price, item->Name
-		 );
+	Server_int_SendItem( Client, item );
 }
 
 void Server_Cmd_DISPENSE(tClient *Client, char *Args)
