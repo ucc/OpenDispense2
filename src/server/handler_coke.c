@@ -116,120 +116,43 @@ int Coke_int_GetSlotStatus(char *Buffer, int Slot)
 	}
 }
 
+/**
+ * \brief Update the status of all coke slots
+ * \note Uses goto to reduce the chance of the lock being kept
+ */
 void Coke_int_UpdateSlotStatuses(void)
 {
-	 int	i;
-	 int	len;
+	 int	i, len;
 	char	tmp[40];
+	
+	if( giCoke_SerialFD == -1 )	return ;
 	
 	pthread_mutex_lock(&gCoke_Mutex);
 	
-	if( WaitForColon() )	return ;
-	Writef("d7\r\n");	// Update slot statuses
 	WaitForColon();
+	Writef("d7\r\n");	// Update slot statuses
+	if( WaitForColon() )	goto ret;
 	Writef("s\n");
 	ReadLine(sizeof tmp, tmp);	// Read back what we just said
 	
 	for( i = 0; i <= 6; i ++ )
 	{
 		len = ReadLine(sizeof tmp, tmp);
-		if( len == -1 )	return ;	// I give up :(
+		if( len == -1 ) {
+			#if TRACE_COKE
+			printf("Coke_int_UpdateSlotStatuses: Read failed on slot %i\n", i);
+			#endif
+			goto ret;	// I give up :(
+		}
 		Coke_int_GetSlotStatus(tmp, i);
 	}
+
+ret:
 	pthread_mutex_unlock(&gCoke_Mutex);
 }
 
 int Coke_CanDispense(int UNUSED(User), int Item)
 {
-	// Disabled in favor of caching
-	#if 0
-	char	tmp[40], *status;
-	regmatch_t	matches[4];
-	 int	ret;
-
-	// Sanity please
-	if( Item < 0 || Item > 6 )	return -1;	// -EYOURBAD
-	
-	// Can't dispense if the machine is not connected
-	if( giCoke_SerialFD == -1 )
-		return -2;
-	
-	#if TRACE_COKE
-	printf("Coke_CanDispense: Flushing\n");
-	#endif
-	
-	
-	// Wait for a prompt
-	ret = 0;
-	while( WaitForColon() && ret < 3 )
-	{
-		// Flush the input buffer
-		char	tmpbuf[512];
-		read(giCoke_SerialFD, tmpbuf, sizeof(tmpbuf));
-		#if TRACE_COKE
-		printf("Coke_CanDispense: sending 'd7'\n");
-		#endif
-		Writef("d7\r\n");
-		ret ++;
-	}
-	// Check for a timeout error
-	if( !(ret < 3) ) {
-		fprintf(stderr, "Coke machine timed out\n");
-		return -2;	// -EMYBAD
-	}
-	
-	// You need to do a 'd7' before reading the status
-	// - Otherwise it sometimes reports a full slot as empty
-	//   [TPG] (2011-02-19)
-	if( ret == 0 )
-	{
-		Writef("d7\r\n");
-		WaitForColon();
-	}
-
-	// TODO: Handle "not ok" response to D7
-	
-	#if TRACE_COKE
-	printf("Coke_CanDispense: sending 's%i'\n", Item);
-	#endif
-	
-	// Ask the coke machine
-	Writef("s%i\r\n", Item);
-
-	#if TRACE_COKE
-	printf("Coke_CanDispense: reading response\n");
-	#endif
-	// Read from the machine (ignoring empty lines)
-	while( (ret = ReadLine(sizeof(tmp)-1, tmp)) == 0 );
-	#if TRACE_COKE
-	printf("ret = %i, tmp = '%s'\n", ret, tmp);
-	#endif
-	// Read back-echoed lines
-	while( tmp[0] == ':' || tmp[1] != 'l' )
-	{
-		ret = ReadLine(sizeof(tmp)-1, tmp);
-		if( ret == -1 )	return -1;
-		printf("ret = %i, tmp = '%s'\n", ret, tmp);
-	}
-
-	// Catch an error	
-	if( ret <= 0 ) {
-		fprintf(stderr, "Coke machine is not being chatty (read = %i)\n", ret);
-		if( ret == -1 ) {
-			perror("Coke Machine");
-		}
-		return -1;
-	}
-	
-	#if TRACE_COKE
-	printf("Coke_CanDispense: wait for the prompt again\n");
-	#endif
-
-	// Eat rest of response
-	WaitForColon();
-
-	return Coke_GetSlotStatus(tmp, Item);
-	#else
 	// Sanity please
 	if( Item < 0 || Item > 6 )	return -1;	// -EYOURBAD
 	
@@ -238,7 +161,6 @@ int Coke_CanDispense(int UNUSED(User), int Item)
 		return -2;
 	
 	return gaCoke_CachedStatus[Item];
-	#endif
 }
 
 /**
@@ -300,7 +222,7 @@ int Coke_DoDispense(int UNUSED(User), int Item)
 	printf("Coke_DoDispense: done\n");
 	#endif
 
-	// TODO: Regex
+	// TODO: Regex instead?
 	if( strcmp(tmp, "ok") == 0 ) {
 		// We think dispense worked
 		// - The machine returns 'ok' if an empty slot is dispensed, even if
@@ -308,17 +230,20 @@ int Coke_DoDispense(int UNUSED(User), int Item)
 		ret = 0;
 	}
 	else {
-		printf("Machine returned unknown value '%s'\n", tmp);
+		printf("Coke_DoDispense: Machine returned unknown value '%s'\n", tmp);
 		ret = -1;
 	}
 	
+	#if TRACE_COKE
+	printf("Coke_DoDispense: Updating slot status\n");
+	#endif
 	// Update status
 	Writef("s%i\r\n", Item);
 	len = ReadLine(sizeof tmp, tmp);
 	if(len == -1)	gaCoke_CachedStatus[Item] = -1;
 	Coke_int_GetSlotStatus(tmp, Item);
 	
-	
+	// Release and return
 	pthread_mutex_unlock(&gCoke_Mutex);
 	
 	return ret;

@@ -129,7 +129,7 @@ void *Periodic_Thread(void *Unused)
 	for( ;; )
 	{
 		sleep(10);	// Sleep for a while
-		printf("Periodic firing\n");
+//		printf("Periodic firing\n");
 		for( i = 0; i < ciMaxPeriodics; i ++ )
 		{
 			if( gaPeriodicCalls[i].Function )
