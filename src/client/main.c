@@ -42,6 +42,7 @@ enum eUI_Modes
 typedef struct sItem {
 	char	*Type;
 	 int	ID;
+	 int	Status;	// 0: Availiable, 1: Sold out, -1: Error
 	char	*Desc;
 	 int	Price;
 }	tItem;
@@ -51,7 +52,7 @@ typedef struct sItem {
 void	ShowUsage(void);
 // --- GUI ---
  int	ShowNCursesUI(void);
- int	ShowItemAt(int Row, int Col, int Width, int Index);
+ int	ShowItemAt(int Row, int Col, int Width, int Index, int bHilighted);
 void	PrintAlign(int Row, int Col, int Width, const char *Left, char Pad1, const char *Mid, char Pad2, const char *Right, ...);
 // --- Coke Server Communication ---
  int	OpenConnection(const char *Host, int Port);
@@ -105,8 +106,8 @@ int main(int argc, char *argv[])
 	// -- Create regular expressions
 	// > Code Type Count ...
 	CompileRegex(&gArrayRegex, "^([0-9]{3})\\s+([A-Za-z]+)\\s+([0-9]+)", REG_EXTENDED);	//
-	// > Code Type Ident Price Desc
-	CompileRegex(&gItemRegex, "^([0-9]{3})\\s+([A-Za-z]+)\\s+([A-Za-z]+):([0-9]+)\\s+([0-9]+)\\s+(.+)$", REG_EXTENDED);
+	// > Code Type Ident Status Price Desc
+	CompileRegex(&gItemRegex, "^([0-9]{3})\\s+([A-Za-z]+)\\s+([A-Za-z]+):([0-9]+)\\s+(avail|sold|error)\\s+([0-9]+)\\s+(.+)$", REG_EXTENDED);
 	// > Code 'SALT' salt
 	CompileRegex(&gSaltRegex, "^([0-9]{3})\\s+([A-Za-z]+)\\s+(.+)$", REG_EXTENDED);
 	// > Code 'User' Username Balance Flags
@@ -564,7 +565,7 @@ int ShowNCursesUI(void)
 	 int	itemCount;
 	 int	maxItemIndex;
 	 int	itemBase = 0;
-	 int	currentItem = 0;
+	 int	currentItem;
 	 int	ret = -2;	// -2: Used for marking "no return yet"
 	
 	char	balance_str[5+1+2+1];	// If $9999.99 is too little, something's wrong
@@ -588,14 +589,15 @@ int ShowNCursesUI(void)
 	raw(); noecho();
 	
 	// Get max index
-	maxItemIndex = ShowItemAt(0, 0, 0, -1);
+	maxItemIndex = ShowItemAt(0, 0, 0, -1, 0);
 	// Get item count per screen
 	// - 6: randomly chosen (Need at least 3)
 	itemCount = LINES - 6;
 	if( itemCount > maxItemIndex )
 		itemCount = maxItemIndex;
 	// Get first index
-	while( ShowItemAt(0, 0, 0, currentItem) == -1 )
+	currentItem = 0;
+	while( ShowItemAt(0, 0, 0, currentItem, 0) == -1 )
 		currentItem ++;
 	
 	
@@ -618,28 +620,27 @@ int ShowNCursesUI(void)
 			 int	pos = 0;
 			
 			move( yBase + 1 + i, xBase );
+			printw("| ");
 			
-			if( currentItem == itemBase + i ) {
-				printw("| ->");
-			}
-			else {
-				printw("|   ");
-			}
-			pos += 4;
+			pos += 2;
 			
 			// Check for the '...' row
 			// - Oh god, magic numbers!
 			if( (i == 0 && itemBase > 0)
 			 || (i == itemCount - 1 && itemBase < maxItemIndex - itemCount) )
 			{
-				printw("   ...");	pos += 6;
+				printw("     ...");	pos += 8;
 				times = (width - pos) - 1;
-				//times = width-1 - 8 - 3;
 				while(times--)	addch(' ');
 			}
 			// Show an item
 			else {
-				ShowItemAt( yBase + 1 + i, xBase + pos, (width - pos) - 3, itemBase + i);
+				ShowItemAt(
+					yBase + 1 + i, xBase + pos,	// Position
+					(width - pos) - 3,	// Width
+					itemBase + i,	// Index
+					!!(currentItem == itemBase + i)	// Hilighted
+					);
 				printw("  ");
 			}
 			
@@ -688,26 +689,26 @@ int ShowNCursesUI(void)
 				case 'B':
 					currentItem ++;
 					// Skip over spacers
-					while( ShowItemAt(0, 0, 0, currentItem) == -1 )
+					while( ShowItemAt(0, 0, 0, currentItem, 0) == -1 )
 						currentItem ++;
 					
 					if( currentItem >= maxItemIndex ) {
 						currentItem = 0;
 						// Skip over spacers
-						while( ShowItemAt(0, 0, 0, currentItem) == -1 )
+						while( ShowItemAt(0, 0, 0, currentItem, 0) == -1 )
 							currentItem ++;
 					}
 					break;
 				case 'A':
 					currentItem --;
 					// Skip over spacers
-					while( ShowItemAt(0, 0, 0, currentItem) == -1 )
+					while( ShowItemAt(0, 0, 0, currentItem, 0) == -1 )
 						currentItem --;
 					
 					if( currentItem < 0 ) {
 						currentItem = maxItemIndex - 1;
 						// Skip over spacers
-						while( ShowItemAt(0, 0, 0, currentItem) == -1 )
+						while( ShowItemAt(0, 0, 0, currentItem, 0) == -1 )
 							currentItem --;
 					}
 					break;
@@ -726,7 +727,7 @@ int ShowNCursesUI(void)
 			switch(ch)
 			{
 			case '\n':
-				ret = ShowItemAt(0, 0, 0, currentItem);
+				ret = ShowItemAt(0, 0, 0, currentItem, 0);
 				break;
 			case 'q':
 				ret = -1;	// -1: Return with no dispense
@@ -750,11 +751,12 @@ int ShowNCursesUI(void)
  * \return Dispense index of item
  * \note Part of the NCurses UI
  */
-int ShowItemAt(int Row, int Col, int Width, int Index)
+int ShowItemAt(int Row, int Col, int Width, int Index, int bHilighted)
 {
 	 int	_x, _y, times;
 	char	*name = NULL;
 	 int	price = 0;
+	 int	status = -1;
 	
 	switch(giUIMode)
 	{
@@ -779,6 +781,7 @@ int ShowItemAt(int Row, int Col, int Width, int Index)
 		{
 			name = gaItems[Index].Desc;
 			price = gaItems[Index].Price;
+			status = gaItems[Index].Status;
 			break;
 		}
 		Index -= 7;
@@ -794,6 +797,7 @@ int ShowItemAt(int Row, int Col, int Width, int Index)
 		Index += 7;
 		name = gaItems[Index].Desc;
 		price = gaItems[Index].Price;
+		status = gaItems[Index].Status;
 		break;
 	default:
 		return -1;
@@ -806,23 +810,47 @@ int ShowItemAt(int Row, int Col, int Width, int Index)
 		
 		if( Index >= 0 )
 		{
-			printw("%02i %s", Index, name);
+			// Show hilight and status
+			switch( status )
+			{
+			case 0:
+				if( bHilighted )
+					printw("-> ");
+				else
+					printw("   ");
+				break;
+			case 1:
+				printw("SLD");
+				break;
+			
+			default:
+			case -1:
+				printw("ERR");
+				break;
+			}
+			
+			printw(" %s", name);
 		
 			getyx(stdscr, _y, _x);
 			// Assumes max 4 digit prices
-			times = Width - 4 - (_x - Col);	// TODO: Better handling for large prices
+			times = Width - 5 - (_x - Col);	// TODO: Better handling for large prices
 			while(times--)	addch(' ');
-			printw("%4i", price);
+			
+			printw(" %4i", price);
 		}
 		else
 		{
 			printw("-- %s", name);
 			getyx(stdscr, _y, _x);
-			times = Width - 4 - (_x - Col);	// TODO: Better handling for large prices
+			times = Width - 4 - (_x - Col);
 			while(times--)	addch(' ');
-			printw("  --", price);
+			printw("    ");
 		}
 	}
+	
+	// If the item isn't availiable for sale, return -1 (so it's skipped)
+	if( status )
+		Index = -1;
 	
 	return Index;
 }
@@ -1141,6 +1169,72 @@ int GetUserBalance(int Socket)
 	return 0;
 }
 
+/**
+ * \brief Read an item info response from the server
+ * \param Dest	Destination for the read item (strings will be on the heap)
+ */
+int ReadItemInfo(int Socket, tItem *Dest)
+{
+	char	*buf;
+	 int	responseCode;
+	
+	regmatch_t	matches[8];
+	char	*statusStr;
+	
+	// Get item info
+	buf = ReadLine(Socket);
+	responseCode = atoi(buf);
+	
+	switch(responseCode)
+	{
+	case 202:	break;
+	
+	case 406:
+		printf("Bad item name\n");
+		free(buf);
+		return 1;
+	
+	default:
+		fprintf(stderr, "Unknown response from dispense server (Response Code %i)\n%s", responseCode, buf);
+		exit(-1);
+	}
+	
+	RunRegex(&gItemRegex, buf, 8, matches, "Malformed server response");
+	
+	buf[ matches[3].rm_eo ] = '\0';
+	buf[ matches[5].rm_eo ] = '\0';
+	buf[ matches[7].rm_eo ] = '\0';
+	
+	statusStr = &buf[ matches[5].rm_so ];
+	
+	Dest->ID = atoi( buf + matches[4].rm_so );
+	
+	if( strcmp(statusStr, "avail") == 0 )
+		Dest->Status = 0;
+	else if( strcmp(statusStr, "sold") == 0 )
+		Dest->Status = 1;
+	else if( strcmp(statusStr, "error") == 0 )
+		Dest->Status = -1;
+	else {
+		fprintf(stderr, "Unknown response from dispense server (status '%s')\n",
+			statusStr);
+		return 1;
+	}
+	Dest->Price = atoi( buf + matches[6].rm_so );
+	
+	// Hack a little to reduce heap fragmentation
+	{
+		char	tmpType[strlen(buf + matches[3].rm_so) + 1];
+		char	tmpDesc[strlen(buf + matches[7].rm_so) + 1];
+		strcpy(tmpType, buf + matches[3].rm_so);
+		strcpy(tmpDesc, buf + matches[7].rm_so);
+		free(buf);
+		Dest->Type = strdup( tmpType );
+		Dest->Desc = strdup( tmpDesc );
+	}
+	
+	return 0;
+}
 
 /**
  * \brief Fill the item information structure
@@ -1195,27 +1289,7 @@ void PopulateItemList(int Socket)
 	// Fetch item information
 	for( i = 0; i < giNumItems; i ++ )
 	{
-		regmatch_t	matches[7];
-		
-		// Get item info
-		buf = ReadLine(Socket);
-		responseCode = atoi(buf);
-		
-		if( responseCode != 202 ) {
-			fprintf(stderr, "Unknown response from dispense server (Response Code %i)\n", responseCode);
-			exit(-1);
-		}
-		
-		RunRegex(&gItemRegex, buf, 7, matches, "Malformed server response");
-		
-		buf[ matches[3].rm_eo ] = '\0';
-		
-		gaItems[i].Type = strdup( buf + matches[3].rm_so );
-		gaItems[i].ID = atoi( buf + matches[4].rm_so );
-		gaItems[i].Price = atoi( buf + matches[5].rm_so );
-		gaItems[i].Desc = strdup( buf + matches[6].rm_so );
-		
-		free(buf);
+		ReadItemInfo( Socket, &gaItems[i] );
 	}
 	
 	// Read end of list
@@ -1239,46 +1313,23 @@ void PopulateItemList(int Socket)
  */
 int Dispense_ItemInfo(int Socket, const char *Type, int ID)
 {
-	 int	responseCode;
-	char	*buf;
-	regmatch_t matches[7];
-	char	*type, *desc;
-	 int	id, price;
+	tItem	item;
 	
-	// Dispense!
+	// Query
 	sendf(Socket, "ITEM_INFO %s:%i\n", Type, ID);
-	buf = ReadLine(Socket);
 	
-	responseCode = atoi(buf);
-	switch( responseCode )
+	if( ReadItemInfo(Socket, &item) )
 	{
-	case 202:
-		break;
-	
-	case 406:
-		printf("Bad item name\n");
-		free(buf);
-		return 1;
-	
-	default:
-		printf("Unknown response code %i ('%s')\n", responseCode, buf);
-		free(buf);
 		return -1;
 	}
 	
-		
-	RunRegex(&gItemRegex, buf, 7, matches, "Malformed server response");
+	printf("%8s:%-2i %2i.%02i %s\n",
+		item.Type, item.ID,
+		item.Price/100, item.Price%100,
+		item.Desc);
 	
-	buf[ matches[3].rm_eo ] = '\0';
-	
-	type = buf + matches[3].rm_so;	buf[matches[3].rm_eo] = '\0';
-	id = atoi( buf + matches[4].rm_so );
-	price = atoi( buf + matches[5].rm_so );
-	desc = buf + matches[6].rm_so;	buf[matches[6].rm_eo] = '\0';
-	
-	printf("%8s:%-2i %2i.%02i %s\n", type, id, price/100, price%100, desc);
-	
-	free(buf);
+	free(item.Type);
+	free(item.Desc);
 	
 	return 0;
 }
