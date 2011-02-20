@@ -48,7 +48,8 @@ void	PrintAlign(int Row, int Col, int Width, const char *Left, char Pad1, const 
  int	OpenConnection(const char *Host, int Port);
  int	Authenticate(int Socket);
 void	PopulateItemList(int Socket);
- int	DispenseItem(int Socket, int ItemID);
+ int	Dispense_ItemInfo(int Socket, const char *Type, int ID);
+ int	DispenseItem(int Socket, const char *Type, int ID);
  int	Dispense_AlterBalance(int Socket, const char *Username, int Ammount, const char *Reason);
  int	Dispense_SetBalance(int Socket, const char *Username, int Balance, const char *Reason);
  int	Dispense_Give(int Socket, const char *Username, int Ammount, const char *Reason);
@@ -71,12 +72,13 @@ char	*gsDispenseServer = "heathred";
 
 tItem	*gaItems;
  int	giNumItems;
-regex_t	gArrayRegex, gItemRegex, gSaltRegex, gUserInfoRegex;
+regex_t	gArrayRegex, gItemRegex, gSaltRegex, gUserInfoRegex, gUserItemIdentRegex;
  int	gbIsAuthenticated = 0;
 
 char	*gsItemPattern;	//!< Item pattern
 char	*gsEffectiveUser;	//!< '-u' Dispense as another user
  int	gbUseNCurses = 0;	//!< '-G' Use the NCurses GUI?
+ int	gbDryRun = 0;	//!< '-n' Read-only
  int	giMinimumBalance = INT_MIN;	//!< '-m' Minumum balance for `dispense acct`
  int	giMaximumBalance = INT_MAX;	//!< '-M' Maximum balance for `dispense acct`
 
@@ -96,6 +98,8 @@ int main(int argc, char *argv[])
 	CompileRegex(&gSaltRegex, "^([0-9]{3})\\s+([A-Za-z]+)\\s+(.+)$", REG_EXTENDED);
 	// > Code 'User' Username Balance Flags
 	CompileRegex(&gUserInfoRegex, "^([0-9]{3})\\s+([A-Za-z]+)\\s+([^ ]+)\\s+(-?[0-9]+)\\s+(.+)$", REG_EXTENDED);
+	// > Item Ident
+	CompileRegex(&gUserItemIdentRegex, "^([A-Za-z]+):([0-9]+)$", REG_EXTENDED);
 
 	// Parse Arguments
 	for( i = 1; i < argc; i ++ )
@@ -112,18 +116,48 @@ int main(int argc, char *argv[])
 				return 0;
 			
 			case 'm':	// Minimum balance
+				if( i + 1 >= argc ) {
+					fprintf(stderr, "%s: -m takes an argument\n", argv[0]);
+					ShowUsage();
+				}
 				giMinimumBalance = atoi(argv[++i]);
 				break;
 			case 'M':	// Maximum balance
+				if( i + 1 >= argc ) {
+					fprintf(stderr, "%s: -M takes an argument\n", argv[0]);
+					ShowUsage();
+				}
 				giMaximumBalance = atoi(argv[++i]);
 				break;
 			
 			case 'u':	// Override User
+				if( i + 1 >= argc ) {
+					fprintf(stderr, "%s: -u takes an argument\n", argv[0]);
+					ShowUsage();
+				}
 				gsEffectiveUser = argv[++i];
+				break;
+			
+			case 'H':	// Override remote host
+				if( i + 1 >= argc ) {
+					fprintf(stderr, "%s: -H takes an argument\n", argv[0]);
+					ShowUsage();
+				}
+				gsDispenseServer = argv[++i];
+				break;
+			case 'P':	// Override remote port
+				if( i + 1 >= argc ) {
+					fprintf(stderr, "%s: -P takes an argument\n", argv[0]);
+					ShowUsage();
+				}
+				giDispensePort = atoi(argv[++i]);
 				break;
 			
 			case 'G':	// Use GUI
 				gbUseNCurses = 1;
+				break;
+			case 'n':	// Dry Run / read-only
+				gbDryRun = 1;
 				break;
 			}
 
@@ -194,7 +228,6 @@ int main(int argc, char *argv[])
 				ShowUsage();
 				return -1;
 			}
-			// TODO: `dispense give`
 			
 			// argv[i+1]: Destination
 			// argv[i+2]: Ammount
@@ -305,9 +338,89 @@ int main(int argc, char *argv[])
 	
 	if( gsItemPattern )
 	{
-		// TODO: Implement `dispense <name>`
-		printf("TODO: Implement `dispense <name>`\n");
-		i = -1;
+		regmatch_t matches[3];
+		// Door (hard coded)
+		if( strcmp(gsItemPattern, "door") == 0 )
+		{
+			// Connect, Authenticate, dispense and close
+			sock = OpenConnection(gsDispenseServer, giDispensePort);
+			if( sock < 0 )	return -1;
+			Authenticate(sock);
+			DispenseItem(sock, "door", 0);
+			close(sock);
+			return 0;
+		}
+		// Item id (<type>:<num>)
+		else if( RunRegex(&gUserItemIdentRegex, gsItemPattern, 3, matches, NULL) == 0 )
+		{
+			char	*ident;
+			 int	id;
+			
+			// Get and finish ident
+			ident = gsItemPattern + matches[1].rm_so;
+			gsItemPattern[matches[1].rm_eo] = '\0';
+			// Get ID
+			id = atoi( gsItemPattern + matches[2].rm_so );
+			
+			// Connect, Authenticate, dispense and close
+			sock = OpenConnection(gsDispenseServer, giDispensePort);
+			if( sock < 0 )	return -1;
+			
+			Dispense_ItemInfo(sock, ident, id);
+			
+			Authenticate(sock);
+			DispenseItem(sock, ident, id);
+			close(sock);
+			return 0;
+		}
+		// Item number (6 = coke)
+		else if( strcmp(gsItemPattern, "0") == 0 || atoi(gsItemPattern) > 0 )
+		{
+			i = atoi(gsItemPattern);
+		}
+		// Item prefix
+		else
+		{
+			 int	j;
+			 int	best = -1;
+			for( i = 0; i < giNumItems; i ++ )
+			{
+				// Prefix match (with case-insensitive match)
+				for( j = 0; gsItemPattern[j]; j ++ )
+				{
+					if( gaItems[i].Desc[j] == gsItemPattern[j] )
+						continue;
+					if( tolower(gaItems[i].Desc[j]) == tolower(gsItemPattern[j]) )
+						continue;
+					break;
+				}
+				// Check if the prefix matched
+				if( gsItemPattern[j] != '\0' )
+					continue;
+				
+				// Prefect match
+				if( gaItems[i].Desc[j] == '\0' ) {
+					best = i;
+					break;
+				}
+				
+				// Only one match allowed
+				if( best == -1 ) {
+					best = i;
+				}
+				else {
+					// TODO: Allow ambiguous matches?
+				}
+			}
+			
+			if( best == -1 )
+			{
+				fprintf(stderr, "No item matches the passed string\n");
+				return 1;
+			}
+			
+			i = best;
+		}
 	}
 	else if( gbUseNCurses )
 	{
@@ -316,7 +429,7 @@ int main(int argc, char *argv[])
 	else
 	{
 		// Very basic dispense interface
-		for( i = 0; i < giNumItems; i ++ ) {		
+		for( i = 0; i < giNumItems; i ++ ) {
 			printf("%2i %s:%i\t%3i %s\n", i, gaItems[i].Type, gaItems[i].ID,
 				gaItems[i].Price, gaItems[i].Desc);
 		}
@@ -353,8 +466,11 @@ int main(int argc, char *argv[])
 		// Connect, Authenticate, dispense and close
 		sock = OpenConnection(gsDispenseServer, giDispensePort);
 		if( sock < 0 )	return -1;
+			
+		Dispense_ItemInfo(sock, gaItems[i].Type, gaItems[i].ID);
+		
 		Authenticate(sock);
-		DispenseItem(sock, i);
+		DispenseItem(sock, gaItems[i].Type, gaItems[i].ID);
 		close(sock);
 	}
 
@@ -947,19 +1063,74 @@ void PopulateItemList(int Socket)
 	free(buf);
 }
 
+
+/**
+ * \brief Get information on an item
+ * \return Boolean Failure
+ */
+int Dispense_ItemInfo(int Socket, const char *Type, int ID)
+{
+	 int	responseCode;
+	char	*buf;
+	regmatch_t matches[7];
+	char	*type, *desc;
+	 int	id, price;
+	
+	// Dispense!
+	sendf(Socket, "ITEM_INFO %s:%i\n", Type, ID);
+	buf = ReadLine(Socket);
+	
+	responseCode = atoi(buf);
+	switch( responseCode )
+	{
+	case 202:
+		break;
+	
+	case 406:
+		printf("Bad item name\n");
+		free(buf);
+		return 1;
+	
+	default:
+		printf("Unknown response code %i ('%s')\n", responseCode, buf);
+		free(buf);
+		return -1;
+	}
+	
+		
+	RunRegex(&gItemRegex, buf, 7, matches, "Malformed server response");
+	
+	buf[ matches[3].rm_eo ] = '\0';
+	
+	type = buf + matches[3].rm_so;	buf[matches[3].rm_eo] = '\0';
+	id = atoi( buf + matches[4].rm_so );
+	price = atoi( buf + matches[5].rm_so );
+	desc = buf + matches[6].rm_so;	buf[matches[6].rm_eo] = '\0';
+	
+	printf("%8s:%-2i %2i.%02i %s\n", type, id, price/100, price%100, desc);
+	
+	free(buf);
+	
+	return 0;
+}
+
 /**
  * \brief Dispense an item
  * \return Boolean Failure
  */
-int DispenseItem(int Socket, int ItemID)
+int DispenseItem(int Socket, const char *Type, int ID)
 {
 	 int	ret, responseCode;
 	char	*buf;
 	
-	if( ItemID < 0 || ItemID > giNumItems )	return -1;
+	// Check for a dry run
+	if( gbDryRun ) {
+		printf("Dry Run - No action\n");
+		return 0;
+	}
 	
 	// Dispense!
-	sendf(Socket, "DISPENSE %s:%i\n", gaItems[ItemID].Type, gaItems[ItemID].ID);
+	sendf(Socket, "DISPENSE %s:%i\n", Type, ID);
 	buf = ReadLine(Socket);
 	
 	responseCode = atoi(buf);
@@ -978,7 +1149,7 @@ int DispenseItem(int Socket, int ItemID)
 		ret = 1;
 		break;
 	case 406:
-		printf("Bad item name, bug report\n");
+		printf("Bad item name\n");
 		ret = 1;
 		break;
 	case 500:
@@ -1006,6 +1177,12 @@ int Dispense_AlterBalance(int Socket, const char *Username, int Ammount, const c
 {
 	char	*buf;
 	 int	responseCode;
+	
+	// Check for a dry run
+	if( gbDryRun ) {
+		printf("Dry Run - No action\n");
+		return 0;
+	}
 	
 	sendf(Socket, "ADD %s %i %s\n", Username, Ammount, Reason);
 	buf = ReadLine(Socket);
@@ -1041,6 +1218,12 @@ int Dispense_SetBalance(int Socket, const char *Username, int Balance, const cha
 {
 	char	*buf;
 	 int	responseCode;
+	
+	// Check for a dry run
+	if( gbDryRun ) {
+		printf("Dry Run - No action\n");
+		return 0;
+	}
 	
 	sendf(Socket, "SET %s %i %s\n", Username, Balance, Reason);
 	buf = ReadLine(Socket);
@@ -1081,6 +1264,12 @@ int Dispense_Give(int Socket, const char *Username, int Ammount, const char *Rea
 	// Fast return on zero
 	if( Ammount == 0 ) {
 		printf("Are you actually going to give any?\n");
+		return 0;
+	}
+	
+	// Check for a dry run
+	if( gbDryRun ) {
+		printf("Dry Run - No action\n");
 		return 0;
 	}
 	
@@ -1127,6 +1316,12 @@ int Dispense_Donate(int Socket, int Ammount, const char *Reason)
 	// Fast return on zero
 	if( Ammount == 0 ) {
 		printf("Are you actually going to give any?\n");
+		return 0;
+	}
+	
+	// Check for a dry run
+	if( gbDryRun ) {
+		printf("Dry Run - No action\n");
 		return 0;
 	}
 	
@@ -1285,6 +1480,12 @@ int Dispense_AddUser(int Socket, const char *Username)
 	char	*buf;
 	 int	responseCode, ret;
 	
+	// Check for a dry run
+	if( gbDryRun ) {
+		printf("Dry Run - No action\n");
+		return 0;
+	}
+	
 	sendf(Socket, "USER_ADD %s\n", Username);
 	
 	buf = ReadLine(Socket);
@@ -1322,6 +1523,12 @@ int Dispense_SetUserType(int Socket, const char *Username, const char *TypeStrin
 {
 	char	*buf;
 	 int	responseCode, ret;
+	
+	// Check for a dry run
+	if( gbDryRun ) {
+		printf("Dry Run - No action\n");
+		return 0;
+	}
 	
 	// TODO: Pre-validate the string
 	
@@ -1463,7 +1670,7 @@ int RunRegex(regex_t *regex, const char *string, int nMatches, regmatch_t *match
 	 int	ret;
 	
 	ret = regexec(regex, string, nMatches, matches, 0);
-	if( ret ) {
+	if( ret && errorMessage ) {
 		size_t  len = regerror(ret, regex, NULL, 0);
 		char    errorStr[len];
 		regerror(ret, regex, errorStr, len);

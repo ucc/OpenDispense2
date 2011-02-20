@@ -296,22 +296,23 @@ void Server_ParseClientCommand(tClient *Client, char *CommandString)
 {
 	char	*command, *args;
 	 int	i;
-	#if 0
-	char	**argList;
-	 int	numArgs = 0;
-	#endif
+	
+	if( giDebugLevel >= 2 )
+		Debug(Client, "Server_ParseClientCommand: (CommandString = '%s')", CommandString);
 	
 	if( Server_int_ParseArgs(1, CommandString, &command, &args, NULL) )
 	{
 		// Is this an error? (just ignore for now)
-		args = "";
+		//args = "";
 	}
 	
 	
 	// Find command
 	for( i = 0; i < NUM_COMMANDS; i++ )
 	{
-		if(strcmp(CommandString, gaServer_Commands[i].Name) == 0) {
+		if(strcmp(command, gaServer_Commands[i].Name) == 0) {
+			if( giDebugLevel >= 2 )
+				Debug(Client, "CMD %s - \"%s\"", command, args);
 			gaServer_Commands[i].Function(Client, args);
 			return ;
 		}
@@ -394,7 +395,11 @@ void Server_Cmd_AUTOAUTH(tClient *Client, char *Args)
 {
 	char	*username;
 	
-	Server_int_ParseArgs(0, Args, &username, NULL);
+	if( Server_int_ParseArgs(0, Args, &username, NULL) )
+	{
+		sendf(Client->Socket, "407 AUTOAUTH takes 1 argument\n");
+		return ;
+	}
 	
 	// Check if trusted
 	if( !Client->bIsTrusted ) {
@@ -415,6 +420,8 @@ void Server_Cmd_AUTOAUTH(tClient *Client, char *Args)
 	
 	// You can't be an internal account
 	if( Bank_GetFlags(Client->UID) & USER_FLAG_INTERNAL ) {
+		if(giDebugLevel)
+			Debug(Client, "Autoauth as '%s', not allowed", username);
 		Client->UID = -1;
 		sendf(Client->Socket, "401 Auth Failure\n");
 		return ;
@@ -1163,9 +1170,20 @@ int sendf(int Socket, const char *Format, ...)
 int Server_int_ParseArgs(int bUseLongLast, char *ArgStr, ...)
 {
 	va_list args;
-	char	savedChar = *ArgStr;
+	char	savedChar;
 	char	**dest;
 	va_start(args, ArgStr);
+
+	// Check for null
+	if( !ArgStr )
+	{
+		while( (dest = va_arg(args, char **)) )
+			*dest = NULL;
+		va_end(args);
+		return 1;
+	}
+
+	savedChar = *ArgStr;
 	
 	while( (dest = va_arg(args, char **)) )
 	{
@@ -1180,37 +1198,42 @@ int Server_int_ParseArgs(int bUseLongLast, char *ArgStr, ...)
 			do {
 				*dest = NULL;
 			}	while( (dest = va_arg(args, char **)) );
+		va_end(args);
 			return -1;
 		}
 		
-		// Set destination
-		*dest = ArgStr;
-		
 		if( *ArgStr == '"' )
 		{
+			ArgStr ++;
+			*dest = ArgStr;
 			// Read until quote
 			while( *ArgStr && *ArgStr != '"' )
 				ArgStr ++;
 		}
 		else
 		{
+			// Set destination
+			*dest = ArgStr;
 			// Read until a space
 			while( *ArgStr && *ArgStr != ' ' && *ArgStr != '\t' )
 				ArgStr ++;
 		}
 		savedChar = *ArgStr;	// savedChar is used to un-mangle the last string
 		*ArgStr = '\0';
+		ArgStr ++;
 	}
+	va_end(args);
 	
 	// Oops, extra arguments, and greedy not set
-	if( savedChar == ' ' && bUseLongLast )
+	if( (savedChar == ' ' || savedChar == '\t') && !bUseLongLast ) {
 		return -1;
+	}
 	
 	// Un-mangle last
-	if(bUseLongLast)
+	if(bUseLongLast) {
+		ArgStr --;
 		*ArgStr = savedChar;
-	
-	va_end(args);
+	}
 	
 	return 0;	// Success!
 }

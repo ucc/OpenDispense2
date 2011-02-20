@@ -592,6 +592,7 @@ sqlite3_stmt *Bank_int_QuerySingle(sqlite3 *Database, const char *Query)
  */
 int Bank_int_IsValidName(const char *Name)
 {
+	if( !Name )	return 0;
 	while(*Name)
 	{
 		if( *Name == '\'' )	return 0;
