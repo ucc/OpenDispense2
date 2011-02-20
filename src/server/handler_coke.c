@@ -21,7 +21,7 @@
 #include <pthread.h>
 
 #define READ_TIMEOUT	2	// 2 seconds for ReadChar
-#define TRACE_COKE	1
+#define TRACE_COKE	0
 
 // === IMPORTS ===
 
@@ -51,6 +51,8 @@ pthread_mutex_t	gCoke_Mutex = PTHREAD_MUTEX_INITIALIZER;
 // == CODE ===
 int Coke_InitHandler()
 {
+	CompileRegex(&gCoke_StatusRegex, "^slot\\s+([0-9]+)\\s+([^:]+):([a-zA-Z]+)\\s*", REG_EXTENDED);
+	
 	printf("connecting to coke machine...\n");
 	
 	giCoke_SerialFD = InitSerial(gsCoke_SerialPort, 9600);
@@ -82,7 +84,6 @@ int Coke_InitHandler()
 	
 	AddPeriodicFunction(Coke_int_UpdateSlotStatuses);
 	
-	CompileRegex(&gCoke_StatusRegex, "^slot\\s+([0-9]+)\\s+([^:]+):([a-zA-Z]+)\\s*", REG_EXTENDED);
 	return 0;
 }
 

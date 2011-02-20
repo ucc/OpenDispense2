@@ -1221,7 +1221,6 @@ int Server_int_ParseArgs(int bUseLongLast, char *ArgStr, ...)
 	
 	while( (dest = va_arg(args, char **)) )
 	{
-		printf(" dest = %p\n", dest);
 		// Trim leading spaces
 		while( *ArgStr == ' ' || *ArgStr == '\t' )
 			ArgStr ++;

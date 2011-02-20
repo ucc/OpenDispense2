@@ -15,7 +15,7 @@
 #include "../cokebank.h"
 #include <sqlite3.h>
 
-#define DEBUG	1
+#define DEBUG	0
 
 const char * const csBank_DatabaseSetup = 
 "CREATE TABLE IF NOT EXISTS accounts ("
