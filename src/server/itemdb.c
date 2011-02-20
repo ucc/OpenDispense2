@@ -33,8 +33,7 @@ char	*trim(char *__str);
  int	giNumItems = 0;
 tItem	*gaItems = NULL;
 tHandler	gPseudo_Handler = {Name:"pseudo"};
-tHandler	gSpacer_Handler = {Name:"spacer"};
-tHandler	*gaHandlers[] = {&gSpacer_Handler, &gPseudo_Handler, &gCoke_Handler, &gSnack_Handler, &gDoor_Handler};
+tHandler	*gaHandlers[] = {&gPseudo_Handler, &gCoke_Handler, &gSnack_Handler, &gDoor_Handler};
  int	giNumHandlers = sizeof(gaHandlers)/sizeof(gaHandlers[0]);
 char	*gsItemListFile = DEFAULT_ITEM_FILE;
 #if USE_INOTIFY

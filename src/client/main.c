@@ -29,6 +29,15 @@
 #define DEBUG_TRACE_SERVER	0
 #define USE_AUTOAUTH	1
 
+enum eUI_Modes
+{
+	UI_MODE_BASIC,	// Non-NCurses
+	UI_MODE_STANDARD,
+	UI_MODE_DRINKSONLY,
+	UI_MODE_ALL,
+	NUM_UI_MODES
+};
+
 // === TYPES ===
 typedef struct sItem {
 	char	*Type;
@@ -42,7 +51,7 @@ typedef struct sItem {
 void	ShowUsage(void);
 // --- GUI ---
  int	ShowNCursesUI(void);
-void	ShowItemAt(int Row, int Col, int Width, int Index);
+ int	ShowItemAt(int Row, int Col, int Width, int Index);
 void	PrintAlign(int Row, int Col, int Width, const char *Left, char Pad1, const char *Mid, char Pad2, const char *Right, ...);
 // --- Coke Server Communication ---
  int	OpenConnection(const char *Host, int Port);
@@ -78,7 +87,7 @@ regex_t	gArrayRegex, gItemRegex, gSaltRegex, gUserInfoRegex, gUserItemIdentRegex
 
 char	*gsItemPattern;	//!< Item pattern
 char	*gsEffectiveUser;	//!< '-u' Dispense as another user
- int	gbUseNCurses = 0;	//!< '-G' Use the NCurses GUI?
+ int	giUIMode = UI_MODE_STANDARD;
  int	gbDryRun = 0;	//!< '-n' Read-only
  int	giMinimumBalance = INT_MIN;	//!< '-m' Minumum balance for `dispense acct`
  int	giMaximumBalance = INT_MAX;	//!< '-M' Maximum balance for `dispense acct`
@@ -157,8 +166,11 @@ int main(int argc, char *argv[])
 				giDispensePort = atoi(argv[++i]);
 				break;
 			
-			case 'G':	// Use GUI
-				gbUseNCurses = 1;
+			case 'G':	// Don't use GUI
+				giUIMode = UI_MODE_BASIC;
+				break;
+			case 'D':	// Drinks only
+				giUIMode = UI_MODE_DRINKSONLY;
 				break;
 			case 'n':	// Dry Run / read-only
 				gbDryRun = 1;
@@ -433,7 +445,7 @@ int main(int argc, char *argv[])
 			i = best;
 		}
 	}
-	else if( gbUseNCurses )
+	else if( giUIMode != UI_MODE_BASIC )
 	{
 		i = ShowNCursesUI();
 	}
@@ -441,11 +453,12 @@ int main(int argc, char *argv[])
 	{
 		// Very basic dispense interface
 		for( i = 0; i < giNumItems; i ++ ) {
-			if( strcmp(gaItems[i].Desc, "-") == 0 )
-				printf("\n");
-			else
-				printf("%2i %s:%i\t%3i %s\n", i, gaItems[i].Type, gaItems[i].ID,
-					gaItems[i].Price, gaItems[i].Desc);
+			// Add a separator
+			if( i && strcmp(gaItems[i].Type, gaItems[i-1].Type) != 0 )
+				printf("   ---\n");
+			
+			printf("%2i %s:%i\t%3i %s\n", i, gaItems[i].Type, gaItems[i].ID,
+				gaItems[i].Price, gaItems[i].Desc);
 		}
 		printf(" q Quit\n");
 		for(;;)
@@ -547,9 +560,9 @@ int ShowNCursesUI(void)
 	 int	i, times;
 	 int	xBase, yBase;
 	const int	displayMinWidth = 40;
-	const int	displayMinItems = 8;
 	char	*titleString = "Dispense";
-	 int	itemCount = displayMinItems;
+	 int	itemCount;
+	 int	maxItemIndex;
 	 int	itemBase = 0;
 	 int	currentItem = 0;
 	 int	ret = -2;	// -2: Used for marking "no return yet"
@@ -574,11 +587,17 @@ int ShowNCursesUI(void)
 	initscr();
 	raw(); noecho();
 	
-	// Get item count
+	// Get max index
+	maxItemIndex = ShowItemAt(0, 0, 0, -1);
+	// Get item count per screen
 	// - 6: randomly chosen (Need at least 3)
 	itemCount = LINES - 6;
-	if( itemCount > giNumItems )
-		itemCount = giNumItems;
+	if( itemCount > maxItemIndex )
+		itemCount = maxItemIndex;
+	// Get first index
+	while( ShowItemAt(0, 0, 0, currentItem) == -1 )
+		currentItem ++;
+	
 	
 	// Get dimensions
 	height = itemCount + 3;
@@ -596,35 +615,36 @@ int ShowNCursesUI(void)
 		// Items
 		for( i = 0; i < itemCount; i ++ )
 		{
+			 int	pos = 0;
+			
 			move( yBase + 1 + i, xBase );
 			
 			if( currentItem == itemBase + i ) {
-				printw("| -> ");
+				printw("| ->");
 			}
 			else {
-				printw("|    ");
+				printw("|   ");
 			}
+			pos += 4;
 			
 			// Check for the '...' row
 			// - Oh god, magic numbers!
-			if( i == 0 && itemBase > 0 ) {
-				printw("   ...");
-				times = width-1 - 8 - 3;
-				while(times--)	addch(' ');
-			}
-			else if( i == itemCount - 1 && itemBase < giNumItems - itemCount ) {
-				printw("   ...");
-				times = width-1 - 8 - 3;
+			if( (i == 0 && itemBase > 0)
+			 || (i == itemCount - 1 && itemBase < maxItemIndex - itemCount) )
+			{
+				printw("   ...");	pos += 6;
+				times = (width - pos) - 1;
+				//times = width-1 - 8 - 3;
 				while(times--)	addch(' ');
 			}
 			// Show an item
 			else {
-				ShowItemAt( yBase + 1 + i, xBase + 5, width - 7, itemBase + i);
-				addch(' ');
+				ShowItemAt( yBase + 1 + i, xBase + pos, (width - pos) - 3, itemBase + i);
+				printw("  ");
 			}
 			
 			// Scrollbar (if needed)
-			if( giNumItems > itemCount ) {
+			if( maxItemIndex > itemCount ) {
 				if( i == 0 ) {
 					addch('A');
 				}
@@ -632,7 +652,7 @@ int ShowNCursesUI(void)
 					addch('V');
 				}
 				else {
-					 int	percentage = itemBase * 100 / (giNumItems-itemCount);
+					 int	percentage = itemBase * 100 / (maxItemIndex-itemCount);
 					if( i-1 == percentage*(itemCount-3)/100 ) {
 						addch('#');
 					}
@@ -666,21 +686,29 @@ int ShowNCursesUI(void)
 				switch(ch)
 				{
 				case 'B':
-					//if( itemBase < giNumItems - (itemCount) )
-					//	itemBase ++;
-					if( currentItem < giNumItems - 1 )
+					currentItem ++;
+					// Skip over spacers
+					while( ShowItemAt(0, 0, 0, currentItem) == -1 )
 						currentItem ++;
-					else {
+					
+					if( currentItem >= maxItemIndex ) {
 						currentItem = 0;
+						// Skip over spacers
+						while( ShowItemAt(0, 0, 0, currentItem) == -1 )
+							currentItem ++;
 					}
 					break;
 				case 'A':
-					//if( itemBase > 0 )
-					//	itemBase --;
-					if( currentItem > 0 )
+					currentItem --;
+					// Skip over spacers
+					while( ShowItemAt(0, 0, 0, currentItem) == -1 )
 						currentItem --;
-					else {
-						currentItem = giNumItems - 1;
+					
+					if( currentItem < 0 ) {
+						currentItem = maxItemIndex - 1;
+						// Skip over spacers
+						while( ShowItemAt(0, 0, 0, currentItem) == -1 )
+							currentItem --;
 					}
 					break;
 				}
@@ -689,25 +717,16 @@ int ShowNCursesUI(void)
 				
 			}
 			
-			if( currentItem < itemBase + 1 && itemBase > 0 )
-				itemBase = currentItem - 1;
-			if( currentItem > itemBase + itemCount - 1 && itemBase < itemCount-1 )
-				itemBase = currentItem - itemCount + 1;
-			
-			#if 0
-			if( itemBase + itemCount - 1 <= currentItem && itemBase + itemCount < giNumItems )
-			{
-				itemBase += ;
-			}
-			if( itemBase + 1 > currentItem && itemBase > 0 )
-				itemBase --;
-			#endif
+			if( itemCount > maxItemIndex && currentItem < itemBase + 2 && itemBase > 0 )
+				itemBase = currentItem - 2;
+			if( itemCount > maxItemIndex && currentItem > itemBase + itemCount - 2 && itemBase < maxItemIndex-1 )
+				itemBase = currentItem - itemCount + 2;
 		}
 		else {
 			switch(ch)
 			{
 			case '\n':
-				ret = currentItem;
+				ret = ShowItemAt(0, 0, 0, currentItem);
 				break;
 			case 'q':
 				ret = -1;	// -1: Return with no dispense
@@ -728,38 +747,84 @@ int ShowNCursesUI(void)
 
 /**
  * \brief Show item \a Index at (\a Col, \a Row)
+ * \return Dispense index of item
  * \note Part of the NCurses UI
  */
-void ShowItemAt(int Row, int Col, int Width, int Index)
+int ShowItemAt(int Row, int Col, int Width, int Index)
 {
 	 int	_x, _y, times;
-	char	*name;
-	 int	price;
+	char	*name = NULL;
+	 int	price = 0;
 	
-	move( Row, Col );
-	
-	if( Index < 0 || Index >= giNumItems ) {
-		name = "OOR";
-		price = 0;
-	}
-	else {
+	switch(giUIMode)
+	{
+	// Standard UI
+	// - This assumes that 
+	case UI_MODE_STANDARD:
+		// Bounds check
+		// Index = -1, request limit
+		if( Index < 0 || Index >= giNumItems+2 )
+			return giNumItems+2;
+		// Drink label
+		if( Index == 0 )
+		{
+			price = 0;
+			name = "Coke Machine";
+			Index = -1;	// -1 indicates a label
+			break;
+		}
+		Index --;
+		// Drinks 0 - 6
+		if( Index <= 6 )
+		{
+			name = gaItems[Index].Desc;
+			price = gaItems[Index].Price;
+			break;
+		}
+		Index -= 7;
+		// EPS label
+		if( Index == 0 )
+		{
+			price = 0;
+			name = "Electronic Payment System";
+			Index = -1;	// -1 indicates a label
+			break;
+		}
+		Index --;
+		Index += 7;
 		name = gaItems[Index].Desc;
 		price = gaItems[Index].Price;
+		break;
+	default:
+		return -1;
 	}
 	
-	// Spacer hack (Desc = "-")
-	if( gaItems[Index].Desc[0] == '-' && gaItems[Index].Desc[1] == '\0' )
+	// Width = 0, don't print
+	if( Width > 0 )
 	{
-		return;
+		move( Row, Col );
+		
+		if( Index >= 0 )
+		{
+			printw("%02i %s", Index, name);
+		
+			getyx(stdscr, _y, _x);
+			// Assumes max 4 digit prices
+			times = Width - 4 - (_x - Col);	// TODO: Better handling for large prices
+			while(times--)	addch(' ');
+			printw("%4i", price);
+		}
+		else
+		{
+			printw("-- %s", name);
+			getyx(stdscr, _y, _x);
+			times = Width - 4 - (_x - Col);	// TODO: Better handling for large prices
+			while(times--)	addch(' ');
+			printw("  --", price);
+		}
 	}
-
-	printw("%02i %s", Index, name);
 	
-	getyx(stdscr, _y, _x);
-	// Assumes max 4 digit prices
-	times = Width - 4 - (_x - Col);	// TODO: Better handling for large prices
-	while(times--)	addch(' ');
-	printw("%4i", price);
+	return Index;
 }
 
 /**

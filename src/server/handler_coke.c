@@ -57,18 +57,20 @@ int Coke_InitHandler()
 		// - Dunno why this is needed, but the machine plays silly
 		//   sometimes.
 		Writef("n0 Slot0\n");
-		WaitForColon();
-		Writef("n1 Slot1\n");
-		WaitForColon();
-		Writef("n2 Slot2\n");
-		WaitForColon();
-		Writef("n3 Slot3\n");
-		WaitForColon();
-		Writef("n4 Slot4\n");
-		WaitForColon();
-		Writef("n5 Slot5\n");
-		WaitForColon();
-		Writef("n6 Coke\n");
+		if( !WaitForColon() )
+		{
+			Writef("n1 Slot1\n");
+			WaitForColon();
+			Writef("n2 Slot2\n");
+			WaitForColon();
+			Writef("n3 Slot3\n");
+			WaitForColon();
+			Writef("n4 Slot4\n");
+			WaitForColon();
+			Writef("n5 Slot5\n");
+			WaitForColon();
+			Writef("n6 Coke\n");
+		}
 	}
 	
 	CompileRegex(&gCoke_StatusRegex, "^slot\\s+([0-9]+)\\s+([^:]+):([a-zA-Z]+)\\s*", REG_EXTENDED);
