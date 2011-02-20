@@ -130,9 +130,15 @@ void Coke_int_UpdateSlotStatuses(void)
 	pthread_mutex_lock(&gCoke_Mutex);
 	
 	WaitForColon();
+	#if TRACE_COKE
+	printf("Coke_int_UpdateSlotStatuses: send d7\n");
+	#endif
 	Writef("d7\r\n");	// Update slot statuses
 	if( WaitForColon() )	goto ret;
-	Writef("s\n");
+	#if TRACE_COKE
+	printf("Coke_int_UpdateSlotStatuses: send s\n");
+	#endif
+	Writef("s\r\n");
 	ReadLine(sizeof tmp, tmp);	// Read back what we just said
 	
 	for( i = 0; i <= 6; i ++ )
@@ -144,6 +150,9 @@ void Coke_int_UpdateSlotStatuses(void)
 			#endif
 			goto ret;	// I give up :(
 		}
+		#if TRACE_COKE
+		printf("Coke_int_UpdateSlotStatuses: tmp = '%s'\n", tmp);
+		#endif
 		Coke_int_GetSlotStatus(tmp, i);
 	}
 
@@ -197,6 +206,14 @@ int Coke_DoDispense(int UNUSED(User), int Item)
 		#endif
 		Writef("d7\r\n");
 		ret ++;
+	}
+	if( ret == 3 )
+	{
+		#if TRACE_COKE
+		printf("Coke_DoDispense: timed out\n", Item);
+		#endif
+		pthread_mutex_unlock(&gCoke_Mutex);
+		return -1;
 	}
 
 	#if TRACE_COKE
