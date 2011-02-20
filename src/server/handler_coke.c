@@ -139,7 +139,10 @@ void Coke_int_UpdateSlotStatuses(void)
 	printf("Coke_int_UpdateSlotStatuses: send s\n");
 	#endif
 	Writef("s\r\n");
-	ReadLine(sizeof tmp, tmp);	// Read back what we just said
+	do {
+		i = ReadLine(sizeof tmp, tmp);	// Read back what we just said
+		if( i == -1 )	goto ret;
+	} while(tmp[0] == ':' || tmp[0] == 's');
 	
 	for( i = 0; i <= 6; i ++ )
 	{
