@@ -483,7 +483,7 @@ void Server_int_SendItem(tClient *Client, tItem *Item)
 	
 	if( Item->Handler->CanDispense )
 	{
-		switch(Item->Handler->CanDispense(Item->ID, Client->UID))
+		switch(Item->Handler->CanDispense(Client->UID, Item->ID))
 		{
 		case  0:	status = "avail";	break;
 		case  1:	status = "sold";	break;

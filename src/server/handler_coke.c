@@ -18,6 +18,7 @@
 #include <fcntl.h>
 #include <regex.h>
 #include <stdarg.h>
+#include <pthread.h>
 
 #define READ_TIMEOUT	2	// 2 seconds for ReadChar
 #define TRACE_COKE	1
@@ -26,6 +27,8 @@
 
 // === PROTOTYPES ===
  int	Coke_InitHandler();
+ int	Coke_int_GetSlotStatus(char *Buffer, int Slot);
+void	Coke_int_UpdateSlotStatuses(void);
  int	Coke_CanDispense(int User, int Item);
  int	Coke_DoDispense(int User, int Item);
  int	Writef(const char *Format, ...);
@@ -42,6 +45,8 @@ tHandler	gCoke_Handler = {
 char	*gsCoke_SerialPort = "/dev/ttyS0";
  int	giCoke_SerialFD;
 regex_t	gCoke_StatusRegex;
+ int	gaCoke_CachedStatus[7];
+pthread_mutex_t	gCoke_Mutex = PTHREAD_MUTEX_INITIALIZER;
 
 // == CODE ===
 int Coke_InitHandler()
@@ -70,15 +75,74 @@ int Coke_InitHandler()
 			Writef("n5 Slot5\n");
 			WaitForColon();
 			Writef("n6 Coke\n");
+			
+			Coke_int_UpdateSlotStatuses();
 		}
 	}
+	
+	AddPeriodicFunction(Coke_int_UpdateSlotStatuses);
 	
 	CompileRegex(&gCoke_StatusRegex, "^slot\\s+([0-9]+)\\s+([^:]+):([a-zA-Z]+)\\s*", REG_EXTENDED);
 	return 0;
 }
 
+int Coke_int_GetSlotStatus(char *Buffer, int Slot)
+{
+	regmatch_t	matches[4];
+	 int	ret;
+	char	*status;	
+	
+	// Parse status response
+	ret = RunRegex(&gCoke_StatusRegex, Buffer, sizeof(matches)/sizeof(matches[0]), matches, "Bad Response");
+	if( ret ) {
+		return -1;
+	}
+
+	// Get slot status
+	Buffer[ matches[3].rm_eo ] = '\0';
+	status = &Buffer[ matches[3].rm_so ];
+	
+	#if TRACE_COKE
+	printf("Coke_CanDispense: Machine responded slot status '%s'\n", status);
+	#endif
+
+	if( strcmp(status, "full") == 0 ) {
+		gaCoke_CachedStatus[Slot] = 0;	// 0: Avaliiable
+		return 0;
+	}
+	else {
+		gaCoke_CachedStatus[Slot] = 1;	// 1: Empty
+		return 1;
+	}
+}
+
+void Coke_int_UpdateSlotStatuses(void)
+{
+	 int	i;
+	 int	len;
+	char	tmp[40];
+	
+	pthread_mutex_lock(&gCoke_Mutex);
+	
+	if( WaitForColon() )	return ;
+	Writef("d7\r\n");	// Update slot statuses
+	WaitForColon();
+	Writef("s\n");
+	ReadLine(sizeof tmp, tmp);	// Read back what we just said
+	
+	for( i = 0; i <= 6; i ++ )
+	{
+		len = ReadLine(sizeof tmp, tmp);
+		if( len == -1 )	return ;	// I give up :(
+		Coke_int_GetSlotStatus(tmp, i);
+	}
+	pthread_mutex_unlock(&gCoke_Mutex);
+}
+
 int Coke_CanDispense(int UNUSED(User), int Item)
 {
+	// Disabled in favor of caching
+	#if 0
 	char	tmp[40], *status;
 	regmatch_t	matches[4];
 	 int	ret;
@@ -144,6 +208,7 @@ int Coke_CanDispense(int UNUSED(User), int Item)
 	while( tmp[0] == ':' || tmp[1] != 'l' )
 	{
 		ret = ReadLine(sizeof(tmp)-1, tmp);
+		if( ret == -1 )	return -1;
 		printf("ret = %i, tmp = '%s'\n", ret, tmp);
 	}
 
@@ -163,24 +228,17 @@ int Coke_CanDispense(int UNUSED(User), int Item)
 	// Eat rest of response
 	WaitForColon();
 
-	// Parse status response
-	ret = RunRegex(&gCoke_StatusRegex, tmp, sizeof(matches)/sizeof(matches[0]), matches, "Bad Response");
-	if( ret ) {
-		return -1;
-	}
-
-	// Get slot status
-	tmp[ matches[3].rm_eo ] = '\0';
-	status = &tmp[ matches[3].rm_so ];
+	return Coke_GetSlotStatus(tmp, Item);
+	#else
+	// Sanity please
+	if( Item < 0 || Item > 6 )	return -1;	// -EYOURBAD
 	
-	#if TRACE_COKE
-	printf("Coke_CanDispense: Machine responded slot status '%s'\n", status);
+	// Can't dispense if the machine is not connected
+	if( giCoke_SerialFD == -1 )
+		return -2;
+	
+	return gaCoke_CachedStatus[Item];
 	#endif
-
-	if( strcmp(status, "full") == 0 )
-		return 0;
-
-	return 1;
 }
 
 /**
@@ -189,7 +247,7 @@ int Coke_CanDispense(int UNUSED(User), int Item)
 int Coke_DoDispense(int UNUSED(User), int Item)
 {
 	char	tmp[32];
-	 int	ret;
+	 int	ret, len;
 
 	// Sanity please
 	if( Item < 0 || Item > 6 )	return -1;
@@ -197,6 +255,9 @@ int Coke_DoDispense(int UNUSED(User), int Item)
 	// Can't dispense if the machine is not connected
 	if( giCoke_SerialFD == -1 )
 		return -2;
+	
+	// LOCK
+	pthread_mutex_lock(&gCoke_Mutex);
 	
 	#if TRACE_COKE
 	printf("Coke_DoDispense: flushing input\n");
@@ -224,7 +285,10 @@ int Coke_DoDispense(int UNUSED(User), int Item)
 	// Read empty lines and echo-backs
 	do {
 		ret = ReadLine(sizeof(tmp)-1, tmp);
-		if( ret == -1 )	return -1;
+		if( ret == -1 ) {
+			pthread_mutex_unlock(&gCoke_Mutex);
+			return -1;
+		}
 		#if TRACE_COKE
 		printf("Coke_DoDispense: read %i '%s'\n", ret, tmp);
 		#endif
@@ -241,12 +305,23 @@ int Coke_DoDispense(int UNUSED(User), int Item)
 		// We think dispense worked
 		// - The machine returns 'ok' if an empty slot is dispensed, even if
 		//   it doesn't actually try to dispense (no sound)
-		return 0;
+		ret = 0;
 	}
-
-	printf("Machine returned unknown value '%s'\n", tmp);	
-
-	return -1;
+	else {
+		printf("Machine returned unknown value '%s'\n", tmp);
+		ret = -1;
+	}
+	
+	// Update status
+	Writef("s%i\r\n", Item);
+	len = ReadLine(sizeof tmp, tmp);
+	if(len == -1)	gaCoke_CachedStatus[Item] = -1;
+	Coke_int_GetSlotStatus(tmp, Item);
+	
+	
+	pthread_mutex_unlock(&gCoke_Mutex);
+	
+	return ret;
 }
 
 char ReadChar()

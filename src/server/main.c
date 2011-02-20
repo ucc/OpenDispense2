@@ -18,6 +18,7 @@
 #include <fcntl.h>
 #include <stdarg.h>
 #include <syslog.h>
+#include <pthread.h>
 #include "../cokebank.h"
 
 // === IMPORTS ===
@@ -30,9 +31,17 @@ extern char	*gsCoke_SerialPort;
 extern char	*gsSnack_SerialPort;
 extern char	*gsDoor_Password;
 
+// === PROTOTYPES ===
+void	*Periodic_Thread(void *Unused);
+
 // === GLOBALS ===
  int	giDebugLevel = 0;
 char	*gsCokebankPath = "cokebank.db";
+// - Functions called every 20s (or so)
+#define ciMaxPeriodics	10
+struct sPeriodicCall {
+	void	(*Function)(void);
+}	gaPeriodicCalls[ciMaxPeriodics];
 
 // === CODE ===
 void sigint_handler()
@@ -43,6 +52,7 @@ void sigint_handler()
 int main(int argc, char *argv[])
 {
 	 int	i;
+	pthread_t	timer_thread;
 	
 	// Parse Arguments
 	for( i = 1; i < argc; i++ )
@@ -102,10 +112,44 @@ int main(int argc, char *argv[])
 
 	Load_Itemlist();
 	
+	pthread_create( &timer_thread, NULL, Periodic_Thread, NULL );
+	
 	Server_Start();
 	
+	pthread_kill(timer_thread, SIGKILL);
 
 	return 0;
+}
+
+void *Periodic_Thread(void *Unused)
+{
+	 int	i;
+	Unused = NULL;	// quiet, gcc
+	
+	for( ;; )
+	{
+		sleep(10);	// Sleep for a while
+		printf("Periodic firing\n");
+		for( i = 0; i < ciMaxPeriodics; i ++ )
+		{
+			if( gaPeriodicCalls[i].Function )
+				gaPeriodicCalls[i].Function();
+		}
+	}
+	return NULL;
+}
+
+void AddPeriodicFunction(void (*Fcn)(void))
+{
+	int i;
+	for( i = 0; i < ciMaxPeriodics; i ++ )
+	{
+		if( gaPeriodicCalls[i].Function )	continue;
+		gaPeriodicCalls[i].Function = Fcn;
+		return ;
+	}
+	
+	fprintf(stderr, "Error: No space for %p in periodic list\n", Fcn);
 }
 
 int RunRegex(regex_t *regex, const char *string, int nMatches, regmatch_t *matches, const char *errorMessage)
