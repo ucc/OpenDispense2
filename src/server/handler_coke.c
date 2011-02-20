@@ -198,6 +198,14 @@ int Coke_DoDispense(int UNUSED(User), int Item)
 		Writef("d7\r\n");
 		ret ++;
 	}
+	if( ret == 3 )
+	{
+		#if TRACE_COKE
+		printf("Coke_DoDispense: timed out\n");
+		#endif
+		pthread_mutex_unlock(&gCoke_Mutex);
+		return -1;
+	}
 
 	#if TRACE_COKE
 	printf("Coke_DoDispense: sending 'd%i'\n", Item);
