@@ -33,7 +33,8 @@ char	*trim(char *__str);
  int	giNumItems = 0;
 tItem	*gaItems = NULL;
 tHandler	gPseudo_Handler = {Name:"pseudo"};
-tHandler	*gaHandlers[] = {&gPseudo_Handler, &gCoke_Handler, &gSnack_Handler, &gDoor_Handler};
+tHandler	gSpacer_Handler = {Name:"spacer"};
+tHandler	*gaHandlers[] = {&gSpacer_Handler, &gPseudo_Handler, &gCoke_Handler, &gSnack_Handler, &gDoor_Handler};
  int	giNumHandlers = sizeof(gaHandlers)/sizeof(gaHandlers[0]);
 char	*gsItemListFile = DEFAULT_ITEM_FILE;
 #if USE_INOTIFY
@@ -93,7 +94,7 @@ void Load_Itemlist(void)
 	regex_t	regex;
 	regmatch_t	matches[5];
 	
-	i = regcomp(&regex, "^-?([a-zA-Z][a-zA-Z0-9]*)\\s+([0-9]+)\\s+([0-9]+)\\s+(.*)", REG_EXTENDED);
+	i = regcomp(&regex, "^-?([a-zA-Z][a-zA-Z]*)\\s+([0-9]+)\\s+([0-9]+)\\s+(.*)", REG_EXTENDED);
 	if( i )
 	{
 		size_t	len = regerror(i, &regex, NULL, 0);

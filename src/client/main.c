@@ -441,8 +441,11 @@ int main(int argc, char *argv[])
 	{
 		// Very basic dispense interface
 		for( i = 0; i < giNumItems; i ++ ) {
-			printf("%2i %s:%i\t%3i %s\n", i, gaItems[i].Type, gaItems[i].ID,
-				gaItems[i].Price, gaItems[i].Desc);
+			if( strcmp(gaItems[i].Desc, "-") == 0 )
+				printf("\n");
+			else
+				printf("%2i %s:%i\t%3i %s\n", i, gaItems[i].Type, gaItems[i].ID,
+					gaItems[i].Price, gaItems[i].Desc);
 		}
 		printf(" q Quit\n");
 		for(;;)
@@ -602,7 +605,7 @@ int ShowNCursesUI(void)
 				printw("|    ");
 			}
 			
-			// Check for ... row
+			// Check for the '...' row
 			// - Oh god, magic numbers!
 			if( i == 0 && itemBase > 0 ) {
 				printw("   ...");
@@ -667,22 +670,38 @@ int ShowNCursesUI(void)
 					//	itemBase ++;
 					if( currentItem < giNumItems - 1 )
 						currentItem ++;
-					if( itemBase + itemCount - 1 <= currentItem && itemBase + itemCount < giNumItems )
-						itemBase ++;
+					else {
+						currentItem = 0;
+					}
 					break;
 				case 'A':
 					//if( itemBase > 0 )
 					//	itemBase --;
 					if( currentItem > 0 )
 						currentItem --;
-					if( itemBase + 1 > currentItem && itemBase > 0 )
-						itemBase --;
+					else {
+						currentItem = giNumItems - 1;
+					}
 					break;
 				}
 			}
 			else {
 				
 			}
+			
+			if( currentItem < itemBase + 1 && itemBase > 0 )
+				itemBase = currentItem - 1;
+			if( currentItem > itemBase + itemCount - 1 && itemBase < itemCount-1 )
+				itemBase = currentItem - itemCount + 1;
+			
+			#if 0
+			if( itemBase + itemCount - 1 <= currentItem && itemBase + itemCount < giNumItems )
+			{
+				itemBase += ;
+			}
+			if( itemBase + 1 > currentItem && itemBase > 0 )
+				itemBase --;
+			#endif
 		}
 		else {
 			switch(ch)
@@ -726,6 +745,12 @@ void ShowItemAt(int Row, int Col, int Width, int Index)
 	else {
 		name = gaItems[Index].Desc;
 		price = gaItems[Index].Price;
+	}
+	
+	// Spacer hack (Desc = "-")
+	if( gaItems[Index].Desc[0] == '-' && gaItems[Index].Desc[1] == '\0' )
+	{
+		return;
 	}
 
 	printw("%02i %s", Index, name);
