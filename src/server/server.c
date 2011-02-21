@@ -99,7 +99,7 @@ const struct sClientCommand {
 #define NUM_COMMANDS	((int)(sizeof(gaServer_Commands)/sizeof(gaServer_Commands[0])))
 
 // === GLOBALS ===
- int	giServer_Port = 1020;
+ int	giServer_Port = 11020;
  int	giServer_NextClientID = 1;
  int	giServer_Socket;
 
@@ -377,7 +377,8 @@ void Server_Cmd_USER(tClient *Client, char *Args)
 void Server_Cmd_PASS(tClient *Client, char *Args)
 {
 	char	*passhash;
-	
+	 int	flags;
+
 	if( Server_int_ParseArgs(0, Args, &passhash, NULL) )
 	{
 		sendf(Client->Socket, "407 PASS takes 1 argument\n");
@@ -387,13 +388,25 @@ void Server_Cmd_PASS(tClient *Client, char *Args)
 	// Pass on to cokebank
 	Client->UID = Bank_GetUserAuth(Client->Salt, Client->Username, passhash);
 
-	if( Client->UID != -1 ) {
-		Client->bIsAuthed = 1;
-		sendf(Client->Socket, "200 Auth OK\n");
+	if( Client->UID == -1 ) {
+		sendf(Client->Socket, "401 Auth Failure\n");
+		return ;
+	}
+
+	flags = Bank_GetFlags(Client->UID);
+	if( flags & USER_FLAG_DISABLED ) {
+		Client->UID = -1;
+		sendf(Client->Socket, "403 Account Disabled\n");
+		return ;
+	}
+	if( flags & USER_FLAG_INTERNAL ) {
+		Client->UID = -1;
+		sendf(Client->Socket, "403 Internal account\n");
 		return ;
 	}
 	
-	sendf(Client->Socket, "401 Auth Failure\n");
+	Client->bIsAuthed = 1;
+	sendf(Client->Socket, "200 Auth OK\n");
 }
 
 /**
@@ -404,6 +417,7 @@ void Server_Cmd_PASS(tClient *Client, char *Args)
 void Server_Cmd_AUTOAUTH(tClient *Client, char *Args)
 {
 	char	*username;
+	 int	userflags;
 	
 	if( Server_int_ParseArgs(0, Args, &username, NULL) )
 	{
@@ -428,12 +442,20 @@ void Server_Cmd_AUTOAUTH(tClient *Client, char *Args)
 		return ;
 	}
 	
+	userflags = Bank_GetFlags(Client->UID);
 	// You can't be an internal account
-	if( Bank_GetFlags(Client->UID) & USER_FLAG_INTERNAL ) {
+	if( userflags & USER_FLAG_INTERNAL ) {
 		if(giDebugLevel)
 			Debug(Client, "Autoauth as '%s', not allowed", username);
 		Client->UID = -1;
-		sendf(Client->Socket, "401 Auth Failure\n");
+		sendf(Client->Socket, "403 Account is internal\n");
+		return ;
+	}
+
+	// Disabled accounts
+	if( userflags & USER_FLAG_DISABLED ) {
+		Client->UID = -1;
+		sendf(Client->Socket, "403 Account disabled\n");
 		return ;
 	}
 
@@ -451,6 +473,7 @@ void Server_Cmd_AUTOAUTH(tClient *Client, char *Args)
 void Server_Cmd_SETEUSER(tClient *Client, char *Args)
 {
 	char	*username;
+	 int	eUserFlags, userFlags;
 	
 	if( Server_int_ParseArgs(0, Args, &username, NULL) )
 	{
@@ -464,7 +487,8 @@ void Server_Cmd_SETEUSER(tClient *Client, char *Args)
 	}
 
 	// Check user permissions
-	if( !(Bank_GetFlags(Client->UID) & (USER_FLAG_COKE|USER_FLAG_ADMIN)) ) {
+	userFlags = Bank_GetFlags(Client->UID);
+	if( !(userFlags & (USER_FLAG_COKE|USER_FLAG_ADMIN)) ) {
 		sendf(Client->Socket, "403 Not in coke\n");
 		return ;
 	}
@@ -477,9 +501,16 @@ void Server_Cmd_SETEUSER(tClient *Client, char *Args)
 	}
 	
 	// You can't be an internal account
-	if( Bank_GetFlags(Client->EffectiveUID) & USER_FLAG_INTERNAL ) {
+	eUserFlags = Bank_GetFlags(Client->EffectiveUID);
+	if( eUserFlags & USER_FLAG_INTERNAL ) {
 		Client->EffectiveUID = -1;
 		sendf(Client->Socket, "404 User not found\n");
+		return ;
+	}
+	// Disabled only avaliable to admins
+	if( (eUserFlags & USER_FLAG_DISABLED) && !(userFlags & USER_FLAG_ADMIN) ) {
+		Client->EffectiveUID = -1;
+		sendf(Client->Socket, "403 Account disabled\n");
 		return ;
 	}
 	

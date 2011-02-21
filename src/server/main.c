@@ -49,6 +49,21 @@ void sigint_handler()
 	exit(0);
 }
 
+void PrintUsage(const char *progname)
+{
+	fprintf(stderr, "Usage: %s\n", progname);
+	fprintf(stderr, "  -p    Set server port (default 11020)\n");
+	fprintf(stderr, "  -d    Set debug level (0 - 2, default 0)\n");
+	fprintf(stderr, "  --itemsfile\n");
+	fprintf(stderr, "        Set debug level (0 - 2, default 0)\n");
+	fprintf(stderr, "  --cokeport\n");
+	fprintf(stderr, "        Coke machine serial port (Default \"/dev/ttyS0\")\n");
+	fprintf(stderr, "  --doorpass\n");
+	fprintf(stderr, "        Door LAT password file (Default empty password)\n");
+	fprintf(stderr, "  --cokebank\n");
+	fprintf(stderr, "        Coke bank database file (Default \"cokebank.db\")\n");
+}
+
 int main(int argc, char *argv[])
 {
 	 int	i;
@@ -72,7 +87,8 @@ int main(int argc, char *argv[])
 				break;
 			default:
 				// Usage Error?
-				break;
+				PrintUsage(argv[0]);
+				return -1;
 			}
 		}
 		else if( arg[0] == '-' && arg[1] == '-' ) {
@@ -89,15 +105,28 @@ int main(int argc, char *argv[])
 				gsSnack_SerialPort = argv[++i];
 			}
 			else if( strcmp(arg, "--doorpass") == 0 ) {
+				FILE	*fp;
+				char	buf[30];
 				if( i + 1 >= argc )	return -1;
-				gsDoor_Password = argv[++i];
+				fp = fopen(argv[++i], "r");
+				fgets(buf, sizeof buf, fp);
+				fclose(fp);
+				gsDoor_Password = strdup(buf);;
+			}
+			else if( strcmp(arg, "--cokebank") == 0 ) {
+				if( i + 1 >= argc )	return -1;
+				gsCokebankPath = argv[++i];
 			}
 			else {
 				// Usage error?
+				PrintUsage(argv[0]);
+				return -1;
 			}
 		}
 		else {
 			// Usage Error?
+			PrintUsage(argv[0]);
+			return -1;
 		}
 	}
 	
