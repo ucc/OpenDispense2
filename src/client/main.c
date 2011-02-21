@@ -262,7 +262,7 @@ int main(int argc, char *argv[])
 	// - "Here, have some money."
 	if( strcmp(text_args[0], "give") == 0 )
 	{
-		if( text_argc != 3 ) {
+		if( text_argc != 4 ) {
 			fprintf(stderr, "`dispense give` takes three arguments\n");
 			ShowUsage();
 			return -1;
