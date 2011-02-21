@@ -133,6 +133,7 @@ void Items_ReadFromFile(void)
 	if(!fp) {
 		fprintf(stderr, "Unable to open item file '%s'\n", gsItemListFile);
 		perror("Unable to open item file");
+		return ;
 	}
 	
 	while( fgets(buffer, BUFSIZ, fp) )

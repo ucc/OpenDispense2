@@ -109,6 +109,11 @@ int main(int argc, char *argv[])
 				char	buf[30];
 				if( i + 1 >= argc )	return -1;
 				fp = fopen(argv[++i], "r");
+				if( !fp ) {
+					fprintf(stderr, "ERROR: Unable to read password file\n");
+					perror("reading LAT password");
+					return -1;
+				}
 				fgets(buf, sizeof buf, fp);
 				fclose(fp);
 				gsDoor_Password = strdup(buf);;

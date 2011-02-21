@@ -143,6 +143,13 @@ void Server_Start(void)
 	
 	printf("Listening on 0.0.0.0:%i\n", giServer_Port);
 	
+	// write pidfile
+//	{
+//		FILE *fp = fopen("/var/run/dispsrv.pid", "w");
+//		fprintf(fp, "%i", getpid());
+//		fclose(fp);
+//	}
+
 	for(;;)
 	{
 		uint	len = sizeof(client_addr);
@@ -438,7 +445,7 @@ void Server_Cmd_AUTOAUTH(tClient *Client, char *Args)
 	if( Client->UID < 0 ) {
 		if(giDebugLevel)
 			Debug(Client, "Unknown user '%s'", username);
-		sendf(Client->Socket, "401 Auth Failure\n");
+		sendf(Client->Socket, "403 Auth Failure\n");
 		return ;
 	}
 	

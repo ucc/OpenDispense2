@@ -29,7 +29,7 @@
 #define DEBUG_TRACE_SERVER	0
 #define USE_AUTOAUTH	1
 
-#define MAX_TXT_ARGS	4	// Maximum number of textual arguments (including command)
+#define MAX_TXT_ARGS	5	// Maximum number of textual arguments (including command)
 
 enum eUI_Modes
 {
@@ -102,7 +102,7 @@ char	*gsUserFlags;	//!< User's flag set
 int main(int argc, char *argv[])
 {
 	 int	sock;
-	 int	i;
+	 int	i, ret = 0;
 	char	buffer[BUFSIZ];
 	char	*text_args[MAX_TXT_ARGS];	// Non-flag arguments
 	 int	text_argc = 0;
@@ -306,7 +306,7 @@ int main(int argc, char *argv[])
 		// Add new user?
 		if( strcmp(text_args[1], "add") == 0 )
 		{
-			if( text_argc != 2 ) {
+			if( text_argc != 3 ) {
 				fprintf(stderr, "Error: `dispense user add` requires an argument\n");
 				ShowUsage();
 				exit(1);
@@ -317,7 +317,7 @@ int main(int argc, char *argv[])
 		// Update a user
 		else if( strcmp(text_args[1], "type") == 0 )
 		{
-			if( text_argc != 3 ) {
+			if( text_argc != 4 ) {
 				fprintf(stderr, "Error: `dispense user type` requires two arguments\n");
 				ShowUsage();
 				exit(1);
@@ -338,7 +338,7 @@ int main(int argc, char *argv[])
 	if( strcmp(text_args[0], "donate") == 0 )
 	{
 		// Check argument count
-		if( text_argc != 2 ) {
+		if( text_argc != 3 ) {
 			fprintf(stderr, "Error: `dispense donate` requires two arguments\n");
 			ShowUsage();
 			exit(1);
@@ -517,11 +517,11 @@ int main(int argc, char *argv[])
 		Dispense_ItemInfo(sock, gaItems[i].Type, gaItems[i].ID);
 		
 		Authenticate(sock);
-		DispenseItem(sock, gaItems[i].Type, gaItems[i].ID);
+		ret = DispenseItem(sock, gaItems[i].Type, gaItems[i].ID);
 		close(sock);
 	}
 
-	return 0;
+	return ret;
 }
 
 void ShowUsage(void)
@@ -963,8 +963,10 @@ int OpenConnection(const char *Host, int Port)
 		fprintf(stderr, "Failed to create socket\n");
 		return -1;
 	}
+
+//	printf("geteuid() = %i, getuid() = %i\n", geteuid(), getuid());
 	
-	if( geteuid() == 0 )
+	if( geteuid() == 0 || getuid() == 0 )
 	{
 		 int	i;
 		struct sockaddr_in	localAddr;
@@ -972,7 +974,7 @@ int OpenConnection(const char *Host, int Port)
 		localAddr.sin_family = AF_INET;	// IPv4
 		
 		// Loop through all the top ports until one is avaliable
-		for( i = 1001; i < 1024; i ++)
+		for( i = 512; i < 1024; i ++)
 		{
 			localAddr.sin_port = htons(i);	// IPv4
 			// Attempt to bind to low port for autoauth
@@ -981,6 +983,8 @@ int OpenConnection(const char *Host, int Port)
 		}
 		if( i == 1024 )
 			printf("Warning: AUTOAUTH unavaliable\n");
+//		else
+//			printf("Bound to 0.0.0.0:%i\n", i);
 	}
 	
 	if( connect(sock, (struct sockaddr *) &serverAddr, sizeof(serverAddr)) < 0 ) {

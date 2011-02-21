@@ -16,6 +16,8 @@ clean:
 
 $(BIN): $(OBJ)
 	$(CC) -o $(BIN) $(OBJ) $(LDFLAGS)
+	chown root $(BIN)
+	chmod u+s $(BIN)
 
 %.o: %.c
 	$(CC) -c $< -o $@ $(CFLAGS) $(CPPFLAGS)

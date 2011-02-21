@@ -21,7 +21,7 @@
 #include <pthread.h>
 
 #define READ_TIMEOUT	2	// 2 seconds for ReadChar
-#define TRACE_COKE	0
+#define TRACE_COKE	1
 
 #if TRACE_COKE
 # define TRACE(v...) do{printf("%s: ",__func__);printf(v);}while(0)
@@ -206,11 +206,6 @@ int Coke_DoDispense(int UNUSED(User), int Item)
 	TRACE("flushing input\n");
 	
 
-	{
-		char buf[512];
-		while( ReadLine(512, buf) != -1 );
-	}
-		
 	// Wait for prompt
 	ret = 0;
 	while( WaitForColon() && ret < 3 )
@@ -262,6 +257,7 @@ int Coke_DoDispense(int UNUSED(User), int Item)
 	TRACE("Updating slot status\n");
 	
 	// Update status
+	WaitForColon();
 	Writef("s%i\r\n", Item);
 	len = ReadLine(sizeof tmp, tmp);
 	if(len == -1)	gaCoke_CachedStatus[Item] = -1;
