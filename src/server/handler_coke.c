@@ -60,6 +60,9 @@ int Coke_InitHandler()
 		fprintf(stderr, "ERROR: Unable to open coke serial port ('%s')\n", gsCoke_SerialPort);
 	}
 	else {
+		int i;
+		for( i = 0; i < 7; i ++ )
+			gaCoke_CachedStatus[i] = -1;
 		// Reset the slot names.
 		// - Dunno why this is needed, but the machine plays silly
 		//   sometimes.
