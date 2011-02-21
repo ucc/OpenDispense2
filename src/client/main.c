@@ -29,6 +29,8 @@
 #define DEBUG_TRACE_SERVER	0
 #define USE_AUTOAUTH	1
 
+#define MAX_TXT_ARGS	4	// Maximum number of textual arguments (including command)
+
 enum eUI_Modes
 {
 	UI_MODE_BASIC,	// Non-NCurses
@@ -102,7 +104,11 @@ int main(int argc, char *argv[])
 	 int	sock;
 	 int	i;
 	char	buffer[BUFSIZ];
+	char	*text_args[MAX_TXT_ARGS];	// Non-flag arguments
+	 int	text_argc = 0;
 	
+	text_args[0] = "";
+
 	// -- Create regular expressions
 	// > Code Type Count ...
 	CompileRegex(&gArrayRegex, "^([0-9]{3})\\s+([A-Za-z]+)\\s+([0-9]+)", REG_EXTENDED);	//
@@ -176,171 +182,184 @@ int main(int argc, char *argv[])
 			case 'n':	// Dry Run / read-only
 				gbDryRun = 1;
 				break;
+			case '0':	case '1':
+			case '2':	case '3':
+			case '4':	case '5':
+			case '6':	case '7':
+			case '8':	case '9':
+				if( text_argc + 1 ==  MAX_TXT_ARGS )
+				{
+					fprintf(stderr, "ERROR: Too many arguments\n");
+					return 1;
+				}
+				text_args[text_argc++] = argv[i];
+				break;
 			}
 
 			continue;
 		}
-		
-		//
-		// `dispense acct`
-		// - 
-		if( strcmp(arg, "acct") == 0 )
-		{
-			// Connect to server
-			sock = OpenConnection(gsDispenseServer, giDispensePort);
-			if( sock < 0 )	return -1;
 
+		if( text_argc + 1 == MAX_TXT_ARGS )
+		{
+			fprintf(stderr, "ERROR: Too many arguments\n");
+			return 1;
+		}
+	
+		text_args[text_argc++] = argv[i];
+	
+	}
+
+	//
+	// `dispense acct`
+	// - 
+	if( strcmp(text_args[0], "acct") == 0 )
+	{
+		// Connect to server
+		sock = OpenConnection(gsDispenseServer, giDispensePort);
+		if( sock < 0 )	return -1;
 			// List accounts?
-			if( i + 1 == argc ) {
-				Dispense_EnumUsers(sock);
-				return 0;
-			}
-			
-			// argv[i+1]: Username
-			
-			// Alter account?
-			if( i + 2 < argc )
-			{
-				if( i + 3 >= argc ) {
-					fprintf(stderr, "Error: `dispense acct' needs a reason\n");
-					exit(1);
-				}
-				
-				// Authentication required
-				if( Authenticate(sock) )
-					return -1;
-				
-				// argv[i+1]: Username
-				// argv[i+2]: Ammount
-				// argv[i+3]: Reason
-				
-				if( argv[i+2][0] == '=' ) {
-					// Set balance
-					if( argv[i+2][1] != '0' && atoi(&argv[i+2][1]) == 0 ) {
-						fprintf(stderr, "Error: Invalid balance to be set\n");
-						exit(1);
-					}
-					
-					Dispense_SetBalance(sock, argv[i+1], atoi(argv[i+2]+1), argv[i+3]);
-				}
-				else {
-					// Alter balance
-					Dispense_AlterBalance(sock, argv[i+1], atoi(argv[i+2]), argv[i+3]);
-				}
-			}
-			
-			// Show user information
-			Dispense_ShowUser(sock, argv[i+1]);
-			
-			close(sock);
+		if( text_argc == 1 ) {
+			Dispense_EnumUsers(sock);
 			return 0;
 		}
-		//
-		// `dispense give`
-		// - "Here, have some money."
-		if( strcmp(arg, "give") == 0 )
+			
+		// text_args[1]: Username
+		
+		// Alter account?
+		if( text_argc == 4 )
 		{
-			if( i + 3 >= argc ) {
-				fprintf(stderr, "`dispense give` takes three arguments\n");
-				ShowUsage();
-				return -1;
-			}
-			
-			// argv[i+1]: Destination
-			// argv[i+2]: Ammount
-			// argv[i+3]: Reason
-			
-			// Connect to server
-			sock = OpenConnection(gsDispenseServer, giDispensePort);
-			if( sock < 0 )	return -1;
-			
-			// Authenticate
+			// Authentication required
 			if( Authenticate(sock) )
 				return -1;
 			
-			Dispense_Give(sock, argv[i+1], atoi(argv[i+2]), argv[i+3]);
-			return 0;
-		}
-		// 
-		// `dispense user`
-		// - User administration (Admin Only)
-		if( strcmp(arg, "user") == 0 )
-		{
-			// Check argument count
-			if( i + 1 >= argc ) {
-				fprintf(stderr, "Error: `dispense user` requires arguments\n");
-				ShowUsage();
-				exit(1);
-			}
+			// text_args[1]: Username
+			// text_args[2]: Ammount
+			// text_args[3]: Reason
 			
-			// Connect to server
-			sock = OpenConnection(gsDispenseServer, giDispensePort);
-			if( sock < 0 )	return -1;
-			
-			// Attempt authentication
-			if( Authenticate(sock) )
-				return -1;
-			
-			// Add new user?
-			if( strcmp(argv[i+1], "add") == 0 )
-			{
-				if( i + 2 >= argc ) {
-					fprintf(stderr, "Error: `dispense user add` requires an argument\n");
-					ShowUsage();
+			if( text_args[2][0] == '=' ) {
+				// Set balance
+				if( text_args[2][1] != '0' && atoi(text_args[2]+1) == 0 ) {
+					fprintf(stderr, "Error: Invalid balance to be set\n");
 					exit(1);
 				}
 				
-				Dispense_AddUser(sock, argv[i+2]);
+				Dispense_SetBalance(sock, text_args[1], atoi(text_args[2]+1), text_args[3]);
 			}
-			// Update a user
-			else if( strcmp(argv[i+1], "type") == 0 )
-			{
-				if( i + 3 >= argc ) {
-					fprintf(stderr, "Error: `dispense user type` requires two arguments\n");
-					ShowUsage();
-					exit(1);
-				}
-				
-				Dispense_SetUserType(sock, argv[i+2], argv[i+3]);
+			else {
+				// Alter balance
+				Dispense_AlterBalance(sock, text_args[1], atoi(text_args[2]), text_args[3]);
 			}
-			else
-			{
-				fprintf(stderr, "Error: Unknown sub-command for `dispense user`\n");
-				ShowUsage();
-				exit(1);
-			}
-			return 0;
 		}
 		
-		// Donation!
-		if( strcmp(arg, "donate") == 0 )
+		// Show user information
+		Dispense_ShowUser(sock, text_args[1]);
+		
+		close(sock);
+		return 0;
+	}
+	//
+	// `dispense give`
+	// - "Here, have some money."
+	if( strcmp(text_args[0], "give") == 0 )
+	{
+		if( text_argc != 3 ) {
+			fprintf(stderr, "`dispense give` takes three arguments\n");
+			ShowUsage();
+			return -1;
+		}
+		
+		// text_args[1]: Destination
+		// text_args[2]: Ammount
+		// text_args[3]: Reason
+		
+		// Connect to server
+		sock = OpenConnection(gsDispenseServer, giDispensePort);
+		if( sock < 0 )	return -1;
+		
+		// Authenticate
+		if( Authenticate(sock) )
+			return -1;
+		
+		Dispense_Give(sock, text_args[1], atoi(text_args[2]), text_args[3]);
+		return 0;
+	}
+	// 
+	// `dispense user`
+	// - User administration (Admin Only)
+	if( strcmp(text_args[0], "user") == 0 )
+	{
+		// Check argument count
+		if( text_argc == 1 ) {
+			fprintf(stderr, "Error: `dispense user` requires arguments\n");
+			ShowUsage();
+			exit(1);
+		}
+		
+		// Connect to server
+		sock = OpenConnection(gsDispenseServer, giDispensePort);
+		if( sock < 0 )	return -1;
+		
+		// Attempt authentication
+		if( Authenticate(sock) )
+			return -1;
+		
+		// Add new user?
+		if( strcmp(text_args[1], "add") == 0 )
 		{
-			// Check argument count
-			if( i + 2 >= argc ) {
-				fprintf(stderr, "Error: `dispense donate` requires two arguments\n");
+			if( text_argc != 2 ) {
+				fprintf(stderr, "Error: `dispense user add` requires an argument\n");
 				ShowUsage();
 				exit(1);
 			}
 			
-			// Connect to server
-			sock = OpenConnection(gsDispenseServer, giDispensePort);
-			if( sock < 0 )	return -1;
+			Dispense_AddUser(sock, text_args[2]);
+		}
+		// Update a user
+		else if( strcmp(text_args[1], "type") == 0 )
+		{
+			if( text_argc != 3 ) {
+				fprintf(stderr, "Error: `dispense user type` requires two arguments\n");
+				ShowUsage();
+				exit(1);
+			}
 			
-			// Attempt authentication
-			if( Authenticate(sock) )
-				return -1;
-			
-			// Do donation
-			Dispense_Donate(sock, atoi(argv[i+1]), argv[i+1]);
-			
-			return 0;
+			Dispense_SetUserType(sock, text_args[2], text_args[3]);
+		}
+		else
+		{
+			fprintf(stderr, "Error: Unknown sub-command for `dispense user`\n");
+			ShowUsage();
+			exit(1);
+		}
+		return 0;
+	}
+	
+	// Donation!
+	if( strcmp(text_args[0], "donate") == 0 )
+	{
+		// Check argument count
+		if( text_argc != 2 ) {
+			fprintf(stderr, "Error: `dispense donate` requires two arguments\n");
+			ShowUsage();
+			exit(1);
 		}
 		
-		else {
-			// Item name / pattern
-			gsItemPattern = arg;
-			break;
-		}
+		// Connect to server
+		sock = OpenConnection(gsDispenseServer, giDispensePort);
+		if( sock < 0 )	return -1;
+		
+		// Attempt authentication
+		if( Authenticate(sock) )
+			return -1;
+		
+		// Do donation
+		Dispense_Donate(sock, atoi(text_args[1]), text_args[2]);
+		
+		return 0;
+	}
+	else {
+		// Item name / pattern
+		gsItemPattern = text_args[0];
 	}
 	
 	// Connect to server
@@ -356,7 +375,7 @@ int main(int argc, char *argv[])
 	// Disconnect from server
 	close(sock);
 	
-	if( gsItemPattern )
+	if( gsItemPattern && gsItemPattern[0] )
 	{
 		regmatch_t matches[3];
 		// Door (hard coded)
