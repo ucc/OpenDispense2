@@ -23,6 +23,12 @@
 #define READ_TIMEOUT	2	// 2 seconds for ReadChar
 #define TRACE_COKE	0
 
+#if TRACE_COKE
+# define TRACE(v...) do{printf("%s: ",__func__);printf(v);}while(0)
+#else
+# define TRACE(...)
+#endif
+
 // === IMPORTS ===
 
 // === PROTOTYPES ===
@@ -106,9 +112,7 @@ int Coke_int_GetSlotStatus(char *Buffer, int Slot)
 	Buffer[ matches[3].rm_eo ] = '\0';
 	status = &Buffer[ matches[3].rm_so ];
 	
-	#if TRACE_COKE
-	printf("Coke_CanDispense: Machine responded slot status '%s'\n", status);
-	#endif
+	TRACE("Machine responded slot %i status '%s'\n", Slot, status);
 
 	if( strcmp(status, "full") == 0 ) {
 		gaCoke_CachedStatus[Slot] = 0;	// 0: Avaliiable
@@ -133,35 +137,37 @@ void Coke_int_UpdateSlotStatuses(void)
 	
 	pthread_mutex_lock(&gCoke_Mutex);
 	
-	WaitForColon();
-	#if TRACE_COKE
-	printf("Coke_int_UpdateSlotStatuses: send d7\n");
-	#endif
+	while( ReadLine(sizeof tmp, tmp) >= 0 )	;
+	TRACE("send d7\n");
 	Writef("d7\r\n");	// Update slot statuses
 	if( WaitForColon() )	goto ret;
-	#if TRACE_COKE
-	printf("Coke_int_UpdateSlotStatuses: send s\n");
-	#endif
+	TRACE("send s\n");
 	Writef("s\r\n");
 	do {
 		i = ReadLine(sizeof tmp, tmp);	// Read back what we just said
-		if( i == -1 )	goto ret;
-	} while(tmp[0] == ':' || tmp[0] == 's');
+		if( i == -1 ) {
+			TRACE("Eat read failed");
+			goto ret;
+		}
+	} while(tmp[0] != ':' && tmp[1] != 's');
 	
 	for( i = 0; i <= 6; i ++ )
 	{
 		len = ReadLine(sizeof tmp, tmp);
 		if( len == -1 ) {
-			#if TRACE_COKE
-			printf("Coke_int_UpdateSlotStatuses: Read failed on slot %i\n", i);
-			#endif
+			TRACE("Read failed on slot %i\n", i);
 			goto ret;	// I give up :(
 		}
-		#if TRACE_COKE
-		printf("Coke_int_UpdateSlotStatuses: tmp = '%s'\n", tmp);
-		#endif
+		TRACE("tmp = '%s'\n", tmp);
 		Coke_int_GetSlotStatus(tmp, i);
 	}
+	// Eat blank line
+	len = ReadLine(sizeof tmp, tmp);
+	if( len == -1 ) {
+		TRACE("Read failed on blank line\n");
+	}
+
+	TRACE("Updated\n");
 
 ret:
 	pthread_mutex_unlock(&gCoke_Mutex);
@@ -197,10 +203,14 @@ int Coke_DoDispense(int UNUSED(User), int Item)
 	// LOCK
 	pthread_mutex_lock(&gCoke_Mutex);
 	
-	#if TRACE_COKE
-	printf("Coke_DoDispense: flushing input\n");
-	#endif
+	TRACE("flushing input\n");
 	
+
+	{
+		char buf[512];
+		while( ReadLine(512, buf) != -1 );
+	}
+		
 	// Wait for prompt
 	ret = 0;
 	while( WaitForColon() && ret < 3 )
@@ -208,24 +218,18 @@ int Coke_DoDispense(int UNUSED(User), int Item)
 		// Flush the input buffer
 		char	tmpbuf[512];
 		read(giCoke_SerialFD, tmpbuf, sizeof(tmpbuf));
-		#if TRACE_COKE
-		printf("Coke_DoDispense: sending 'd7'\n");
-		#endif
+		TRACE("sending 'd7'\n");
 		Writef("d7\r\n");
 		ret ++;
 	}
 	if( ret == 3 )
 	{
-		#if TRACE_COKE
-		printf("Coke_DoDispense: timed out\n");
-		#endif
+		TRACE("timed out\n");
 		pthread_mutex_unlock(&gCoke_Mutex);
 		return -1;
 	}
 
-	#if TRACE_COKE
-	printf("Coke_DoDispense: sending 'd%i'\n", Item);
-	#endif
+	TRACE("sending 'd%i'\n", Item);
 	// Dispense
 	Writef("d%i\r\n", Item);
 	
@@ -236,16 +240,12 @@ int Coke_DoDispense(int UNUSED(User), int Item)
 			pthread_mutex_unlock(&gCoke_Mutex);
 			return -1;
 		}
-		#if TRACE_COKE
-		printf("Coke_DoDispense: read %i '%s'\n", ret, tmp);
-		#endif
+		TRACE("read %i '%s'\n", ret, tmp);
 	} while( ret == 0 || tmp[0] == ':' || tmp[0] == 'd' );
 
 	WaitForColon();	// Eat up rest of response
 	
-	#if TRACE_COKE
-	printf("Coke_DoDispense: done\n");
-	#endif
+	TRACE("done\n");
 
 	// TODO: Regex instead?
 	if( strcmp(tmp, "ok") == 0 ) {
@@ -259,19 +259,24 @@ int Coke_DoDispense(int UNUSED(User), int Item)
 		ret = -1;
 	}
 	
-	#if TRACE_COKE
-	printf("Coke_DoDispense: Updating slot status\n");
-	#endif
+	TRACE("Updating slot status\n");
+	
 	// Update status
 	Writef("s%i\r\n", Item);
 	len = ReadLine(sizeof tmp, tmp);
 	if(len == -1)	gaCoke_CachedStatus[Item] = -1;
 	Coke_int_GetSlotStatus(tmp, Item);
+	{
+		char buf[512];
+		read(giCoke_SerialFD, buf, 512);	// Flush
+	}
 	
 	// Release and return
 	pthread_mutex_unlock(&gCoke_Mutex);
 	
-	return ret;
+	//return ret;
+	// HACK!!!
+	return 0;
 }
 
 char ReadChar()
@@ -290,13 +295,13 @@ char ReadChar()
 	ret = select(giCoke_SerialFD+1, &readfs, NULL, NULL, &timeout);
 	if( ret == 0 )	return 0;	// Timeout
 	if( ret != 1 ) {
-		printf("readchar return %i\n", ret);
+		printf("ReadChar: select return %i\n", ret);
 		return 0;
 	}
 	
 	ret = read(giCoke_SerialFD, &ch, 1);
 	if( ret != 1 ) {
-		printf("ret = %i\n", ret);
+		printf("ReadChar: ret != 1 (%i)\n", ret);
 		return 0;
 	}
 	
@@ -362,8 +367,6 @@ int ReadLine(int len, char *output)
 			break;
 		}
 	}
-
-	//printf("ReadLine: output=%s\n", output);
 
 	if( !ch ) 	return -1;
 	return i;

@@ -666,10 +666,10 @@ void Server_Cmd_GIVE(tClient *Client, char *Args)
 	}
 	
 	// You can't alter an internal account
-	if( Bank_GetFlags(uid) & USER_FLAG_INTERNAL ) {
-		sendf(Client->Socket, "404 Invalid target user\n");
-		return ;
-	}
+//	if( Bank_GetFlags(uid) & USER_FLAG_INTERNAL ) {
+//		sendf(Client->Socket, "404 Invalid target user\n");
+//		return ;
+//	}
 
 	// Parse ammount
 	iAmmount = atoi(ammount);
