@@ -1524,7 +1524,9 @@ int Dispense_Give(int Socket, const char *Username, int Ammount, const char *Rea
 	
 	switch(responseCode)
 	{
-	case 200:	return 0;	// OK
+	case 200:
+		printf("Give succeeded\n");
+		return 0;	// OK
 	
 	case 402:	
 		fprintf(stderr, "Insufficient balance\n");

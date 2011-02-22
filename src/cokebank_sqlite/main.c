@@ -102,7 +102,7 @@ int Bank_Initialise(const char *Argument)
 			return 1;
 		}
 		
-		Log_Info("SQLite database rebuilt");
+		Log_Info("SQLite database rebuilt (%s)", Argument);
 	}
 	else
 	{

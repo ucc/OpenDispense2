@@ -508,17 +508,20 @@ void Server_Cmd_SETEUSER(tClient *Client, char *Args)
 	}
 	
 	// You can't be an internal account
-	eUserFlags = Bank_GetFlags(Client->EffectiveUID);
-	if( eUserFlags & USER_FLAG_INTERNAL ) {
-		Client->EffectiveUID = -1;
-		sendf(Client->Socket, "404 User not found\n");
-		return ;
-	}
-	// Disabled only avaliable to admins
-	if( (eUserFlags & USER_FLAG_DISABLED) && !(userFlags & USER_FLAG_ADMIN) ) {
-		Client->EffectiveUID = -1;
-		sendf(Client->Socket, "403 Account disabled\n");
-		return ;
+	if( !(userFlags & USER_FLAG_ADMIN) )
+	{
+		eUserFlags = Bank_GetFlags(Client->EffectiveUID);
+		if( eUserFlags & USER_FLAG_INTERNAL ) {
+			Client->EffectiveUID = -1;
+			sendf(Client->Socket, "404 User not found\n");
+			return ;
+		}
+		// Disabled only avaliable to admins
+		if( eUserFlags & USER_FLAG_DISABLED ) {
+			Client->EffectiveUID = -1;
+			sendf(Client->Socket, "403 Account disabled\n");
+			return ;
+		}
 	}
 	
 	sendf(Client->Socket, "200 User set\n");
@@ -815,9 +818,13 @@ void Server_Cmd_ADD(tClient *Client, char *Args)
 	}
 	
 	// You can't alter an internal account
-	if( Bank_GetFlags(uid) & USER_FLAG_INTERNAL ) {
-		sendf(Client->Socket, "404 Invalid user\n");
-		return ;
+	if( !(Bank_GetFlags(Client->UID) & USER_FLAG_ADMIN) )
+	{
+		if( Bank_GetFlags(uid) & USER_FLAG_INTERNAL ) {
+			sendf(Client->Socket, "404 Invalid user\n");
+			return ;
+		}
+		// TODO: Maybe disallow changes to disabled?
 	}
 
 	// Parse ammount
@@ -867,12 +874,6 @@ void Server_Cmd_SET(tClient *Client, char *Args)
 	// Get recipient
 	uid = Bank_GetAcctByName(user);
 	if( uid == -1 ) {
-		sendf(Client->Socket, "404 Invalid user\n");
-		return ;
-	}
-	
-	// You can't alter an internal account
-	if( Bank_GetFlags(uid) & USER_FLAG_INTERNAL ) {
 		sendf(Client->Socket, "404 Invalid user\n");
 		return ;
 	}
