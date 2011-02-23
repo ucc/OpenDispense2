@@ -220,6 +220,7 @@ int main(int argc, char *argv[])
 			// List accounts?
 		if( text_argc == 1 ) {
 			Dispense_EnumUsers(sock);
+			close(sock);
 			return 0;
 		}
 			
@@ -281,6 +282,9 @@ int main(int argc, char *argv[])
 			return -1;
 		
 		Dispense_Give(sock, text_args[1], atoi(text_args[2]), text_args[3]);
+
+		close(sock);
+	
 		return 0;
 	}
 	// 
@@ -315,10 +319,10 @@ int main(int argc, char *argv[])
 			Dispense_AddUser(sock, text_args[2]);
 		}
 		// Update a user
-		else if( strcmp(text_args[1], "type") == 0 )
+		else if( strcmp(text_args[1], "type") == 0 || strcmp(text_args[1], "flags") == 0 )
 		{
 			if( text_argc != 4 ) {
-				fprintf(stderr, "Error: `dispense user type` requires two arguments\n");
+				fprintf(stderr, "Error: `dispense user flags` requires two arguments\n");
 				ShowUsage();
 				exit(1);
 			}
@@ -331,11 +335,11 @@ int main(int argc, char *argv[])
 			ShowUsage();
 			exit(1);
 		}
+		close(sock);
 		return 0;
 	}
-	
 	// Donation!
-	if( strcmp(text_args[0], "donate") == 0 )
+	else if( strcmp(text_args[0], "donate") == 0 )
 	{
 		// Check argument count
 		if( text_argc != 3 ) {
@@ -354,11 +358,40 @@ int main(int argc, char *argv[])
 		
 		// Do donation
 		Dispense_Donate(sock, atoi(text_args[1]), text_args[2]);
-		
+				
+		close(sock);
+
 		return 0;
 	}
+	// Query an item price
+	else if( strcmp(text_args[0], "iteminfo") == 0 )
+	{
+		regmatch_t matches[3];
+		char	*type;
+		 int	id;
+		// Check argument count
+		if( text_argc != 2 ) {
+			fprintf(stderr, "Error: `dispense iteminfo` requires an argument\n");
+			ShowUsage();
+			exit(1);
+		}
+		// Parse item ID
+		if( RunRegex(&gUserItemIdentRegex, text_args[1], 3, matches, NULL) != 0 ) {
+			fprintf(stderr, "Error: Invalid item ID passed (<type>:<id> expected)\n");
+			exit(1);
+		}
+		type = text_args[1] + matches[1].rm_so;
+		text_args[1][ matches[1].rm_eo ] = '\0';
+		id = atoi( text_args[1] + matches[2].rm_so );
+
+		sock = OpenConnection(gsDispenseServer, giDispensePort);
+		if( sock < 0 )	return -1;
+		Dispense_ItemInfo(sock, type, id);
+		close(sock);
+		return 0;
+	}
+	// Item name / pattern
 	else {
-		// Item name / pattern
 		gsItemPattern = text_args[0];
 	}
 	
@@ -531,12 +564,14 @@ void ShowUsage(void)
 		"  == Everyone ==\n"
 		"    dispense\n"
 		"        Show interactive list\n"
-		"    dispense <item>\n"
-		"        Dispense named item\n"
+		"    dispense <name>|<index>|<itemid>\n"
+		"        Dispense named item (<name> matches if it is a unique prefix)\n"
 		"    dispense give <user> <ammount> \"<reason>\"\n"
 		"        Give money to another user\n"
 		"    dispense donate <ammount> \"<reason>\"\n"
 		"        Donate to the club\n"
+		"    dispense iteminfo <type>:<id>\n"
+		"        Get the name and price for an item\n"
 		"  == Coke members == \n"
 		"    dispense acct [<user>]\n"
 		"        Show user balances\n"
