@@ -182,11 +182,7 @@ int main(int argc, char *argv[])
 			case 'n':	// Dry Run / read-only
 				gbDryRun = 1;
 				break;
-			case '0':	case '1':
-			case '2':	case '3':
-			case '4':	case '5':
-			case '6':	case '7':
-			case '8':	case '9':
+			default:
 				if( text_argc + 1 ==  MAX_TXT_ARGS )
 				{
 					fprintf(stderr, "ERROR: Too many arguments\n");
@@ -217,7 +213,7 @@ int main(int argc, char *argv[])
 		// Connect to server
 		sock = OpenConnection(gsDispenseServer, giDispensePort);
 		if( sock < 0 )	return -1;
-			// List accounts?
+		// List accounts?
 		if( text_argc == 1 ) {
 			ret = Dispense_EnumUsers(sock);
 			close(sock);
@@ -641,7 +637,7 @@ int ShowNCursesUI(void)
 	
 	// Enter curses mode
 	initscr();
-	raw(); noecho();
+	cbreak(); noecho();
 	
 	// Get max index
 	maxItemIndex = ShowItemAt(0, 0, 0, -1, 0);

@@ -106,6 +106,39 @@ int DispenseGive(int ActualUser, int SrcUser, int DestUser, int Ammount, const c
 }
 
 /**
+ * \brief Move money from one user to another (Admin Only)
+ */
+int DispenseTransfer(int ActualUser, int SrcUser, int DestUser, int Ammount, const char *ReasonGiven)
+{
+	 int	ret;
+	char	*actualUsername;
+	char	*srcName, *dstName;
+
+	// Make sure the user is an admin
+	if( !(Bank_GetFlags(ActualUser) & USER_FLAG_ADMIN) )
+		return 1;
+	
+	ret = _Transfer( SrcUser, DestUser, Ammount, ReasonGiven );
+	if(ret)	return 2;	// No Balance
+	
+	
+	actualUsername = Bank_GetAcctName(ActualUser);
+	srcName = Bank_GetAcctName(SrcUser);
+	dstName = Bank_GetAcctName(DestUser);
+	
+	Log_Info("move %i to %s from %s by %s [balances %i, %i] - %s",
+		Ammount, dstName, srcName, actualUsername,
+		Bank_GetBalance(SrcUser), Bank_GetBalance(DestUser),
+		ReasonGiven
+		);
+	
+	free(srcName);
+	free(dstName);
+	free(actualUsername);
+	
+	return 0;
+}
+/**
  * \brief Add money to an account
  */
 int DispenseAdd(int ActualUser, int User, int Ammount, const char *ReasonGiven)

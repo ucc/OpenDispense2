@@ -310,6 +310,7 @@ void Server_ParseClientCommand(tClient *Client, char *CommandString)
 	
 	if( Server_int_ParseArgs(1, CommandString, &command, &args, NULL) )
 	{
+		if( command == NULL )	return ;
 //		printf("command=%s, args=%s\n", command, args);
 		// Is this an error? (just ignore for now)
 		//args = "";

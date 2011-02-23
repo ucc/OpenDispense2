@@ -21,7 +21,7 @@
 #include <pthread.h>
 
 #define READ_TIMEOUT	2	// 2 seconds for ReadChar
-#define TRACE_COKE	1
+#define TRACE_COKE	0
 
 #if TRACE_COKE
 # define TRACE(v...) do{printf("%s: ",__func__);printf(v);}while(0)
