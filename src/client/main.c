@@ -219,9 +219,9 @@ int main(int argc, char *argv[])
 		if( sock < 0 )	return -1;
 			// List accounts?
 		if( text_argc == 1 ) {
-			Dispense_EnumUsers(sock);
+			ret = Dispense_EnumUsers(sock);
 			close(sock);
-			return 0;
+			return ret;
 		}
 			
 		// text_args[1]: Username
@@ -244,19 +244,20 @@ int main(int argc, char *argv[])
 					exit(1);
 				}
 				
-				Dispense_SetBalance(sock, text_args[1], atoi(text_args[2]+1), text_args[3]);
+				ret = Dispense_SetBalance(sock, text_args[1], atoi(text_args[2]+1), text_args[3]);
 			}
 			else {
 				// Alter balance
-				Dispense_AlterBalance(sock, text_args[1], atoi(text_args[2]), text_args[3]);
+				ret = Dispense_AlterBalance(sock, text_args[1], atoi(text_args[2]), text_args[3]);
 			}
 		}
+		// TODO: Preserve ret if non-zero
 		
 		// Show user information
-		Dispense_ShowUser(sock, text_args[1]);
+		ret = Dispense_ShowUser(sock, text_args[1]);
 		
 		close(sock);
-		return 0;
+		return ret;
 	}
 	//
 	// `dispense give`
@@ -281,11 +282,11 @@ int main(int argc, char *argv[])
 		if( Authenticate(sock) )
 			return -1;
 		
-		Dispense_Give(sock, text_args[1], atoi(text_args[2]), text_args[3]);
+		ret = Dispense_Give(sock, text_args[1], atoi(text_args[2]), text_args[3]);
 
 		close(sock);
 	
-		return 0;
+		return ret;
 	}
 	// 
 	// `dispense user`
@@ -316,7 +317,7 @@ int main(int argc, char *argv[])
 				exit(1);
 			}
 			
-			Dispense_AddUser(sock, text_args[2]);
+			ret = Dispense_AddUser(sock, text_args[2]);
 		}
 		// Update a user
 		else if( strcmp(text_args[1], "type") == 0 || strcmp(text_args[1], "flags") == 0 )
@@ -327,7 +328,7 @@ int main(int argc, char *argv[])
 				exit(1);
 			}
 			
-			Dispense_SetUserType(sock, text_args[2], text_args[3]);
+			ret = Dispense_SetUserType(sock, text_args[2], text_args[3]);
 		}
 		else
 		{
@@ -336,7 +337,7 @@ int main(int argc, char *argv[])
 			exit(1);
 		}
 		close(sock);
-		return 0;
+		return ret;
 	}
 	// Donation!
 	else if( strcmp(text_args[0], "donate") == 0 )
@@ -357,11 +358,11 @@ int main(int argc, char *argv[])
 			return -1;
 		
 		// Do donation
-		Dispense_Donate(sock, atoi(text_args[1]), text_args[2]);
+		ret =Dispense_Donate(sock, atoi(text_args[1]), text_args[2]);
 				
 		close(sock);
 
-		return 0;
+		return ret;
 	}
 	// Query an item price
 	else if( strcmp(text_args[0], "iteminfo") == 0 )
@@ -386,9 +387,9 @@ int main(int argc, char *argv[])
 
 		sock = OpenConnection(gsDispenseServer, giDispensePort);
 		if( sock < 0 )	return -1;
-		Dispense_ItemInfo(sock, type, id);
+		ret = Dispense_ItemInfo(sock, type, id);
 		close(sock);
-		return 0;
+		return ret;
 	}
 	// Item name / pattern
 	else {
@@ -418,9 +419,9 @@ int main(int argc, char *argv[])
 			sock = OpenConnection(gsDispenseServer, giDispensePort);
 			if( sock < 0 )	return -1;
 			Authenticate(sock);
-			DispenseItem(sock, "door", 0);
+			ret = DispenseItem(sock, "door", 0);
 			close(sock);
-			return 0;
+			return ret;
 		}
 		// Item id (<type>:<num>)
 		else if( RunRegex(&gUserItemIdentRegex, gsItemPattern, 3, matches, NULL) == 0 )
@@ -441,9 +442,9 @@ int main(int argc, char *argv[])
 			Dispense_ItemInfo(sock, ident, id);
 			
 			Authenticate(sock);
-			DispenseItem(sock, ident, id);
+			ret = DispenseItem(sock, ident, id);
 			close(sock);
-			return 0;
+			return ret;
 		}
 		// Item number (6 = coke)
 		else if( strcmp(gsItemPattern, "0") == 0 || atoi(gsItemPattern) > 0 )
