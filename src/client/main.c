@@ -30,6 +30,7 @@
 #define USE_AUTOAUTH	1
 
 #define MAX_TXT_ARGS	5	// Maximum number of textual arguments (including command)
+#define DISPENSE_MULTIPLE_MAX	20	// Maximum argument to -c
 
 enum eUI_Modes
 {
@@ -97,6 +98,7 @@ char	*gsEffectiveUser;	//!< '-u' Dispense as another user
 char	*gsUserName;	//!< User that dispense will happen as
 char	*gsUserFlags;	//!< User's flag set
  int	giUserBalance=-1;	//!< User balance (set by Authenticate)
+ int	giDispenseCount = 1;	//!< Number of dispenses to do
 
 // === CODE ===
 int main(int argc, char *argv[])
@@ -134,11 +136,26 @@ int main(int argc, char *argv[])
 			case '?':
 				ShowUsage();
 				return 0;
-			
+					
+			case 'c':
+				if( i + 1 >= argc ) {
+					fprintf(stderr, "%s: -c takes an argument\n", argv[0]);
+					ShowUsage();
+					return -1;
+				}
+				giDispenseCount = atoi(argv[++i]);
+				if( giDispenseCount < 1 || giDispenseCount > DISPENSE_MULTIPLE_MAX ) {
+					fprintf(stderr, "Sorry, only 1-20 can be passed to -c (safety)\n");
+					return -1;
+				}
+				
+				break ;
+	
 			case 'm':	// Minimum balance
 				if( i + 1 >= argc ) {
 					fprintf(stderr, "%s: -m takes an argument\n", argv[0]);
 					ShowUsage();
+					return -1;
 				}
 				giMinimumBalance = atoi(argv[++i]);
 				break;
@@ -146,6 +163,7 @@ int main(int argc, char *argv[])
 				if( i + 1 >= argc ) {
 					fprintf(stderr, "%s: -M takes an argument\n", argv[0]);
 					ShowUsage();
+					return -1;
 				}
 				giMaximumBalance = atoi(argv[++i]);
 				break;
@@ -154,6 +172,7 @@ int main(int argc, char *argv[])
 				if( i + 1 >= argc ) {
 					fprintf(stderr, "%s: -u takes an argument\n", argv[0]);
 					ShowUsage();
+					return -1;
 				}
 				gsEffectiveUser = argv[++i];
 				break;
@@ -162,6 +181,7 @@ int main(int argc, char *argv[])
 				if( i + 1 >= argc ) {
 					fprintf(stderr, "%s: -H takes an argument\n", argv[0]);
 					ShowUsage();
+					return -1;
 				}
 				gsDispenseServer = argv[++i];
 				break;
@@ -169,6 +189,7 @@ int main(int argc, char *argv[])
 				if( i + 1 >= argc ) {
 					fprintf(stderr, "%s: -P takes an argument\n", argv[0]);
 					ShowUsage();
+					return -1;
 				}
 				giDispensePort = atoi(argv[++i]);
 				break;
@@ -354,7 +375,7 @@ int main(int argc, char *argv[])
 			return -1;
 		
 		// Do donation
-		ret =Dispense_Donate(sock, atoi(text_args[1]), text_args[2]);
+		ret = Dispense_Donate(sock, atoi(text_args[1]), text_args[2]);
 				
 		close(sock);
 
@@ -540,6 +561,7 @@ int main(int argc, char *argv[])
 	// Check for a valid item ID
 	if( i >= 0 )
 	{
+		 int j;
 		// Connect, Authenticate, dispense and close
 		sock = OpenConnection(gsDispenseServer, giDispensePort);
 		if( sock < 0 )	return -1;
@@ -547,7 +569,13 @@ int main(int argc, char *argv[])
 		Dispense_ItemInfo(sock, gaItems[i].Type, gaItems[i].ID);
 		
 		Authenticate(sock);
-		ret = DispenseItem(sock, gaItems[i].Type, gaItems[i].ID);
+		for( j = 0; j < giDispenseCount; j ++ ) {
+			ret = DispenseItem(sock, gaItems[i].Type, gaItems[i].ID);
+			if( ret )	break;
+		}
+		if( j > 1 ) {
+			printf("%i items dispensed\n", j);
+		}
 		close(sock);
 	}
 

@@ -144,11 +144,11 @@ void Server_Start(void)
 	printf("Listening on 0.0.0.0:%i\n", giServer_Port);
 	
 	// write pidfile
-//	{
-//		FILE *fp = fopen("/var/run/dispsrv.pid", "w");
-//		fprintf(fp, "%i", getpid());
-//		fclose(fp);
-//	}
+	{
+		FILE *fp = fopen("/var/run/dispsrv.pid", "w");
+		fprintf(fp, "%i", getpid());
+		fclose(fp);
+	}
 
 	for(;;)
 	{
@@ -215,7 +215,7 @@ void Server_Start(void)
 
 void Server_Cleanup(void)
 {
-	printf("Close(%i)\n", giServer_Socket);
+	printf("\nClose(%i)\n", giServer_Socket);
 	close(giServer_Socket);
 }
 

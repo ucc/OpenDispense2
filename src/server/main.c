@@ -136,6 +136,7 @@ int main(int argc, char *argv[])
 	}
 	
 	signal(SIGINT, sigint_handler);
+	signal(SIGTERM, sigint_handler);
 	
 	openlog("odispense2", 0, LOG_LOCAL4);
 	
