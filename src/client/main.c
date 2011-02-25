@@ -1488,6 +1488,12 @@ int Dispense_AlterBalance(int Socket, const char *Username, int Ammount, const c
 		printf("Dry Run - No action\n");
 		return 0;
 	}
+
+	// Sanity
+	if( Ammount == 0 ) {
+		printf("An ammount would be nice\n");
+		return 1;
+	}
 	
 	sendf(Socket, "ADD %s %i %s\n", Username, Ammount, Reason);
 	buf = ReadLine(Socket);
@@ -1563,13 +1569,13 @@ int Dispense_Give(int Socket, const char *Username, int Ammount, const char *Rea
 	
 	if( Ammount < 0 ) {
 		printf("Sorry, you can only give, you can't take.\n");
-		return -1;
+		return 1;
 	}
 	
 	// Fast return on zero
 	if( Ammount == 0 ) {
 		printf("Are you actually going to give any?\n");
-		return 0;
+		return 1;
 	}
 	
 	// Check for a dry run
@@ -1623,7 +1629,7 @@ int Dispense_Donate(int Socket, int Ammount, const char *Reason)
 	// Fast return on zero
 	if( Ammount == 0 ) {
 		printf("Are you actually going to give any?\n");
-		return 0;
+		return 1;
 	}
 	
 	// Check for a dry run
