@@ -99,9 +99,15 @@ const struct sClientCommand {
 #define NUM_COMMANDS	((int)(sizeof(gaServer_Commands)/sizeof(gaServer_Commands[0])))
 
 // === GLOBALS ===
+// - Configuration
  int	giServer_Port = 11020;
- int	giServer_NextClientID = 1;
- int	giServer_Socket;
+ int	gbServer_RunInBackground = 0;
+char	*gsServer_LogFile = "/var/log/dispsrv.log";
+char	*gsServer_ErrorLog = "/var/log/dispsrv.err";
+// - State variables
+ int	giServer_Socket;	// Server socket
+ int	giServer_NextClientID = 1;	// Debug client ID
+ 
 
 // === CODE ===
 /**
@@ -133,6 +139,26 @@ void Server_Start(void)
 		perror("Binding");
 		return ;
 	}
+
+#if 0
+	if( gbServer_RunInBackground )
+	{
+		int pid = fork();
+		if( pid == -1 ) {
+			fprintf(stderr, "ERROR: Unable to fork\n");
+			perror("fork background");
+			exit(-1);
+		}
+		if( pid != 0 ) {
+			// Parent, quit
+			exit(0);
+		}
+		// In child, sort out stdin/stdout
+		reopen(0, "/dev/null", O_READ);
+		reopen(1, gsServer_LogFile, O_CREAT|O_APPEND);
+		reopen(2, gsServer_ErrorLog, O_CREAT|O_APPEND);
+	}
+#endif
 	
 	// Listen
 	if( listen(giServer_Socket, MAX_CONNECTION_QUEUE) < 0 ) {

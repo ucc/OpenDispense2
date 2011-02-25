@@ -146,7 +146,11 @@ int DispenseAdd(int ActualUser, int User, int Ammount, const char *ReasonGiven)
 	 int	ret;
 	char	*dstName, *byName;
 	
-	ret = _Transfer( Bank_GetAcctByName(COKEBANK_DEBT_ACCT), User, Ammount, ReasonGiven );
+#if DISPENSE_ADD_BELOW_MIN
+//	ret = _Transfer( Bank_GetAcctByName(COKEBANK_DEBT_ACCT), User, Ammount, ReasonGiven );
+#else
+	ret = Bank_Transfer( Bank_GetAcctByName(COKEBANK_DEBT_ACCT), User, Ammount, ReasonGiven );
+#endif
 	if(ret)	return 2;
 	
 	byName = Bank_GetAcctName(ActualUser);
@@ -229,11 +233,11 @@ int _GetMinBalance(int Account)
 	// - Internal accounts have no lower bound
 	if( flags & USER_FLAG_INTERNAL )	return INT_MIN;
 	
-	// Admin to -$10
-	//if( flags & USER_FLAG_ADMIN )	return -1000;
+	// Admin to -$50
+	if( flags & USER_FLAG_ADMIN )	return -5000;
 	
-	// Coke to -$5
-	//if( flags & USER_FLAG_COKE )	return -500;
+	// Coke to -$20
+	if( flags & USER_FLAG_COKE )	return -2000;
 	
 	// Anyone else, non-negative
 	return 0;
@@ -246,12 +250,12 @@ int _CanTransfer(int Source, int Destination, int Ammount)
 {
 	if( Ammount > 0 )
 	{
-		if( Bank_GetBalance(Source) + Ammount < _GetMinBalance(Source) )
+		if( Bank_GetBalance(Source) - Ammount < _GetMinBalance(Source) )
 			return 0;
 	}
 	else
 	{
-		if( Bank_GetBalance(Destination) - Ammount < _GetMinBalance(Destination) )
+		if( Bank_GetBalance(Destination) + Ammount < _GetMinBalance(Destination) )
 			return 0;
 	}
 	return 1;
