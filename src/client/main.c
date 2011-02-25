@@ -661,7 +661,7 @@ int ShowNCursesUI(void)
 		username = pwd->pw_name;
 	}
 	// Get balance
-	snprintf(balance_str, sizeof balance_str, "$%i.%02i", giUserBalance/100, giUserBalance%100);
+	snprintf(balance_str, sizeof balance_str, "$%i.%02i", giUserBalance/100, abs(giUserBalance)%100);
 	
 	// Enter curses mode
 	initscr();
@@ -885,6 +885,8 @@ int ShowItemAt(int Row, int Col, int Width, int Index, int bHilighted)
 	// Width = 0, don't print
 	if( Width > 0 )
 	{
+		// 4 preceding, 5 price
+		int nameWidth = Width - 4 - 5;
 		move( Row, Col );
 		
 		if( Index >= 0 )
@@ -894,26 +896,26 @@ int ShowItemAt(int Row, int Col, int Width, int Index, int bHilighted)
 			{
 			case 0:
 				if( bHilighted )
-					printw("-> ");
+					printw("->  ");
 				else
-					printw("   ");
+					printw("    ");
 				break;
 			case 1:
-				printw("SLD");
+				printw("SLD ");
 				break;
 			
 			default:
 			case -1:
-				printw("ERR");
+				printw("ERR ");
 				break;
 			}
 			
-			printw(" %s", name);
+			printw("%-*.*s", nameWidth, nameWidth, name);
 		
-			getyx(stdscr, _y, _x);
+//			getyx(stdscr, _y, _x);
 			// Assumes max 4 digit prices
-			times = Width - 5 - (_x - Col);	// TODO: Better handling for large prices
-			while(times--)	addch(' ');
+//			times = Width - 5 - (_x - Col);	// TODO: Better handling for large prices
+//			while(times--)	addch(' ');
 			
 			printw(" %4i", price);
 		}
