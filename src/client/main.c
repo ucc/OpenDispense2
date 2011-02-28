@@ -41,6 +41,18 @@ enum eUI_Modes
 	NUM_UI_MODES
 };
 
+enum eReturnValues
+{
+	RV_SUCCESS,
+	RV_BAD_ITEM,
+	RV_INVALID_USER,
+	RV_PERMISSIONS,
+	RV_ARGUMENTS,
+	RV_BALANCE,
+	RV_UNKNOWN_ERROR = -1,
+	RV_SOCKET_ERROR = -2
+};
+
 // === TYPES ===
 typedef struct sItem {
 	char	*Type;
@@ -155,7 +167,7 @@ int main(int argc, char *argv[])
 				if( i + 1 >= argc ) {
 					fprintf(stderr, "%s: -m takes an argument\n", argv[0]);
 					ShowUsage();
-					return -1;
+					return RV_ARGUMENTS;
 				}
 				giMinimumBalance = atoi(argv[++i]);
 				break;
@@ -163,7 +175,7 @@ int main(int argc, char *argv[])
 				if( i + 1 >= argc ) {
 					fprintf(stderr, "%s: -M takes an argument\n", argv[0]);
 					ShowUsage();
-					return -1;
+					return RV_ARGUMENTS;
 				}
 				giMaximumBalance = atoi(argv[++i]);
 				break;
@@ -172,7 +184,7 @@ int main(int argc, char *argv[])
 				if( i + 1 >= argc ) {
 					fprintf(stderr, "%s: -u takes an argument\n", argv[0]);
 					ShowUsage();
-					return -1;
+					return RV_ARGUMENTS;
 				}
 				gsEffectiveUser = argv[++i];
 				break;
@@ -181,7 +193,7 @@ int main(int argc, char *argv[])
 				if( i + 1 >= argc ) {
 					fprintf(stderr, "%s: -H takes an argument\n", argv[0]);
 					ShowUsage();
-					return -1;
+					return RV_ARGUMENTS;
 				}
 				gsDispenseServer = argv[++i];
 				break;
@@ -189,7 +201,7 @@ int main(int argc, char *argv[])
 				if( i + 1 >= argc ) {
 					fprintf(stderr, "%s: -P takes an argument\n", argv[0]);
 					ShowUsage();
-					return -1;
+					return RV_ARGUMENTS;
 				}
 				giDispensePort = atoi(argv[++i]);
 				break;
@@ -207,7 +219,7 @@ int main(int argc, char *argv[])
 				if( text_argc + 1 ==  MAX_TXT_ARGS )
 				{
 					fprintf(stderr, "ERROR: Too many arguments\n");
-					return 1;
+					return RV_ARGUMENTS;
 				}
 				text_args[text_argc++] = argv[i];
 				break;
@@ -219,7 +231,7 @@ int main(int argc, char *argv[])
 		if( text_argc + 1 == MAX_TXT_ARGS )
 		{
 			fprintf(stderr, "ERROR: Too many arguments\n");
-			return 1;
+			return RV_ARGUMENTS;
 		}
 	
 		text_args[text_argc++] = argv[i];
@@ -233,7 +245,7 @@ int main(int argc, char *argv[])
 	{
 		// Connect to server
 		sock = OpenConnection(gsDispenseServer, giDispensePort);
-		if( sock < 0 )	return -1;
+		if( sock < 0 )	return RV_SOCKET_ERROR;
 		// List accounts?
 		if( text_argc == 1 ) {
 			ret = Dispense_EnumUsers(sock);
@@ -247,8 +259,8 @@ int main(int argc, char *argv[])
 		if( text_argc == 4 )
 		{
 			// Authentication required
-			if( Authenticate(sock) )
-				return -1;
+			ret = Authenticate(sock);
+			if(ret)	return ret;
 			
 			// text_args[1]: Username
 			// text_args[2]: Ammount
@@ -284,7 +296,7 @@ int main(int argc, char *argv[])
 		if( text_argc != 4 ) {
 			fprintf(stderr, "`dispense give` takes three arguments\n");
 			ShowUsage();
-			return -1;
+			return RV_ARGUMENTS;
 		}
 		
 		// text_args[1]: Destination
@@ -293,11 +305,11 @@ int main(int argc, char *argv[])
 		
 		// Connect to server
 		sock = OpenConnection(gsDispenseServer, giDispensePort);
-		if( sock < 0 )	return -1;
+		if( sock < 0 )	return RV_SOCKET_ERROR;
 		
 		// Authenticate
-		if( Authenticate(sock) )
-			return -1;
+		ret = Authenticate(sock);
+		if(ret)	return ret;
 		
 		ret = Dispense_Give(sock, text_args[1], atoi(text_args[2]), text_args[3]);
 
@@ -314,16 +326,16 @@ int main(int argc, char *argv[])
 		if( text_argc == 1 ) {
 			fprintf(stderr, "Error: `dispense user` requires arguments\n");
 			ShowUsage();
-			exit(1);
+			return RV_ARGUMENTS;
 		}
 		
 		// Connect to server
 		sock = OpenConnection(gsDispenseServer, giDispensePort);
-		if( sock < 0 )	return -1;
+		if( sock < 0 )	return RV_SOCKET_ERROR;
 		
 		// Attempt authentication
-		if( Authenticate(sock) )
-			return -1;
+		ret = Authenticate(sock);
+		if(ret)	return ret;
 		
 		// Add new user?
 		if( strcmp(text_args[1], "add") == 0 )
@@ -331,7 +343,7 @@ int main(int argc, char *argv[])
 			if( text_argc != 3 ) {
 				fprintf(stderr, "Error: `dispense user add` requires an argument\n");
 				ShowUsage();
-				exit(1);
+				return RV_ARGUMENTS;
 			}
 			
 			ret = Dispense_AddUser(sock, text_args[2]);
@@ -342,7 +354,7 @@ int main(int argc, char *argv[])
 			if( text_argc != 4 ) {
 				fprintf(stderr, "Error: `dispense user flags` requires two arguments\n");
 				ShowUsage();
-				exit(1);
+				return RV_ARGUMENTS;
 			}
 			
 			ret = Dispense_SetUserType(sock, text_args[2], text_args[3]);
@@ -351,7 +363,7 @@ int main(int argc, char *argv[])
 		{
 			fprintf(stderr, "Error: Unknown sub-command for `dispense user`\n");
 			ShowUsage();
-			exit(1);
+			return RV_ARGUMENTS;
 		}
 		close(sock);
 		return ret;
@@ -363,16 +375,16 @@ int main(int argc, char *argv[])
 		if( text_argc != 3 ) {
 			fprintf(stderr, "Error: `dispense donate` requires two arguments\n");
 			ShowUsage();
-			exit(1);
+			return RV_ARGUMENTS;
 		}
 		
 		// Connect to server
 		sock = OpenConnection(gsDispenseServer, giDispensePort);
-		if( sock < 0 )	return -1;
+		if( sock < 0 )	return RV_SOCKET_ERROR;
 		
 		// Attempt authentication
-		if( Authenticate(sock) )
-			return -1;
+		ret = Authenticate(sock);
+		if(ret)	return ret;
 		
 		// Do donation
 		ret = Dispense_Donate(sock, atoi(text_args[1]), text_args[2]);
@@ -380,6 +392,28 @@ int main(int argc, char *argv[])
 		close(sock);
 
 		return ret;
+	}
+	// Refund an item
+	else if( strcmp(text_args[0], "refund") == 0 )
+	{
+		// Check argument count
+		if( text_argc != 3 && text_argc != 4 ) {
+			fprintf(stderr, "Error: `dispense refund` takes 2 or 3 arguments\n");
+			ShowUsage();
+			return RV_ARGUMENTS;
+		}
+	
+		// Connect to server
+		sock = OpenConnection(gsDispenseServer, giDispensePort);
+		if(sock < 0)	return RV_SOCKET_ERROR;	
+
+		// Attempt authentication
+		ret = Authenticate(sock);
+		if(ret)	return ret;
+
+		// TODO: More
+		close(ret);
+		return RV_UNKNOWN_ERROR;
 	}
 	// Query an item price
 	else if( strcmp(text_args[0], "iteminfo") == 0 )
@@ -391,19 +425,20 @@ int main(int argc, char *argv[])
 		if( text_argc != 2 ) {
 			fprintf(stderr, "Error: `dispense iteminfo` requires an argument\n");
 			ShowUsage();
-			exit(1);
+			return RV_ARGUMENTS;
 		}
 		// Parse item ID
 		if( RunRegex(&gUserItemIdentRegex, text_args[1], 3, matches, NULL) != 0 ) {
 			fprintf(stderr, "Error: Invalid item ID passed (<type>:<id> expected)\n");
-			exit(1);
+			return RV_ARGUMENTS;
 		}
 		type = text_args[1] + matches[1].rm_so;
 		text_args[1][ matches[1].rm_eo ] = '\0';
 		id = atoi( text_args[1] + matches[2].rm_so );
 
 		sock = OpenConnection(gsDispenseServer, giDispensePort);
-		if( sock < 0 )	return -1;
+		if( sock < 0 )	return RV_SOCKET_ERROR;
+		
 		ret = Dispense_ItemInfo(sock, type, id);
 		close(sock);
 		return ret;
@@ -415,10 +450,11 @@ int main(int argc, char *argv[])
 	
 	// Connect to server
 	sock = OpenConnection(gsDispenseServer, giDispensePort);
-	if( sock < 0 )	return -1;
+	if( sock < 0 )	return RV_SOCKET_ERROR;
 
 	// Get the user's balance
-	GetUserBalance(sock);
+	ret = GetUserBalance(sock);
+	if(ret)	return ret;
 
 	// Get items
 	PopulateItemList(sock);
@@ -434,8 +470,9 @@ int main(int argc, char *argv[])
 		{
 			// Connect, Authenticate, dispense and close
 			sock = OpenConnection(gsDispenseServer, giDispensePort);
-			if( sock < 0 )	return -1;
-			Authenticate(sock);
+			if( sock < 0 )	return RV_SOCKET_ERROR;
+			ret = Authenticate(sock);
+			if(ret)	return ret;
 			ret = DispenseItem(sock, "door", 0);
 			close(sock);
 			return ret;
@@ -454,11 +491,12 @@ int main(int argc, char *argv[])
 			
 			// Connect, Authenticate, dispense and close
 			sock = OpenConnection(gsDispenseServer, giDispensePort);
-			if( sock < 0 )	return -1;
+			if( sock < 0 )	return RV_SOCKET_ERROR;
 			
 			Dispense_ItemInfo(sock, ident, id);
 			
-			Authenticate(sock);
+			ret = Authenticate(sock);
+			if(ret)	return ret;
 			ret = DispenseItem(sock, ident, id);
 			close(sock);
 			return ret;
@@ -502,7 +540,7 @@ int main(int argc, char *argv[])
 					// TODO: Allow ambiguous matches?
 					// or just print a wanrning
 					printf("Warning - Ambiguous pattern, stopping\n");
-					return 1;
+					return RV_BAD_ITEM;
 				}
 			}
 			
@@ -510,7 +548,7 @@ int main(int argc, char *argv[])
 			if( best == -1 )
 			{
 				fprintf(stderr, "No item matches the passed string\n");
-				return 1;
+				return RV_BAD_ITEM;
 			}
 			
 			i = best;
@@ -564,11 +602,14 @@ int main(int argc, char *argv[])
 		 int j;
 		// Connect, Authenticate, dispense and close
 		sock = OpenConnection(gsDispenseServer, giDispensePort);
-		if( sock < 0 )	return -1;
+		if( sock < 0 )	return RV_SOCKET_ERROR;
 			
-		Dispense_ItemInfo(sock, gaItems[i].Type, gaItems[i].ID);
+		ret = Dispense_ItemInfo(sock, gaItems[i].Type, gaItems[i].ID);
+		if(ret)	return ret;
 		
-		Authenticate(sock);
+		ret = Authenticate(sock);
+		if(ret)	return ret;
+		
 		for( j = 0; j < giDispenseCount; j ++ ) {
 			ret = DispenseItem(sock, gaItems[i].Type, gaItems[i].ID);
 			if( ret )	break;
@@ -613,6 +654,8 @@ void ShowUsage(void)
 		"        Flags are removed by preceding the name with '-' or '!'\n"
 		"\n"
 		"General Options:\n"
+		"    -c <count>\n"
+		"        Dispense multiple times\n"
 		"    -u <username>\n"
 		"        Set a different user (Coke members only)\n"
 		"    -h / -?\n"
@@ -1104,7 +1147,7 @@ int Authenticate(int Socket)
 		if( responseCode != 100 ) {
 			fprintf(stderr, "Unknown repsonse code %i from server\n%s\n", responseCode, buf);
 			free(buf);
-			return -1;	// ERROR
+			return RV_UNKNOWN_ERROR;	// ERROR
 		}
 		
 		// Check for salt
@@ -1150,23 +1193,23 @@ int Authenticate(int Socket)
 			
 			fprintf(stderr, "Unknown repsonse code %i from server\n%s\n", responseCode, buf);
 			free(buf);
-			return -1;
+			return RV_UNKNOWN_ERROR;
 		}
 		free(buf);
 		if( i == 3 )
-			return 2;	// 2 = Bad Password
+			return RV_INVALID_USER;	// 2 = Bad Password
 		break;
 	
 	case 404:	// Bad Username
 		fprintf(stderr, "Bad Username '%s'\n", pwd->pw_name);
 		free(buf);
-		return 1;
+		return RV_INVALID_USER;
 	
 	default:
 		fprintf(stderr, "Unkown response code %i from server\n", responseCode);
 		printf("%s\n", buf);
 		free(buf);
-		return -1;
+		return RV_UNKNOWN_ERROR;
 	}
 	
 	// Set effective user
@@ -1185,18 +1228,18 @@ int Authenticate(int Socket)
 		case 403:
 			printf("Only coke members can use `dispense -u`\n");
 			free(buf);
-			return -1;
+			return RV_PERMISSIONS;
 		
 		case 404:
 			printf("Invalid user selected\n");
 			free(buf);
-			return -1;
+			return RV_INVALID_USER;
 		
 		default:
 			fprintf(stderr, "Unkown response code %i from server\n", responseCode);
 			printf("%s\n", buf);
 			free(buf);
-			exit(-1);
+			return RV_UNKNOWN_ERROR;
 		}
 		
 		free(buf);
@@ -1235,13 +1278,13 @@ int GetUserBalance(int Socket)
 	case 404:
 		printf("Invalid user? (USER_INFO failed)\n");
 		free(buf);
-		return -1;
+		return RV_INVALID_USER;
 	
 	default:
 		fprintf(stderr, "Unkown response code %i from server\n", responseCode);
 		printf("%s\n", buf);
 		free(buf);
-		exit(-1);
+		return RV_UNKNOWN_ERROR;
 	}
 
 	RunRegex(&gUserInfoRegex, buf, 6, matches, "Malformed server response");
@@ -1277,11 +1320,12 @@ int ReadItemInfo(int Socket, tItem *Dest)
 	case 406:
 		printf("Bad item name\n");
 		free(buf);
-		return 1;
+		return RV_BAD_ITEM;
 	
 	default:
 		fprintf(stderr, "Unknown response from dispense server (Response Code %i)\n%s", responseCode, buf);
-		exit(-1);
+		free(buf);
+		return RV_UNKNOWN_ERROR;
 	}
 	
 	RunRegex(&gItemRegex, buf, 8, matches, "Malformed server response");
@@ -1303,7 +1347,7 @@ int ReadItemInfo(int Socket, tItem *Dest)
 	else {
 		fprintf(stderr, "Unknown response from dispense server (status '%s')\n",
 			statusStr);
-		return 1;
+		return RV_UNKNOWN_ERROR;
 	}
 	Dest->Price = atoi( buf + matches[6].rm_so );
 	
@@ -1343,7 +1387,7 @@ void PopulateItemList(int Socket)
 	responseCode = atoi(buf);
 	if( responseCode != 201 ) {
 		fprintf(stderr, "Unknown response from dispense server (Response Code %i)\n", responseCode);
-		exit(-1);
+		exit(RV_UNKNOWN_ERROR);
 	}
 	
 	// - Get item list -
@@ -1361,7 +1405,7 @@ void PopulateItemList(int Socket)
 		// What the?!
 		fprintf(stderr, "Unexpected array type, expected 'Items', got '%s'\n",
 			itemType);
-		exit(-1);
+		exit(RV_UNKNOWN_ERROR);
 	}
 		
 	itemStart = &buf[ matches[3].rm_eo ];
@@ -1399,14 +1443,13 @@ void PopulateItemList(int Socket)
 int Dispense_ItemInfo(int Socket, const char *Type, int ID)
 {
 	tItem	item;
+	 int	ret;
 	
 	// Query
 	sendf(Socket, "ITEM_INFO %s:%i\n", Type, ID);
 	
-	if( ReadItemInfo(Socket, &item) )
-	{
-		return -1;
-	}
+	ret = ReadItemInfo(Socket, &item);
+	if(ret)	return ret;
 	
 	printf("%8s:%-2i %2i.%02i %s\n",
 		item.Type, item.ID,
@@ -1447,15 +1490,15 @@ int DispenseItem(int Socket, const char *Type, int ID)
 		break;
 	case 401:
 		printf("Not authenticated\n");
-		ret = 1;
+		ret = RV_PERMISSIONS;
 		break;
 	case 402:
 		printf("Insufficient balance\n");
-		ret = 1;
+		ret = RV_BALANCE;
 		break;
 	case 406:
 		printf("Bad item name\n");
-		ret = 1;
+		ret = RV_BAD_ITEM;
 		break;
 	case 500:
 		printf("Item failed to dispense, is the slot empty?\n");
@@ -1467,7 +1510,7 @@ int DispenseItem(int Socket, const char *Type, int ID)
 		break;
 	default:
 		printf("Unknown response code %i ('%s')\n", responseCode, buf);
-		ret = -2;
+		ret = RV_UNKNOWN_ERROR;
 		break;
 	}
 	
@@ -1492,7 +1535,7 @@ int Dispense_AlterBalance(int Socket, const char *Username, int Ammount, const c
 	// Sanity
 	if( Ammount == 0 ) {
 		printf("An ammount would be nice\n");
-		return 1;
+		return RV_ARGUMENTS;
 	}
 	
 	sendf(Socket, "ADD %s %i %s\n", Username, Ammount, Reason);
