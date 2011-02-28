@@ -17,6 +17,7 @@
 #include <string.h>
 #include <limits.h>
 #include <stdarg.h>
+#include <signal.h>
 
 #define	DEBUG_TRACE_CLIENT	0
 
@@ -119,6 +120,8 @@ void Server_Start(void)
 	struct sockaddr_in	server_addr, client_addr;
 
 	atexit(Server_Cleanup);
+	// Ignore SIGPIPE (stops crashes when the client exits early)
+	signal(SIGPIPE, SIG_IGN);
 
 	// Create Server
 	giServer_Socket = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
