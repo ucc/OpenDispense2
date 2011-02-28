@@ -53,6 +53,7 @@ char	*gsCoke_SerialPort = "/dev/ttyS0";
 regex_t	gCoke_StatusRegex;
  int	gaCoke_CachedStatus[7];
 pthread_mutex_t	gCoke_Mutex = PTHREAD_MUTEX_INITIALIZER;
+time_t	gtCoke_LastDispenseTime;
 
 // == CODE ===
 int Coke_InitHandler()
@@ -199,6 +200,12 @@ int Coke_DoDispense(int UNUSED(User), int Item)
 	// Can't dispense if the machine is not connected
 	if( giCoke_SerialFD == -1 )
 		return -2;
+
+	// Make sure there are not two dispenses within n seconds
+	if( time(NULL) - gtCoke_LastDispenseTime < 10 )
+	{
+		sleep( 10 - time(NULL) - gtCoke_LastDispenseTime );
+	}
 	
 	// LOCK
 	pthread_mutex_lock(&gCoke_Mutex);
@@ -266,6 +273,8 @@ int Coke_DoDispense(int UNUSED(User), int Item)
 		char buf[512];
 		read(giCoke_SerialFD, buf, 512);	// Flush
 	}
+
+	gtCoke_LastDispenseTime = time(NULL);
 	
 	// Release and return
 	pthread_mutex_unlock(&gCoke_Mutex);
