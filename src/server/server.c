@@ -60,6 +60,7 @@ void	Server_Cmd_SETEUSER(tClient *Client, char *Args);
 void	Server_Cmd_ENUMITEMS(tClient *Client, char *Args);
 void	Server_Cmd_ITEMINFO(tClient *Client, char *Args);
 void	Server_Cmd_DISPENSE(tClient *Client, char *Args);
+void	Server_Cmd_REFUND(tClient *Client, char *Args);
 void	Server_Cmd_GIVE(tClient *Client, char *Args);
 void	Server_Cmd_DONATE(tClient *Client, char *Args);
 void	Server_Cmd_ADD(tClient *Client, char *Args);
@@ -88,6 +89,7 @@ const struct sClientCommand {
 	{"ENUM_ITEMS", Server_Cmd_ENUMITEMS},
 	{"ITEM_INFO", Server_Cmd_ITEMINFO},
 	{"DISPENSE", Server_Cmd_DISPENSE},
+	{"REFUND", Server_Cmd_REFUND},
 	{"GIVE", Server_Cmd_GIVE},
 	{"DONATE", Server_Cmd_DONATE},
 	{"ADD", Server_Cmd_ADD},
@@ -227,6 +229,7 @@ void Server_Start(void)
 			case 0x825F0D11:	// 130.95.13.17	mermaid
 			case 0x825F0D12:	// 130.95.13.18	mussel
 			case 0x825F0D17:	// 130.95.13.23	martello
+			case 0x825F0D2A:	// 130.95.13.42 meersau
 			case 0x825F0D42:	// 130.95.13.66	heathred
 				bTrusted = 1;
 				break;
@@ -710,6 +713,54 @@ void Server_Cmd_DISPENSE(tClient *Client, char *Args)
 	default:
 		sendf(Client->Socket, "500 Dispense Error\n");
 		return ;
+	}
+}
+
+void Server_Cmd_REFUND(tClient *Client, char *Args)
+{
+	tItem	*item;
+	 int	uid, price_override = 0;
+	char	*username, *itemname, *price_str;
+
+	if( Server_int_ParseArgs(0, Args, &username, &itemname, &price_str, NULL) ) {
+		if( !itemname || price_str ) {
+			sendf(Client->Socket, "407 REFUND takes 2 or 3 arguments\n");
+			return ;
+		}
+	}
+
+	if( !Client->bIsAuthed ) {
+		sendf(Client->Socket, "401 Not Authenticated\n");
+		return ;
+	}
+
+	// Check user permissions
+	if( !(Bank_GetFlags(Client->UID) & (USER_FLAG_COKE|USER_FLAG_ADMIN))  ) {
+		sendf(Client->Socket, "403 Not in coke\n");
+		return ;
+	}
+
+	uid = Bank_GetAcctByName(username);
+	if( uid == -1 ) {
+		sendf(Client->Socket, "404 Unknown user\n");
+		return ;
+	}
+	
+	item = _GetItemFromString(itemname);
+	if( !item ) {
+		sendf(Client->Socket, "406 Bad Item ID\n");
+		return ;
+	}
+
+	if( price_str )
+		price_override = atoi(price_str);
+
+	switch( DispenseRefund( Client->UID, uid, item, price_override ) )
+	{
+	case 0:	sendf(Client->Socket, "200 Item Refunded\n");	return ;
+	default:
+		sendf(Client->Socket, "500 Dispense Error\n");
+		return;
 	}
 }
 

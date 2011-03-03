@@ -74,6 +74,39 @@ int DispenseItem(int ActualUser, int User, tItem *Item)
 }
 
 /**
+ * \brief Refund a dispense
+ */
+int DispenseRefund(int ActualUser, int DestUser, tItem *Item, int OverridePrice)
+{
+	 int	ret;
+	 int	src_acct, price;
+	char	*username, *actualUsername;
+
+	src_acct = Bank_GetAcctByName(COKEBANK_SALES_ACCT);
+
+	if( OverridePrice > 0 )
+		price = OverridePrice;
+	else
+		price = Item->Price;
+
+	ret = _Transfer( src_acct, DestUser, price, "Refund");
+	if(ret)	return ret;
+
+	username = Bank_GetAcctName(DestUser);
+	actualUsername = Bank_GetAcctName(ActualUser);
+	
+	Log_Info("refund '%s' (%s:%i) to %s by %s [cost %i, balance %i]",
+		Item->Name, Item->Handler->Name, Item->ID,
+		username, actualUsername, price, Bank_GetBalance(DestUser)
+		);
+
+	free(username);
+	free(actualUsername);
+
+	return 0;
+}
+
+/**
  * \brief Give money from one user to another
  */
 int DispenseGive(int ActualUser, int SrcUser, int DestUser, int Ammount, const char *ReasonGiven)
@@ -147,7 +180,7 @@ int DispenseAdd(int ActualUser, int User, int Ammount, const char *ReasonGiven)
 	char	*dstName, *byName;
 	
 #if DISPENSE_ADD_BELOW_MIN
-//	ret = _Transfer( Bank_GetAcctByName(COKEBANK_DEBT_ACCT), User, Ammount, ReasonGiven );
+	ret = _Transfer( Bank_GetAcctByName(COKEBANK_DEBT_ACCT), User, Ammount, ReasonGiven );
 #else
 	ret = Bank_Transfer( Bank_GetAcctByName(COKEBANK_DEBT_ACCT), User, Ammount, ReasonGiven );
 #endif
@@ -234,10 +267,10 @@ int _GetMinBalance(int Account)
 	if( flags & USER_FLAG_INTERNAL )	return INT_MIN;
 	
 	// Admin to -$50
-	if( flags & USER_FLAG_ADMIN )	return -5000;
+//	if( flags & USER_FLAG_ADMIN )	return -5000;
 	
 	// Coke to -$20
-	if( flags & USER_FLAG_COKE )	return -2000;
+//	if( flags & USER_FLAG_COKE )	return -2000;
 	
 	// Anyone else, non-negative
 	return 0;

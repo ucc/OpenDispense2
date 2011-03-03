@@ -81,6 +81,7 @@ extern char	*mkstr(const char *Format, ...);
 
 // --- Dispense ---
 extern int	DispenseItem(int ActualUser, int User, tItem *Item);
+extern int	DispenseRefund(int ActualUser, int DestUser, tItem *Item, int OverridePrice);
 extern int	DispenseGive(int ActualUser, int SrcUser, int DestUser, int Ammount, const char *ReasonGiven);
 extern int	DispenseAdd(int ActualUser, int User, int Ammount, const char *ReasonGiven);
 extern int	DispenseSet(int ActualUser, int User, int Balance, const char *ReasonGiven);
