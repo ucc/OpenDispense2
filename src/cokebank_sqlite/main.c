@@ -131,7 +131,7 @@ int Bank_Transfer(int SourceUser, int DestUser, int Ammount, const char *Reason)
 
 	// Take from the source
 	query = mkstr("UPDATE accounts SET acct_balance=acct_balance-%i,acct_last_seen=datetime('now') WHERE acct_id=%i", Ammount, SourceUser);
-	printf("query = \"%s\"\n", query);
+//	printf("query = \"%s\"\n", query);
 	rv = sqlite3_exec(gBank_Database, query, NULL, NULL, &errmsg);
 	free(query);
 	if( rv != SQLITE_OK )
@@ -144,7 +144,7 @@ int Bank_Transfer(int SourceUser, int DestUser, int Ammount, const char *Reason)
 
 	// Give to the destination
 	query = mkstr("UPDATE accounts SET acct_balance=acct_balance+%i,acct_last_seen=datetime('now') WHERE acct_id=%i", Ammount, DestUser);
-	printf("query = \"%s\"\n", query);
+//	printf("query = \"%s\"\n", query);
 	rv = sqlite3_exec(gBank_Database, query, NULL, NULL, &errmsg);
 	free(query);
 	if( rv != SQLITE_OK )
