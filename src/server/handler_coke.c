@@ -204,7 +204,9 @@ int Coke_DoDispense(int UNUSED(User), int Item)
 	// Make sure there are not two dispenses within n seconds
 	if( time(NULL) - gtCoke_LastDispenseTime < 10 )
 	{
-		sleep( 10 - time(NULL) - gtCoke_LastDispenseTime );
+		printf("Wait %li seconds?\n", 10 - (time(NULL) - gtCoke_LastDispenseTime));
+		sleep( 10 - (time(NULL) - gtCoke_LastDispenseTime) );
+		printf("wait done\n");
 	}
 	
 	// LOCK
