@@ -79,6 +79,7 @@ void	PopulateItemList(int Socket);
  int	Dispense_AlterBalance(int Socket, const char *Username, int Ammount, const char *Reason);
  int	Dispense_SetBalance(int Socket, const char *Username, int Balance, const char *Reason);
  int	Dispense_Give(int Socket, const char *Username, int Ammount, const char *Reason);
+ int	Dispense_Refund(int Socket, const char *Username, const char *Item, int PriceOverride);
  int	Dispense_Donate(int Socket, int Ammount, const char *Reason);
  int	Dispense_EnumUsers(int Socket);
  int	Dispense_ShowUser(int Socket, const char *Username);
@@ -256,8 +257,14 @@ int main(int argc, char *argv[])
 		// text_args[1]: Username
 		
 		// Alter account?
-		if( text_argc == 4 )
+		if( text_argc != 2 )
 		{
+			if( text_argc != 4 ) {
+				fprintf(stderr, "`dispense acct` requires a reason\n");
+				ShowUsage();
+				return RV_ARGUMENTS;
+			}
+			
 			// Authentication required
 			ret = Authenticate(sock);
 			if(ret)	return ret;
@@ -396,6 +403,7 @@ int main(int argc, char *argv[])
 	// Refund an item
 	else if( strcmp(text_args[0], "refund") == 0 )
 	{
+		 int	 price = 0;
 		// Check argument count
 		if( text_argc != 3 && text_argc != 4 ) {
 			fprintf(stderr, "Error: `dispense refund` takes 2 or 3 arguments\n");
@@ -411,8 +419,19 @@ int main(int argc, char *argv[])
 		ret = Authenticate(sock);
 		if(ret)	return ret;
 
+		if( text_argc == 4 ) {
+			price = atoi(text_args[3]);
+			if( price <= 0 ) {
+				fprintf(stderr, "Error: Override price is invalid (should be > 0)\n");
+				return RV_ARGUMENTS;
+			}
+		}
+
+		// Username, Item, cost
+		ret = Dispense_Refund(sock, text_args[1], text_args[2], price);
+
 		// TODO: More
-		close(ret);
+		close(sock);
 		return RV_UNKNOWN_ERROR;
 	}
 	// Query an item price
@@ -676,9 +695,6 @@ void ShowUsage(void)
  */
 int ShowNCursesUI(void)
 {
-	// TODO: ncurses interface (with separation between item classes)
-	// - Hmm... that would require standardising the item ID to be <class>:<index>
-	// Oh, why not :)
 	 int	ch;
 	 int	i, times;
 	 int	xBase, yBase;
@@ -851,6 +867,7 @@ int ShowNCursesUI(void)
 			case '\n':
 				ret = ShowItemAt(0, 0, 0, currentItem, 0);
 				break;
+			case 0x1b:	// Escape
 			case 'q':
 				ret = -1;	// -1: Return with no dispense
 				break;
@@ -1096,6 +1113,9 @@ int OpenConnection(const char *Host, int Port)
 		fprintf(stderr, "Failed to connect to server\n");
 		return -1;
 	}
+
+	// We're not authenticated if the connection has just opened
+	gbIsAuthenticated = 0;
 	
 	return sock;
 }
@@ -1109,9 +1129,11 @@ int Authenticate(int Socket)
 	struct passwd	*pwd;
 	char	*buf;
 	 int	responseCode;
+	#if ATTEMPT_PASSWORD_AUTH
 	char	salt[32];
 	 int	i;
 	regmatch_t	matches[4];
+	#endif
 	
 	if( gbIsAuthenticated )	return 0;
 	
@@ -1133,7 +1155,8 @@ int Authenticate(int Socket)
 	
 	case 401:	// Untrusted, attempt password authentication
 		free(buf);
-		
+
+		#if ATTEMPT_PASSWORD_AUTH	
 		sendf(Socket, "USER %s\n", pwd->pw_name);
 		printf("Using username %s\n", pwd->pw_name);
 		
@@ -1198,6 +1221,11 @@ int Authenticate(int Socket)
 		free(buf);
 		if( i == 3 )
 			return RV_INVALID_USER;	// 2 = Bad Password
+		
+		#else
+		fprintf(stderr, "Untrusted host, AUTOAUTH unavaliable\n");
+		return RV_INVALID_USER;
+		#endif
 		break;
 	
 	case 404:	// Bad Username
@@ -1628,11 +1656,10 @@ int Dispense_Give(int Socket, const char *Username, int Ammount, const char *Rea
 	}
 	
 	sendf(Socket, "GIVE %s %i %s\n", Username, Ammount, Reason);
+
 	buf = ReadLine(Socket);
-	
 	responseCode = atoi(buf);
-	free(buf);
-	
+	free(buf);	
 	switch(responseCode)
 	{
 	case 200:
@@ -1655,6 +1682,56 @@ int Dispense_Give(int Socket, const char *Username, int Ammount, const char *Rea
 	return -1;
 }
 
+int Dispense_Refund(int Socket, const char *Username, const char *Item, int PriceOverride)
+{
+	char	*buf;
+	 int	responseCode, ret = -1;
+	
+	// Check item id
+	if( RunRegex(&gUserItemIdentRegex, Item, 0, NULL, NULL) != 0 )
+	{
+		fprintf(stderr, "Error: Invalid item ID passed (should be <type>:<num>)\n");
+		return RV_ARGUMENTS;
+	}
+
+	// Check username (quick)
+	if( strchr(Username, ' ') || strchr(Username, '\n') )
+	{
+		fprintf(stderr, "Error: Username is invalid (no spaces or newlines please)\n");
+		return RV_ARGUMENTS;
+	}
+
+	// Send the query
+	sendf(Socket, "REFUND %s %s %i", Username, Item, PriceOverride);
+
+	buf = ReadLine(Socket);
+	responseCode = atoi(buf);
+	switch(responseCode)
+	{
+	case 200:
+		Dispense_ShowUser(Socket, Username);	// Show destination account
+		ret = 0;
+		break;
+	case 403:
+		fprintf(stderr, "Refund access is only avaliable to coke members\n");
+		ret = RV_PERMISSIONS;
+		break;
+	case 404:
+		fprintf(stderr, "Unknown user '%s' passed\n", Username);
+		ret = RV_INVALID_USER;
+		break;
+	case 406:
+		fprintf(stderr, "Invalid item '%s' passed\n", Item);
+		ret = RV_BAD_ITEM;
+		break;
+	default:
+		fprintf(stderr, "Unknown response from server %i\n%s\n", responseCode, buf);
+		ret = -1;
+		break;
+	}
+	free(buf);
+	return ret;
+}
 
 /**
  * \brief Donate money to the club
