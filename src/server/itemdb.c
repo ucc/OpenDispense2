@@ -263,6 +263,8 @@ void Items_UpdateFile(void)
 		 int	num;
 		tHandler	*handler;
 
+		trim(buffer);
+
 		lineNum ++;
 		line_items[lineNum-1] = -1;
 		line_comments[lineNum-1] = NULL;
@@ -326,7 +328,8 @@ void Items_UpdateFile(void)
 	
 	fclose(fp);
 	
-	fp = fopen("items.cfg.new", "w");	// DEBUG: Don't kill the real item file until debugged
+	//fp = fopen("items.cfg.new", "w");	// DEBUG: Don't kill the real item file until debugged
+	fp = fopen(gsItemListFile, "w");
 	
 	// Create new file
 	{
@@ -342,8 +345,11 @@ void Items_UpdateFile(void)
 				if( done_items[ line_items[i] ] ) {
 					fprintf(fp, "; DUP -");
 				}
-				
 				done_items[ line_items[i] ] = 1;
+				
+				if( item->bHidden )
+					fprintf(fp, "-");
+				
 				fprintf(fp, "%s\t%i\t%i\t%s\t",
 					item->Handler->Name, item->ID, item->Price, item->Name
 					);
@@ -362,6 +368,9 @@ void Items_UpdateFile(void)
 		{
 			tItem	*item = &gaItems[i];
 			if( done_items[i] )	continue ;
+			
+			if( item->bHidden )
+				fprintf(fp, "-");
 			
 			fprintf(fp, "%s\t%i\t%i\t%s\n",
 				item->Handler->Name, item->ID, item->Price, item->Name

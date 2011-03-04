@@ -88,6 +88,7 @@ void	PopulateItemList(int Socket);
 void	_PrintUserLine(const char *Line);
  int	Dispense_AddUser(int Socket, const char *Username);
  int	Dispense_SetUserType(int Socket, const char *Username, const char *TypeString);
+ int	Dispense_SetItem(int Socket, const char *Type, int ID, int NewPrice, const char *NewName);
 // --- Helpers ---
 char	*ReadLine(int Socket);
  int	sendf(int Socket, const char *Format, ...);
@@ -138,6 +139,8 @@ void ShowUsage(void)
 		"        Alter a account value\n"
 		"    dispense refund <user> <itemid> [<price>]\n"
 		"        Refund an item to a user (with optional price override)\n"
+		"    dispense slot <itemid> <price> <name>\n"
+		"        Rename/Re-price a slot\n"
 		"  == Dispense administrators ==\n"
 		"    dispense acct <user> =<ammount> \"<reason>\"\n"
 		"        Set an account balance\n"
@@ -263,6 +266,17 @@ int main(int argc, char *argv[])
 				giDispensePort = atoi(argv[++i]);
 				break;
 			
+			// Set slot name/price
+			case 's':
+				if( text_argc != 0 ) {
+					fprintf(stderr, "%s: -s must appear before other arguments\n", argv[0]);
+					ShowUsage();
+					return RV_ARGUMENTS;
+				}
+				text_args[0] = "slot";	// HACK!!
+				text_argc ++;
+				break;
+			
 			case 'G':	// Don't use GUI
 				giUIMode = UI_MODE_BASIC;
 				break;
@@ -359,7 +373,7 @@ int main(int argc, char *argv[])
 	//
 	// `dispense give`
 	// - "Here, have some money."
-	if( strcmp(text_args[0], "give") == 0 )
+	else if( strcmp(text_args[0], "give") == 0 )
 	{
 		if( text_argc != 4 ) {
 			fprintf(stderr, "`dispense give` takes three arguments\n");
@@ -523,8 +537,64 @@ int main(int argc, char *argv[])
 		close(sock);
 		return ret;
 	}
+	// Set slot
+	else if( strcmp(text_args[0], "slot") == 0 )
+	{
+		regmatch_t matches[3];
+		char	*item_type, *newname;
+		 int	item_id, price;
+		
+		// Check arguments
+		if( text_argc != 4 ) {
+			fprintf(stderr, "Error: `dispense slot` takes three arguments\n");
+			ShowUsage();
+			return RV_ARGUMENTS;
+		}
+		
+		// Parse arguments
+		if( RunRegex(&gUserItemIdentRegex, text_args[1], 3, matches, NULL) != 0 ) {
+			fprintf(stderr, "Error: Invalid item ID passed (<type>:<id> expected)\n");
+			return RV_ARGUMENTS;
+		}
+		item_type = text_args[1] + matches[1].rm_so;
+		text_args[1][ matches[1].rm_eo ] = '\0';
+		item_id = atoi( text_args[1] + matches[2].rm_so );
+
+		// - Price
+		price = atoi( text_args[2] );
+		if( price <= 0 && text_args[2][0] != '0' ) {
+			fprintf(stderr, "Error: Invalid price passed (must be >= 0)\n");
+			return RV_ARGUMENTS;
+		}
+		
+		// - New name
+		newname = text_args[3];
+		// -- Sanity
+		{
+			char *pos;
+			for( pos = newname; *pos; pos ++ )
+			{
+				if( !isalnum(*pos) && *pos != ' ' ) {
+					fprintf(stderr, "Error: You should only have letters, numbers and spaces in an item name\n");
+					return RV_ARGUMENTS;
+				}
+			}
+		}
+		
+		// Connect & Authenticate
+		sock = OpenConnection(gsDispenseServer, giDispensePort);
+		if( sock < 0 )	return RV_SOCKET_ERROR;
+		ret = Authenticate(sock);
+		if(ret)	return ret;
+		// Update the slot
+		ret = Dispense_SetItem(sock, item_type, item_id, price, newname);
+		
+		close(sock);
+		return ret;
+	}
 	// Item name / pattern
-	else {
+	else
+	{
 		gsItemPattern = text_args[0];
 	}
 	
@@ -1995,17 +2065,61 @@ int Dispense_SetUserType(int Socket, const char *Username, const char *TypeStrin
 		
 	case 403:
 		printf("Only wheel can modify users\n");
-		ret = 1;
+		ret = RV_PERMISSIONS;
 		break;
 	
 	case 404:
 		printf("User '%s' does not exist\n", Username);
-		ret = 0;
+		ret = RV_INVALID_USER;
 		break;
 	
 	case 407:
 		printf("Flag string is invalid\n");
+		ret = RV_ARGUMENTS;
+		break;
+	
+	default:
+		fprintf(stderr, "Unknown response code %i '%s'\n", responseCode, buf);
+		ret = RV_UNKNOWN_RESPONSE;
+		break;
+	}
+	
+	free(buf);
+	
+	return ret;
+}
+
+int Dispense_SetItem(int Socket, const char *Type, int ID, int NewPrice, const char *NewName)
+{
+	char	*buf;
+	 int	responseCode, ret;
+	
+	// Check for a dry run
+	if( gbDryRun ) {
+		printf("Dry Run - No action\n");
+		return 0;
+	}
+	
+	sendf(Socket, "UPDATE_ITEM %s:%i %i %s\n", Type, ID, NewPrice, NewName);
+	
+	buf = ReadLine(Socket);
+	responseCode = atoi(buf);
+	
+	switch(responseCode)
+	{
+	case 200:
+		printf("Item %s:%i updated\n", Type, ID);
 		ret = 0;
+		break;
+		
+	case 403:
+		printf("Only coke members can modify the slots\n");
+		ret = RV_PERMISSIONS;
+		break;
+	
+	case 406:
+		printf("Invalid item passed\n");
+		ret = RV_BAD_ITEM;
 		break;
 	
 	default:

@@ -1318,7 +1318,7 @@ void Server_Cmd_UPDATEITEM(tClient *Client, char *Args)
 	
 	price = atoi(price_str);
 	if( price <= 0 && price_str[0] != '0' ) {
-		sendf(CLient->Socket, "407 Invalid price set\n");
+		sendf(Client->Socket, "407 Invalid price set\n");
 	}
 	
 	// Update the item
