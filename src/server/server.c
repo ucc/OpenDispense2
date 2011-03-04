@@ -177,8 +177,10 @@ void Server_Start(void)
 	// write pidfile
 	{
 		FILE *fp = fopen("/var/run/dispsrv.pid", "w");
-		fprintf(fp, "%i", getpid());
-		fclose(fp);
+		if( fp ) {
+			fprintf(fp, "%i", getpid());
+			fclose(fp);
+		}
 	}
 
 	for(;;)
@@ -249,7 +251,7 @@ void Server_Cleanup(void)
 {
 	printf("\nClose(%i)\n", giServer_Socket);
 	close(giServer_Socket);
-	unlink("/var/run/dispsrv");
+	unlink("/var/run/dispsrv.pid");
 }
 
 /**
