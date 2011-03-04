@@ -273,6 +273,11 @@ int main(int argc, char *argv[])
 				gbDryRun = 1;
 				break;
 			default:
+				if( !isdigit(argv[i][0]) ) {
+					fprintf(stderr, "%s: Unknown switch '%s'\n", argv[0], argv[i]);
+					ShowUsage();
+					return RV_ARGUMENTS;
+				}
 				if( text_argc + 1 ==  MAX_TXT_ARGS )
 				{
 					fprintf(stderr, "ERROR: Too many arguments\n");
