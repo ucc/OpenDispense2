@@ -72,6 +72,8 @@ extern int	giNumHandlers;
 extern int	giDebugLevel;
 
 // === FUNCTIONS ===
+extern void	Items_UpdateFile(void);
+
 // --- Helpers --
 extern void	AddPeriodicFunction(void (*Fcn)(void));
 extern void	CompileRegex(regex_t *Regex, const char *Pattern, int Flags);

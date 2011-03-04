@@ -70,6 +70,7 @@ void	Server_Cmd_USERINFO(tClient *Client, char *Args);
 void	_SendUserInfo(tClient *Client, int UserID);
 void	Server_Cmd_USERADD(tClient *Client, char *Args);
 void	Server_Cmd_USERFLAGS(tClient *Client, char *Args);
+void	Server_Cmd_UPDATEITEM(tClient *Client, char *Args);
 // --- Helpers ---
 void	Debug(tClient *Client, const char *Format, ...);
  int	sendf(int Socket, const char *Format, ...);
@@ -97,7 +98,8 @@ const struct sClientCommand {
 	{"ENUM_USERS", Server_Cmd_ENUMUSERS},
 	{"USER_INFO", Server_Cmd_USERINFO},
 	{"USER_ADD", Server_Cmd_USERADD},
-	{"USER_FLAGS", Server_Cmd_USERFLAGS}
+	{"USER_FLAGS", Server_Cmd_USERFLAGS},
+	{"UPDATE_ITEM", Server_Cmd_UPDATEITEM}
 };
 #define NUM_COMMANDS	((int)(sizeof(gaServer_Commands)/sizeof(gaServer_Commands[0])))
 
@@ -177,8 +179,10 @@ void Server_Start(void)
 	// write pidfile
 	{
 		FILE *fp = fopen("/var/run/dispsrv.pid", "w");
-		fprintf(fp, "%i", getpid());
-		fclose(fp);
+		if( fp ) {
+			fprintf(fp, "%i", getpid());
+			fclose(fp);
+		}
 	}
 
 	for(;;)
@@ -1281,6 +1285,52 @@ void Server_Cmd_USERFLAGS(tClient *Client, char *Args)
 	
 	// Return OK
 	sendf(Client->Socket, "200 User Updated\n");
+}
+
+void Server_Cmd_UPDATEITEM(tClient *Client, char *Args)
+{
+	char	*itemname, *price_str, *description;
+	 int	price;
+	tItem	*item;
+	
+	if( Server_int_ParseArgs(1, Args, &itemname, &price_str, &description, NULL) ) {
+		sendf(Client->Socket, "407 UPDATE_ITEM takes 3 arguments\n");
+		return ;
+	}
+	
+	if( !Client->bIsAuthed ) {
+		sendf(Client->Socket, "401 Not Authenticated\n");
+		return ;
+	}
+
+	// Check user permissions
+	if( !(Bank_GetFlags(Client->UID) & (USER_FLAG_COKE|USER_FLAG_ADMIN))  ) {
+		sendf(Client->Socket, "403 Not in coke\n");
+		return ;
+	}
+	
+	item = _GetItemFromString(itemname);
+	if( !item ) {
+		// TODO: Create item?
+		sendf(Client->Socket, "406 Bad Item ID\n");
+		return ;
+	}
+	
+	price = atoi(price_str);
+	if( price <= 0 && price_str[0] != '0' ) {
+		sendf(CLient->Socket, "407 Invalid price set\n");
+	}
+	
+	// Update the item
+	free(item->Name);
+	item->Name = strdup(description);
+	item->Price = price;
+	
+	// Update item file
+	Items_UpdateFile();
+	
+	// Return OK
+	sendf(Client->Socket, "200 Item updated\n");
 }
 
 // --- INTERNAL HELPERS ---

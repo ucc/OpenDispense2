@@ -57,7 +57,7 @@ s	200 Auth OK as <username>\n or 401 Untrusted\n or 404 Bad Card ID\n
 c	SETEUSER <username>\n
 s	200 User set\n or 403 Not in coke\n or 404 User not found\n
 
-=== Commands ===
+=== Standard User Commands ===
 --- Dispense an item ---
 c	DISPENSE <item_id>\n
 s	200 Dispense OK\n or 402 Poor You\n or 406 Bad Item\n or 500 Dispense Error\n
@@ -67,10 +67,20 @@ s	200 Give OK\n or 402 Poor You\n or 404 Bad User\n
 --- Donate to the club ---
 c	DONATE <ammount> <reason>\n
 s	200 Give OK\n or 402 Poor You\n
+
+=== Coke Member Commands (Account Manipulation) ===
 --- Alter balance ---
 c	ADD <user> <ammount> <reason>\n
 s	200 Add OK\n or 402 No balance\n or 403 Not Coke\n or 404 Bad User\n
+--- Set balance ---
+c	SET <user> <balance> <reason>\n
+s	200 Add OK\n or 402 No balance\n or 403 Not Coke\n or 404 Bad User\n
+--- Refund a drink ---
+c	REFUND <user> <item>[ <price>]\n
+s	200 Add OK\n or 403 Not Coke\n or 404 Bad User\n 406 Bad Item\n
 
+
+=== Items ===
 --- Get Item list ---
 c	ENUM_ITEMS\n
 s	201 Items <count>\n
@@ -81,6 +91,11 @@ s	200 List End\n
 c	ITEM_INFO <item_id>\n
 s	202 Item <item_id> <status> <price> <description>\n
 <status>	"avail", "sold", or "error"
+--- Update an item ---
+c	UPDATE_ITEM <item_id> <price> <name>\n
+s	200 Item updated
+
+=== Users ===
 --- Get Users' Balances ---
 c	ENUM_USERS[ min_balance:<balance>][ max_balance:<balance>][ flags:<flagset>][ last_seen_before:<unix_timestamp>][ last_seen_after:<unix_timestamp>][ sort:<field>[-desc]]\n
 s	201 Users <count>\n
@@ -95,6 +110,7 @@ s	200 List End\n
 c	USER_INFO\n
 s	202 User <username> <balance> <flags>\n
 
+=== User Manipulation ===
 --- Add a new user ---
 c	USER_ADD <username>\n
 s	200 User Added\n or 403 Not Wheel\n or 404 User Exists\n

@@ -102,6 +102,7 @@ void Load_Itemlist(void)
 	// TODO: Be less lazy here and check the timestamp
 	AddPeriodicFunction( Items_ReadFromFile );
 }
+
 /**
  * \brief Read the item list from disk
  */
@@ -220,6 +221,159 @@ void Items_ReadFromFile(void)
 	
 	gItems_LastUpdated = time(NULL);
 }
+
+/**
+ * \brief Update the item file from the internal database
+ */
+void Items_UpdateFile(void)
+{
+	FILE	*fp;
+	char	buffer[BUFSIZ];
+	char	*line;
+	 int	lineNum = 0;
+	 int	i;
+	regmatch_t	matches[5];
+	char	**line_comments;
+	 int	*line_items;
+
+	// Error check
+	fp = fopen(gsItemListFile, "r");
+	if(!fp) {
+		fprintf(stderr, "Unable to open item file '%s'\n", gsItemListFile);
+		perror("Unable to open item file");
+		return ;
+	}
+	
+	// Count lines
+	while( fgets(buffer, BUFSIZ, fp) )
+	{
+		lineNum ++;
+	}
+	
+	line_comments = malloc(lineNum * sizeof(char*));
+	line_items = malloc(lineNum * sizeof(int));
+	
+	// Parse file
+	lineNum = 0;
+	fseek(fp, 0, SEEK_SET);
+	while( fgets(buffer, BUFSIZ, fp) )
+	{
+		char	*hashPos, *semiPos;
+		char	*type;
+		 int	num;
+		tHandler	*handler;
+
+		lineNum ++;
+		line_items[lineNum-1] = -1;
+		line_comments[lineNum-1] = NULL;
+
+		// Get comments
+		hashPos = strchr(buffer, '#');
+		semiPos = strchr(buffer, ';');
+		if( hashPos && semiPos ) {
+			if( hashPos < semiPos )
+				line_comments[lineNum-1] = strdup(hashPos);
+		}
+		else if( hashPos ) {
+			line_comments[lineNum-1] = strdup(hashPos);
+		}
+		else if( semiPos ) {
+			line_comments[lineNum-1] = strdup(semiPos);
+		}
+		if(hashPos)	*hashPos = '\0';
+		if(semiPos)	*semiPos = '\0';
+		
+		// Trim whitespace
+		line = trim(buffer);
+		if(strlen(line) == 0)	continue;
+		
+		// Pass regex over line
+		if( RunRegex( &gItemFile_Regex, line, 5, matches, NULL) ) {
+			fprintf(stderr, "Syntax error on line %i of item file '%s'\n", lineNum, gsItemListFile);
+			return ;
+		}
+
+		// Read line data
+		type  = line + matches[1].rm_so;	line[ matches[1].rm_eo ] = '\0';
+		num   = atoi( line + matches[2].rm_so );
+
+		// Find handler
+		handler = NULL;
+		for( i = 0; i < giNumHandlers; i ++ )
+		{
+			if( strcmp(type, gaHandlers[i]->Name) == 0 ) {
+				handler = gaHandlers[i];
+				break;
+			}
+		}
+		if( !handler ) {
+			fprintf(stderr, "Warning: Unknown item type '%s' on line %i\n", type, lineNum);
+			continue ;
+		}
+
+		for( i = 0; i < giNumItems; i ++ )
+		{
+			if( gaItems[i].Handler != handler )	continue;
+			if( gaItems[i].ID != num )	continue;
+			
+			line_items[lineNum-1] = i;
+			break;
+		}
+		if( i >= giNumItems ) {
+			continue;
+		}
+	}
+	
+	fclose(fp);
+	
+	fp = fopen("items.cfg.new", "w");	// DEBUG: Don't kill the real item file until debugged
+	
+	// Create new file
+	{
+		 int	done_items[giNumItems];
+		memset(done_items, 0, sizeof(done_items));
+		
+		// Existing items
+		for( i = 0; i < lineNum; i ++ )
+		{
+			if( line_items[i] != -1 ) {
+				tItem	*item = &gaItems[ line_items[i] ];
+				
+				if( done_items[ line_items[i] ] ) {
+					fprintf(fp, "; DUP -");
+				}
+				
+				done_items[ line_items[i] ] = 1;
+				fprintf(fp, "%s\t%i\t%i\t%s\t",
+					item->Handler->Name, item->ID, item->Price, item->Name
+					);
+			}
+			
+			if( line_comments[i] ) {
+				fprintf(fp, "%s", line_comments[i]);
+				free( line_comments[i] );
+			}
+			
+			fprintf(fp, "\n");
+		}
+		
+		// New items
+		for( i = 0; i < giNumItems; i ++ )
+		{
+			tItem	*item = &gaItems[i];
+			if( done_items[i] )	continue ;
+			
+			fprintf(fp, "%s\t%i\t%i\t%s\n",
+				item->Handler->Name, item->ID, item->Price, item->Name
+				);
+		}
+	}
+	
+	free( line_comments );
+	free( line_items );
+	fclose(fp);
+}
+
 
 char *trim(char *__str)
 {
