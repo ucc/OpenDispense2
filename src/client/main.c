@@ -49,8 +49,10 @@ enum eReturnValues
 	RV_PERMISSIONS,
 	RV_ARGUMENTS,
 	RV_BALANCE,
+	RV_SERVER_ERROR,	// Generic for 5xx codes
 	RV_UNKNOWN_ERROR = -1,
-	RV_SOCKET_ERROR = -2
+	RV_SOCKET_ERROR = -2,
+	RV_UNKNOWN_RESPONSE = -3,
 };
 
 // === TYPES ===
@@ -63,8 +65,8 @@ typedef struct sItem {
 }	tItem;
 
 // === PROTOTYPES ===
- int	main(int argc, char *argv[]);
 void	ShowUsage(void);
+ int	main(int argc, char *argv[]);
 // --- GUI ---
  int	ShowNCursesUI(void);
  int	ShowItemAt(int Row, int Col, int Width, int Index, int bHilighted);
@@ -114,6 +116,60 @@ char	*gsUserFlags;	//!< User's flag set
  int	giDispenseCount = 1;	//!< Number of dispenses to do
 
 // === CODE ===
+void ShowUsage(void)
+{
+	printf(
+		"Usage:\n"
+		"  == Everyone ==\n"
+		"    dispense\n"
+		"        Show interactive list\n"
+		"    dispense <name>|<index>|<itemid>\n"
+		"        Dispense named item (<name> matches if it is a unique prefix)\n"
+		"    dispense give <user> <ammount> \"<reason>\"\n"
+		"        Give money to another user\n"
+		"    dispense donate <ammount> \"<reason>\"\n"
+		"        Donate to the club\n"
+		"    dispense iteminfo <itemid>\n"
+		"        Get the name and price for an item\n"
+		"  == Coke members == \n"
+		"    dispense acct [<user>]\n"
+		"        Show user balances\n"
+		"    dispense acct <user> [+-]<ammount> \"<reason>\"\n"
+		"        Alter a account value\n"
+		"    dispense refund <user> <itemid> [<price>]\n"
+		"        Refund an item to a user (with optional price override)\n"
+		"  == Dispense administrators ==\n"
+		"    dispense acct <user> =<ammount> \"<reason>\"\n"
+		"        Set an account balance\n"
+		"    dispense user add <user>\n"
+		"        Create new account\n"
+		"    dispense user type <user> <flags>\n"
+		"        Alter a user's flags\n"
+		"        <flags> is a comma-separated list of user, coke, admin, internal or disabled\n"
+		"        Flags are removed by preceding the name with '-' or '!'\n"
+		"\n"
+		"General Options:\n"
+		"    -c <count>\n"
+		"        Dispense multiple times\n"
+		"    -u <username>\n"
+		"        Set a different user (Coke members only)\n"
+		"    -h / -?\n"
+		"        Show help text\n"
+		"    -G\n"
+		"        Use alternate GUI\n"
+		"    -n\n"
+		"        Dry run - Do not actually do dispenses\n"
+		"    -m <min balance>\n"
+		"    -M <max balance>\n"
+		"        Set the Maximum/Minimum balances shown in `dispense acct`\n"
+		"Definitions:\n"
+		"    <itemid>\n"
+		"        Item ID of the form <type>:<num> where <type> is a non-empty string of alpha-numeric characters, and <num> is a non-negative integer\n"
+//		"    <user>\n"
+//		"        Account name\n"
+		);
+}
+
 int main(int argc, char *argv[])
 {
 	 int	sock;
@@ -217,6 +273,11 @@ int main(int argc, char *argv[])
 				gbDryRun = 1;
 				break;
 			default:
+				if( !isdigit(argv[i][0]) ) {
+					fprintf(stderr, "%s: Unknown switch '%s'\n", argv[0], argv[i]);
+					ShowUsage();
+					return RV_ARGUMENTS;
+				}
 				if( text_argc + 1 ==  MAX_TXT_ARGS )
 				{
 					fprintf(stderr, "ERROR: Too many arguments\n");
@@ -640,51 +701,6 @@ int main(int argc, char *argv[])
 	}
 
 	return ret;
-}
-
-void ShowUsage(void)
-{
-	printf(
-		"Usage:\n"
-		"  == Everyone ==\n"
-		"    dispense\n"
-		"        Show interactive list\n"
-		"    dispense <name>|<index>|<itemid>\n"
-		"        Dispense named item (<name> matches if it is a unique prefix)\n"
-		"    dispense give <user> <ammount> \"<reason>\"\n"
-		"        Give money to another user\n"
-		"    dispense donate <ammount> \"<reason>\"\n"
-		"        Donate to the club\n"
-		"    dispense iteminfo <type>:<id>\n"
-		"        Get the name and price for an item\n"
-		"  == Coke members == \n"
-		"    dispense acct [<user>]\n"
-		"        Show user balances\n"
-		"    dispense acct <user> [+-]<ammount> \"<reason>\"\n"
-		"        Alter a account value\n"
-		"  == Dispense administrators ==\n"
-		"    dispense acct <user> =<ammount> \"<reason>\"\n"
-		"        Set an account balance\n"
-		"    dispense user add <user>\n"
-		"        Create new coke account (Admins only)\n"
-		"    dispense user type <user> <flags>\n"
-		"        Alter a user's flags\n"
-		"        <flags> is a comma-separated list of user, coke, admin or disabled\n"
-		"        Flags are removed by preceding the name with '-' or '!'\n"
-		"\n"
-		"General Options:\n"
-		"    -c <count>\n"
-		"        Dispense multiple times\n"
-		"    -u <username>\n"
-		"        Set a different user (Coke members only)\n"
-		"    -h / -?\n"
-		"        Show help text\n"
-		"    -G\n"
-		"        Use alternate GUI\n"
-		"    -m <min balance>\n"
-		"    -M <max balance>\n"
-		"        Set the Maximum/Minimum balances shown in `dispense acct`\n"
-		);
 }
 
 // -------------------
@@ -1530,11 +1546,11 @@ int DispenseItem(int Socket, const char *Type, int ID)
 		break;
 	case 500:
 		printf("Item failed to dispense, is the slot empty?\n");
-		ret = 1;
+		ret = RV_SERVER_ERROR;
 		break;
 	case 501:
 		printf("Dispense not possible (slot empty/permissions)\n");
-		ret = 1;
+		ret = RV_SERVER_ERROR;
 		break;
 	default:
 		printf("Unknown response code %i ('%s')\n", responseCode, buf);
@@ -1577,16 +1593,16 @@ int Dispense_AlterBalance(int Socket, const char *Username, int Ammount, const c
 	case 200:	return 0;	// OK
 	case 402:
 		fprintf(stderr, "Insufficient balance\n");
-		return 1;
+		return RV_BAD_ITEM;
 	case 403:	// Not in coke
 		fprintf(stderr, "You are not in coke (sucker)\n");
-		return 1;
+		return RV_PERMISSIONS;
 	case 404:	// Unknown user
 		fprintf(stderr, "Unknown user '%s'\n", Username);
-		return 2;
+		return RV_INVALID_USER;
 	default:
 		fprintf(stderr, "Unknown response code %i\n", responseCode);
-		return -1;
+		return RV_UNKNOWN_RESPONSE;
 	}
 	
 	return -1;
@@ -1618,13 +1634,13 @@ int Dispense_SetBalance(int Socket, const char *Username, int Balance, const cha
 	case 200:	return 0;	// OK
 	case 403:	// Not in coke
 		fprintf(stderr, "You are not an admin\n");
-		return 1;
+		return RV_PERMISSIONS;
 	case 404:	// Unknown user
 		fprintf(stderr, "Unknown user '%s'\n", Username);
-		return 2;
+		return RV_INVALID_USER;
 	default:
 		fprintf(stderr, "Unknown response code %i\n", responseCode);
-		return -1;
+		return RV_UNKNOWN_RESPONSE;
 	}
 	
 	return -1;
@@ -1640,13 +1656,13 @@ int Dispense_Give(int Socket, const char *Username, int Ammount, const char *Rea
 	
 	if( Ammount < 0 ) {
 		printf("Sorry, you can only give, you can't take.\n");
-		return 1;
+		return RV_ARGUMENTS;
 	}
 	
 	// Fast return on zero
 	if( Ammount == 0 ) {
 		printf("Are you actually going to give any?\n");
-		return 1;
+		return RV_ARGUMENTS;
 	}
 	
 	// Check for a dry run
@@ -1664,19 +1680,19 @@ int Dispense_Give(int Socket, const char *Username, int Ammount, const char *Rea
 	{
 	case 200:
 		printf("Give succeeded\n");
-		return 0;	// OK
+		return RV_SUCCESS;	// OK
 	
 	case 402:	
 		fprintf(stderr, "Insufficient balance\n");
-		return 1;
+		return RV_BALANCE;
 	
 	case 404:	// Unknown user
 		fprintf(stderr, "Unknown user '%s'\n", Username);
-		return 2;
+		return RV_INVALID_USER;
 	
 	default:
 		fprintf(stderr, "Unknown response code %i\n", responseCode);
-		return -1;
+		return RV_UNKNOWN_RESPONSE;
 	}
 	
 	return -1;
@@ -1702,7 +1718,7 @@ int Dispense_Refund(int Socket, const char *Username, const char *Item, int Pric
 	}
 
 	// Send the query
-	sendf(Socket, "REFUND %s %s %i", Username, Item, PriceOverride);
+	sendf(Socket, "REFUND %s %s %i\n", Username, Item, PriceOverride);
 
 	buf = ReadLine(Socket);
 	responseCode = atoi(buf);

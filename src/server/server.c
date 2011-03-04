@@ -253,7 +253,7 @@ void Server_Cleanup(void)
 {
 	printf("\nClose(%i)\n", giServer_Socket);
 	close(giServer_Socket);
-	unlink("/var/run/dispsrv");
+	unlink("/var/run/dispsrv.pid");
 }
 
 /**
