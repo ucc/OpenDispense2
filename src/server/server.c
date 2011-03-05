@@ -585,6 +585,10 @@ void Server_int_SendItem(tClient *Client, tItem *Item)
 		}
 	}
 	
+	// KNOWN HACK: Naming a slot 'dead' disables it
+	if( strcmp(Item->Name, "dead") == 0 )
+		status = "sold";	// Another status?
+	
 	sendf(Client->Socket,
 		"202 Item %s:%i %s %i %s\n",
 		Item->Handler->Name, Item->ID, status, Item->Price, Item->Name
@@ -1321,16 +1325,15 @@ void Server_Cmd_UPDATEITEM(tClient *Client, char *Args)
 		sendf(Client->Socket, "407 Invalid price set\n");
 	}
 	
-	// Update the item
-	free(item->Name);
-	item->Name = strdup(description);
-	item->Price = price;
-	
-	// Update item file
-	Items_UpdateFile();
-	
-	// Return OK
-	sendf(Client->Socket, "200 Item updated\n");
+	switch( DispenseUpdateItem( Client->UID, item, description, price ) )
+	{
+	case 0:
+		// Return OK
+		sendf(Client->Socket, "200 Item updated\n");
+		break;
+	default:
+		break;
+	}
 }
 
 // --- INTERNAL HELPERS ---

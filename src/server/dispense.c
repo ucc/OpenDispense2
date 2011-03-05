@@ -31,6 +31,10 @@ int DispenseItem(int ActualUser, int User, tItem *Item)
 	
 	handler = Item->Handler;
 	
+	// KNOWN HACK: Naming a slot "dead" disables it
+	if( strcmp(Item->Name, "dead") == 0 )
+		return 1;
+	
 	// Check if the dispense is possible
 	if( handler->CanDispense ) {
 		ret = handler->CanDispense( User, Item->ID );
@@ -44,8 +48,8 @@ int DispenseItem(int ActualUser, int User, tItem *Item)
 	if( handler->DoDispense ) {
 		ret = handler->DoDispense( User, Item->ID );
 		if(ret) {
-			Log_Error("Dispense failed (%s dispensing '%s' - %ic)",
-				username, Item->Name, Item->Price);
+			Log_Error("Dispense failed (%s dispensing %s:%i '%s')",
+				username, Item->Name, Item->Handler->Name, Item->ID);
 			free( username );
 			return -1;	// 1: Unknown Error again
 		}
@@ -125,8 +129,8 @@ int DispenseGive(int ActualUser, int SrcUser, int DestUser, int Ammount, const c
 	srcName = Bank_GetAcctName(SrcUser);
 	dstName = Bank_GetAcctName(DestUser);
 	
-	Log_Info("give %i to %s from %s by %s [balances %i, %i] - %s",
-		Ammount, dstName, srcName, actualUsername,
+	Log_Info("give %i from %s to %s by %s [balances %i, %i] - %s",
+		Ammount, srcName, dstName, actualUsername,
 		Bank_GetBalance(SrcUser), Bank_GetBalance(DestUser),
 		ReasonGiven
 		);
@@ -138,6 +142,7 @@ int DispenseGive(int ActualUser, int SrcUser, int DestUser, int Ammount, const c
 	return 0;
 }
 
+#if 0 // Dead Code
 /**
  * \brief Move money from one user to another (Admin Only)
  */
@@ -159,8 +164,8 @@ int DispenseTransfer(int ActualUser, int SrcUser, int DestUser, int Ammount, con
 	srcName = Bank_GetAcctName(SrcUser);
 	dstName = Bank_GetAcctName(DestUser);
 	
-	Log_Info("move %i to %s from %s by %s [balances %i, %i] - %s",
-		Ammount, dstName, srcName, actualUsername,
+	Log_Info("move %i from %s to %s by %s [balances %i, %i] - %s",
+		Ammount, srcName, dstName, actualUsername,
 		Bank_GetBalance(SrcUser), Bank_GetBalance(DestUser),
 		ReasonGiven
 		);
@@ -171,6 +176,8 @@ int DispenseTransfer(int ActualUser, int SrcUser, int DestUser, int Ammount, con
 	
 	return 0;
 }
+#endif
+
 /**
  * \brief Add money to an account
  */
@@ -241,6 +248,35 @@ int DispenseDonate(int ActualUser, int User, int Ammount, const char *ReasonGive
 	
 	free(byName);
 	free(srcName);
+	
+	return 0;
+}
+
+int DispenseUpdateItem(int User, tItem *Item, const char *NewName, int NewPrice)
+{
+	char	*username;
+	
+	// Sanity checks
+	if( NewPrice < 0 )	return 2;
+	if( !Item )	return 2;
+	if( strlen(NewName) < 1 )	return 2;
+	
+	// Update the item
+	free(Item->Name);
+	Item->Name = strdup(NewName);
+	Item->Price = NewPrice;
+	
+	username = Bank_GetAcctName(User);
+	
+	Log_Info("item %s:%i updated to '%s' %i by %s",
+		Item->Handler->Name, Item->ID,
+		NewName, NewPrice, username
+		);
+	
+	free(username);
+	
+	// Update item file
+	Items_UpdateFile();
 	
 	return 0;
 }

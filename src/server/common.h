@@ -88,6 +88,7 @@ extern int	DispenseGive(int ActualUser, int SrcUser, int DestUser, int Ammount, 
 extern int	DispenseAdd(int ActualUser, int User, int Ammount, const char *ReasonGiven);
 extern int	DispenseSet(int ActualUser, int User, int Balance, const char *ReasonGiven);
 extern int	DispenseDonate(int ActualUser, int User, int Ammount, const char *ReasonGiven);
+extern int	DispenseUpdateItem(int User, tItem *Item, const char *NewName, int NewPrice);
 
 // --- Logging ---
 extern void	Log_Error(const char *Format, ...);
