@@ -287,11 +287,11 @@ int main(int argc, char *argv[])
 				gbDryRun = 1;
 				break;
 			default:
-				if( !isdigit(argv[i][0]) ) {
-					fprintf(stderr, "%s: Unknown switch '%s'\n", argv[0], argv[i]);
-					ShowUsage();
-					return RV_ARGUMENTS;
-				}
+//				if( !isdigit(argv[i][0]) ) {
+//					fprintf(stderr, "%s: Unknown switch '%s'\n", argv[0], argv[i]);
+//					ShowUsage();
+//					return RV_ARGUMENTS;
+//				}
 				if( text_argc + 1 ==  MAX_TXT_ARGS )
 				{
 					fprintf(stderr, "ERROR: Too many arguments\n");
@@ -2160,6 +2160,10 @@ char *ReadLine(int Socket)
 		}
 		else {
 			len = recv(Socket, buf+bufPos, BUFSIZ-1-bufPos, 0);
+			if( len < 0 ) {
+				free(ret);
+				return strdup("499 Client Connection Error\n");
+			}
 			buf[bufPos+len] = '\0';
 		}
 		
