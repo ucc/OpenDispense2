@@ -8,6 +8,7 @@
  int	_GetMinBalance(int Account);
  int	_CanTransfer(int Source, int Destination, int Ammount);
  int	_Transfer(int Source, int Destination, int Ammount, const char *Reason);
+ int	_GetSalesAcct(tItem *Item);
 
 // === CODE ===
 /**
@@ -21,7 +22,9 @@ int DispenseItem(int ActualUser, int User, tItem *Item)
 	tHandler	*handler;
 	char	*username, *actualUsername;
 	
-	salesAcct = Bank_GetAcctByName(COKEBANK_SALES_ACCT);
+	handler = Item->Handler;
+	
+	salesAcct = _GetSalesAcct(Item);
 
 	// Check if the user can afford it
 	if( Item->Price && !_CanTransfer(User, salesAcct, Item->Price) )
@@ -29,9 +32,7 @@ int DispenseItem(int ActualUser, int User, tItem *Item)
 		return 2;	// 2: No balance
 	}
 	
-	handler = Item->Handler;
-	
-	// KNOWN HACK: Naming a slot "dead" disables it
+	// HACK: Naming a slot "dead" disables it
 	if( strcmp(Item->Name, "dead") == 0 )
 		return 1;
 	
@@ -86,7 +87,7 @@ int DispenseRefund(int ActualUser, int DestUser, tItem *Item, int OverridePrice)
 	 int	src_acct, price;
 	char	*username, *actualUsername;
 
-	src_acct = Bank_GetAcctByName(COKEBANK_SALES_ACCT);
+	src_acct = _GetSalesAcct(Item);
 
 	if( OverridePrice > 0 )
 		price = OverridePrice;
@@ -187,9 +188,9 @@ int DispenseAdd(int ActualUser, int User, int Ammount, const char *ReasonGiven)
 	char	*dstName, *byName;
 	
 #if DISPENSE_ADD_BELOW_MIN
-	ret = _Transfer( Bank_GetAcctByName(COKEBANK_DEBT_ACCT), User, Ammount, ReasonGiven );
+	ret = _Transfer( Bank_GetAcctByName(COKEBANK_DEBT_ACCT,1), User, Ammount, ReasonGiven );
 #else
-	ret = Bank_Transfer( Bank_GetAcctByName(COKEBANK_DEBT_ACCT), User, Ammount, ReasonGiven );
+	ret = Bank_Transfer( Bank_GetAcctByName(COKEBANK_DEBT_ACCT,1), User, Ammount, ReasonGiven );
 #endif
 	if(ret)	return 2;
 	
@@ -211,7 +212,7 @@ int DispenseSet(int ActualUser, int User, int Balance, const char *ReasonGiven)
 	 int	curBal = Bank_GetBalance(User);
 	char	*byName, *dstName;
 	
-	_Transfer( Bank_GetAcctByName(COKEBANK_DEBT_ACCT), User, Balance-curBal, ReasonGiven );
+	_Transfer( Bank_GetAcctByName(COKEBANK_DEBT_ACCT,1), User, Balance-curBal, ReasonGiven );
 	
 	byName = Bank_GetAcctName(ActualUser);
 	dstName = Bank_GetAcctName(User);
@@ -236,7 +237,7 @@ int DispenseDonate(int ActualUser, int User, int Ammount, const char *ReasonGive
 	
 	if( Ammount < 0 )	return 2;
 	
-	ret = _Transfer( User, Bank_GetAcctByName(COKEBANK_DEBT_ACCT), Ammount, ReasonGiven );
+	ret = _Transfer( User, Bank_GetAcctByName(COKEBANK_DEBT_ACCT,1), Ammount, ReasonGiven );
 	if(ret)	return 2;
 	
 	byName = Bank_GetAcctName(ActualUser);
@@ -335,4 +336,12 @@ int _Transfer(int Source, int Destination, int Ammount, const char *Reason)
 	if( !_CanTransfer(Source, Destination, Ammount) )
 		return 1;
 	return Bank_Transfer(Source, Destination, Ammount, Reason);
+}
+
+int _GetSalesAcct(tItem *Item)
+{
+	char string[sizeof(COKEBANK_SALES_PREFIX)+strlen(Item->Handler->Name)];
+	strcpy(string, COKEBANK_SALES_PREFIX);
+	strcat(string, Item->Handler->Name);
+	return Bank_GetAcctByName(string, 1);
 }

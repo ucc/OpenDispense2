@@ -17,6 +17,7 @@
 #include <stdlib.h>
 
 #define COKEBANK_SALES_ACCT	">sales"	//!< Sales made into
+#define COKEBANK_SALES_PREFIX	">sales:"	//!< Sales made into
 #define COKEBANK_DEBT_ACCT	">liability"	//!< Credit taken out of
 #define COKEBANK_FREE_ACCT	">freeitems"	//!< ODay drink costs taken out of
 
@@ -135,7 +136,7 @@ extern char	*Bank_GetAcctName(int AcctID);
  * \param Name	Name to search for
  * \return ID of the account, or -1 if not found
  */
-extern int	Bank_GetAcctByName(const char *Name);
+extern int	Bank_GetAcctByName(const char *Name, int bCreate);
 /**
  * \brief Create a new account
  * \param Name	Name for the new account (if NULL, an anoymous account is created)

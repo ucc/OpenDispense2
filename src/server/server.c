@@ -479,7 +479,7 @@ void Server_Cmd_AUTOAUTH(tClient *Client, char *Args)
 	}
 	
 	// Get UID
-	Client->UID = Bank_GetAcctByName( username );	
+	Client->UID = Bank_GetAcctByName( username, 0 );	
 	if( Client->UID < 0 ) {
 		if(giDebugLevel)
 			Debug(Client, "Unknown user '%s'", username);
@@ -539,7 +539,7 @@ void Server_Cmd_SETEUSER(tClient *Client, char *Args)
 	}
 	
 	// Set id
-	Client->EffectiveUID = Bank_GetAcctByName(username);
+	Client->EffectiveUID = Bank_GetAcctByName(username, 0);
 	if( Client->EffectiveUID == -1 ) {
 		sendf(Client->Socket, "404 User not found\n");
 		return ;
@@ -748,7 +748,7 @@ void Server_Cmd_REFUND(tClient *Client, char *Args)
 		return ;
 	}
 
-	uid = Bank_GetAcctByName(username);
+	uid = Bank_GetAcctByName(username, 0);
 	if( uid == -1 ) {
 		sendf(Client->Socket, "404 Unknown user\n");
 		return ;
@@ -790,7 +790,7 @@ void Server_Cmd_GIVE(tClient *Client, char *Args)
 	}
 
 	// Get recipient
-	uid = Bank_GetAcctByName(recipient);
+	uid = Bank_GetAcctByName(recipient, 0);
 	if( uid == -1 ) {
 		sendf(Client->Socket, "404 Invalid target user\n");
 		return ;
@@ -901,7 +901,7 @@ void Server_Cmd_ADD(tClient *Client, char *Args)
 	}
 
 	// Get recipient
-	uid = Bank_GetAcctByName(user);
+	uid = Bank_GetAcctByName(user, 0);
 	if( uid == -1 ) {
 		sendf(Client->Socket, "404 Invalid user\n");
 		return ;
@@ -962,7 +962,7 @@ void Server_Cmd_SET(tClient *Client, char *Args)
 	}
 
 	// Get recipient
-	uid = Bank_GetAcctByName(user);
+	uid = Bank_GetAcctByName(user, 0);
 	if( uid == -1 ) {
 		sendf(Client->Socket, "404 Invalid user\n");
 		return ;
@@ -1175,7 +1175,7 @@ void Server_Cmd_USERINFO(tClient *Client, char *Args)
 	if( giDebugLevel )	Debug(Client, "User Info '%s'", user);
 	
 	// Get recipient
-	uid = Bank_GetAcctByName(user);
+	uid = Bank_GetAcctByName(user, 0);
 	
 	if( giDebugLevel >= 2 )	Debug(Client, "uid = %i", uid);
 	if( uid == -1 ) {
@@ -1270,7 +1270,7 @@ void Server_Cmd_USERFLAGS(tClient *Client, char *Args)
 	}
 	
 	// Get UID
-	uid = Bank_GetAcctByName(username);
+	uid = Bank_GetAcctByName(username, 0);
 	if( uid == -1 ) {
 		sendf(Client->Socket, "404 User '%s' not found\n", username);
 		return ;

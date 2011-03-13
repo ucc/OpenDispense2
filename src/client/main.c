@@ -286,12 +286,25 @@ int main(int argc, char *argv[])
 			case 'n':	// Dry Run / read-only
 				gbDryRun = 1;
 				break;
+			case '-':
+				if( strcmp(argv[i], "--help") == 0 ) {
+					ShowUsage();
+					return 0;
+				}
+				else {
+					fprintf(stderr, "%s: Unknown switch '%s'\n", argv[0], argv[i]);
+					ShowUsage();
+					return RV_ARGUMENTS;
+				}
+				break;
 			default:
-//				if( !isdigit(argv[i][0]) ) {
-//					fprintf(stderr, "%s: Unknown switch '%s'\n", argv[0], argv[i]);
-//					ShowUsage();
-//					return RV_ARGUMENTS;
-//				}
+				// The first argument is not allowed to begin with 'i'
+				// (catches most bad flags)
+				if( text_argc == 0 ) {
+					fprintf(stderr, "%s: Unknown switch '%s'\n", argv[0], argv[i]);
+					ShowUsage();
+					return RV_ARGUMENTS;
+				}
 				if( text_argc + 1 ==  MAX_TXT_ARGS )
 				{
 					fprintf(stderr, "ERROR: Too many arguments\n");
@@ -1076,7 +1089,7 @@ int ShowItemAt(int Row, int Col, int Width, int Index, int bHilighted)
 	}
 	
 	// If the item isn't availiable for sale, return -1 (so it's skipped)
-	if( status )
+	if( status || price >= giUserBalance )
 		Index = -1;
 	
 	return Index;
@@ -1990,7 +2003,7 @@ void _PrintUserLine(const char *Line)
 		flags[flagsLen] = '\0';
 		
 		bal = atoi(Line + matches[4].rm_so);
-		printf("%-15s: $%4i.%02i (%s)\n", username, bal/100, abs(bal)%100, flags);
+		printf("%-15s: $%8.02f (%s)\n", username, ((float)bal)/100, flags);
 	}
 }
 

@@ -64,6 +64,7 @@ struct sAcctIterator	// Unused really, just used as a void type
  int	Bank_GetBalance(int AcctID);
 char	*Bank_GetAcctName(int AcctID);
 sqlite3_stmt	*Bank_int_MakeStatemnt(sqlite3 *Database, const char *Query);
+ int	Bank_int_QueryNone(sqlite3 *Database, const char *Query, char **ErrorMessage);
 sqlite3_stmt	*Bank_int_QuerySingle(sqlite3 *Database, const char *Query);
  int	Bank_int_IsValidName(const char *Name);
 
@@ -86,7 +87,7 @@ int Bank_Initialise(const char *Argument)
 	}
 
 	// Check structure
-	rv = sqlite3_exec(gBank_Database, "SELECT acct_id FROM accounts LIMIT 1", NULL, NULL, &errmsg);
+	rv = Bank_int_QueryNone(gBank_Database, "SELECT acct_id FROM accounts LIMIT 1", &errmsg);
 	if( rv == SQLITE_OK )
 	{
 		// NOP
@@ -95,7 +96,7 @@ int Bank_Initialise(const char *Argument)
 	{
 		sqlite3_free(errmsg);
 		// Create tables
-		rv = sqlite3_exec(gBank_Database, csBank_DatabaseSetup, NULL, NULL, &errmsg);
+		rv = Bank_int_QueryNone(gBank_Database, csBank_DatabaseSetup, &errmsg);
 		if( rv != SQLITE_OK ) {
 			fprintf(stderr, "Bank_Initialise - SQLite Error: %s\n", errmsg);
 			sqlite3_free(errmsg);
@@ -127,36 +128,36 @@ int Bank_Transfer(int SourceUser, int DestUser, int Ammount, const char *Reason)
 	Reason = "";	// Shut GCC up
 	
 	// Begin SQL Transaction
-	sqlite3_exec(gBank_Database, "BEGIN TRANSACTION", NULL, NULL, NULL);
+	Bank_int_QueryNone(gBank_Database, "BEGIN TRANSACTION", NULL);
 
 	// Take from the source
-	query = mkstr("UPDATE accounts SET acct_balance=acct_balance-%i,acct_last_seen=datetime('now') WHERE acct_id=%i", Ammount, SourceUser);
+	query = mkstr("UPDATE accounts SET acct_balance=acct_balance%+i,acct_last_seen=datetime('now') WHERE acct_id=%i", -Ammount, SourceUser);
 //	printf("query = \"%s\"\n", query);
-	rv = sqlite3_exec(gBank_Database, query, NULL, NULL, &errmsg);
+	rv = Bank_int_QueryNone(gBank_Database, query, &errmsg);
 	free(query);
 	if( rv != SQLITE_OK )
 	{
 		fprintf(stderr, "Bank_Transfer - SQLite Error: %s\n", errmsg);
 		sqlite3_free(errmsg);
-		sqlite3_exec(gBank_Database, "ROLLBACK", NULL, NULL, NULL);
+		Bank_int_QueryNone(gBank_Database, "ROLLBACK",  NULL);
 		return 1;
 	}
 
 	// Give to the destination
-	query = mkstr("UPDATE accounts SET acct_balance=acct_balance+%i,acct_last_seen=datetime('now') WHERE acct_id=%i", Ammount, DestUser);
+	query = mkstr("UPDATE accounts SET acct_balance=acct_balance%+i,acct_last_seen=datetime('now') WHERE acct_id=%i", Ammount, DestUser);
 //	printf("query = \"%s\"\n", query);
-	rv = sqlite3_exec(gBank_Database, query, NULL, NULL, &errmsg);
+	rv = Bank_int_QueryNone(gBank_Database, query, &errmsg);
 	free(query);
 	if( rv != SQLITE_OK )
 	{
 		fprintf(stderr, "Bank_Transfer - SQLite Error: %s\n", errmsg);
 		sqlite3_free(errmsg);
-		sqlite3_exec(gBank_Database, "ROLLBACK", NULL, NULL, NULL);
+		Bank_int_QueryNone(gBank_Database, "ROLLBACK", NULL);
 		return 1;
 	}
 
 	// Commit transaction
-	sqlite3_exec(gBank_Database, "COMMIT", NULL, NULL, NULL);
+	Bank_int_QueryNone(gBank_Database, "COMMIT", NULL);
 
 	return 0;
 }
@@ -225,7 +226,7 @@ int Bank_SetFlags(int UserID, int Mask, int Value)
 	#endif
 
 	// Execute Query
-	rv = sqlite3_exec(gBank_Database, query, NULL, NULL, &errmsg);
+	rv = Bank_int_QueryNone(gBank_Database, query, &errmsg);
 	if( rv != SQLITE_OK )
 	{
 		fprintf(stderr, "Bank_SetUserFlags - SQLite Error: %s\n", errmsg);
@@ -286,23 +287,36 @@ char *Bank_GetAcctName(int AcctID)
 /*
  * Get an account ID from a name
  */
-int Bank_GetAcctByName(const char *Name)
+int Bank_GetAcctByName(const char *Name, int bCreate)
 {
 	char	*query;
 	sqlite3_stmt	*statement;
 	 int	ret;
 	
-	if( !Bank_int_IsValidName(Name) )	return -1;
+//	printf("Bank_GetAcctByName: (Name='%s',bCreate=%i)\n", Name, bCreate);
+
+	if( !Bank_int_IsValidName(Name) ) {
+//		printf("RETURN: -1 (Bad name)");
+		return -1;
+	}
 	
 	query = mkstr("SELECT acct_id FROM accounts WHERE acct_name='%s' LIMIT 1", Name);
 	statement = Bank_int_QuerySingle(gBank_Database, query);
 	free(query);
-	if( !statement )	return -1;
+	if( !statement ) {
+//		printf("User not found\n");
+		if( bCreate )	return Bank_CreateAcct(Name);
+		return -1;
+	}
 	
 	ret = sqlite3_column_int(statement, 0);
 	sqlite3_finalize(statement);
 	
-	if( ret == 0 )	return -1;
+//	printf("ret = %i\n", ret);
+
+	if( ret == 0 ) {
+		return -1;
+	}
 	return ret;
 }
 
@@ -325,7 +339,7 @@ int Bank_CreateAcct(const char *Name)
 		query = strdup("INSERT INTO accounts (acct_name) VALUES (NULL)");
 	}
 		
-	rv = sqlite3_exec(gBank_Database, query, NULL, NULL, &errmsg);
+	rv = Bank_int_QueryNone(gBank_Database, query, &errmsg);
 	if( rv != SQLITE_OK )
 	{
 		fprintf(stderr, "Bank_CreateAcct - SQLite Error: '%s'\n", errmsg);
@@ -506,7 +520,7 @@ int Bank_AddAcctCard(int AcctID, const char *CardID)
 	// Insert card
 	query = mkstr("INSERT INTO cards (acct_id,card_name) VALUES (%i,'%s')",
 		AcctID, CardID);
-	rv = sqlite3_exec(gBank_Database, query, NULL, NULL, &errmsg);
+	rv = Bank_int_QueryNone(gBank_Database, query, &errmsg);
 	if( rv == SQLITE_CONSTRAINT )
 	{
 		sqlite3_free(errmsg);
@@ -541,6 +555,14 @@ sqlite3_stmt *Bank_int_MakeStatemnt(sqlite3 *Database, const char *Query)
 	}
 	
 	return ret;
+}
+
+int Bank_int_QueryNone(sqlite3 *Database, const char *Query, char **ErrorMessage)
+{
+	#if DEBUG
+	printf("Bank_int_QueryNone: (Query='%s')\n", Query);
+	#endif
+	return sqlite3_exec(Database, Query, NULL, NULL, ErrorMessage);
 }
 
 /*
