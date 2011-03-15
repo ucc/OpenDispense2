@@ -25,6 +25,7 @@
 extern void	Init_Handlers(void);
 extern void	Load_Itemlist(void);
 extern void	Server_Start(void);
+extern int	gbServer_RunInBackground;
 extern int	giServer_Port;
 extern char	*gsItemListFile;
 extern char	*gsCoke_SerialPort;
@@ -85,6 +86,9 @@ int main(int argc, char *argv[])
 				if( i + 1 >= argc )	return -1;
 				giDebugLevel = atoi(argv[++i]);
 				break;
+			case 'D':
+				gbServer_RunInBackground = 1;
+				return -1;
 			default:
 				// Usage Error?
 				PrintUsage(argv[0]);
@@ -116,11 +120,17 @@ int main(int argc, char *argv[])
 				}
 				fgets(buf, sizeof buf, fp);
 				fclose(fp);
-				gsDoor_Password = strdup(buf);;
+				gsDoor_Password = strdup(buf);
 			}
 			else if( strcmp(arg, "--cokebank") == 0 ) {
 				if( i + 1 >= argc )	return -1;
 				gsCokebankPath = argv[++i];
+			}
+			else if( strcmp(arg, "--daemonise") == 0 ) {
+				gbServer_RunInBackground = 1;
+			}
+			else if( strcmp(arg, "--dont-daemonise") == 0 ) {
+				gbServer_RunInBackground = 1;
 			}
 			else {
 				// Usage error?

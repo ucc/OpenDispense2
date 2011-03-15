@@ -14,6 +14,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <fcntl.h>	// O_*
 #include <string.h>
 #include <limits.h>
 #include <stdarg.h>
@@ -147,9 +148,10 @@ void Server_Start(void)
 		return ;
 	}
 
-#if 0
+	// 
 	if( gbServer_RunInBackground )
 	{
+		int newin, newout, newerr;
 		int pid = fork();
 		if( pid == -1 ) {
 			fprintf(stderr, "ERROR: Unable to fork\n");
@@ -160,12 +162,15 @@ void Server_Start(void)
 			// Parent, quit
 			exit(0);
 		}
-		// In child, sort out stdin/stdout
-		reopen(0, "/dev/null", O_READ);
-		reopen(1, gsServer_LogFile, O_CREAT|O_APPEND);
-		reopen(2, gsServer_ErrorLog, O_CREAT|O_APPEND);
+		// In child
+		// - Sort out stdin/stdout
+		newin  = open("/dev/null", O_RDONLY);
+		newout = open(gsServer_LogFile, O_CREAT|O_APPEND, 0644);
+		newerr = open(gsServer_ErrorLog, O_CREAT|O_APPEND, 0644);
+		dup2(newin, 0);
+		dup2(newout, 1);
+		dup2(newerr, 2);
 	}
-#endif
 	
 	// Listen
 	if( listen(giServer_Socket, MAX_CONNECTION_QUEUE) < 0 ) {
