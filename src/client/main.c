@@ -115,62 +115,91 @@ char	*gsUserName;	//!< User that dispense will happen as
 char	*gsUserFlags;	//!< User's flag set
  int	giUserBalance=-1;	//!< User balance (set by Authenticate)
  int	giDispenseCount = 1;	//!< Number of dispenses to do
+char	*gsTextArgs[MAX_TXT_ARGS];
+ int	giTextArgc;
 
 // === CODE ===
 void ShowUsage(void)
 {
-	printf(
-		"Usage:\n"
-		"  == Everyone ==\n"
-		"    dispense\n"
-		"        Show interactive list\n"
-		"    dispense <name>|<index>|<itemid>\n"
-		"        Dispense named item (<name> matches if it is a unique prefix)\n"
-		"    dispense give <user> <ammount> \"<reason>\"\n"
-		"        Give money to another user\n"
-		"    dispense donate <ammount> \"<reason>\"\n"
-		"        Donate to the club\n"
-		"    dispense iteminfo <itemid>\n"
-		"        Get the name and price for an item\n"
-		"  == Coke members == \n"
-		"    dispense acct [<user>]\n"
-		"        Show user balances\n"
-		"    dispense acct <user> [+-]<ammount> \"<reason>\"\n"
-		"        Alter a account value\n"
-		"    dispense refund <user> <itemid> [<price>]\n"
-		"        Refund an item to a user (with optional price override)\n"
-		"    dispense slot <itemid> <price> <name>\n"
-		"        Rename/Re-price a slot\n"
-		"  == Dispense administrators ==\n"
-		"    dispense acct <user> =<ammount> \"<reason>\"\n"
-		"        Set an account balance\n"
-		"    dispense user add <user>\n"
-		"        Create new account\n"
-		"    dispense user type <user> <flags>\n"
-		"        Alter a user's flags\n"
-		"        <flags> is a comma-separated list of user, coke, admin, internal or disabled\n"
-		"        Flags are removed by preceding the name with '-' or '!'\n"
-		"\n"
-		"General Options:\n"
-		"    -c <count>\n"
-		"        Dispense multiple times\n"
-		"    -u <username>\n"
-		"        Set a different user (Coke members only)\n"
-		"    -h / -?\n"
-		"        Show help text\n"
-		"    -G\n"
-		"        Use alternate GUI\n"
-		"    -n\n"
-		"        Dry run - Do not actually do dispenses\n"
-		"    -m <min balance>\n"
-		"    -M <max balance>\n"
-		"        Set the Maximum/Minimum balances shown in `dispense acct`\n"
-		"Definitions:\n"
-		"    <itemid>\n"
-		"        Item ID of the form <type>:<num> where <type> is a non-empty string of alpha-numeric characters, and <num> is a non-negative integer\n"
-//		"    <user>\n"
-//		"        Account name\n"
-		);
+	printf(	"Usage:\n" );
+	if( giTextArgc == 0 )
+		printf(
+			"  == Everyone ==\n"
+			"    dispense\n"
+			"        Show interactive list\n"
+			"    dispense <name>|<index>|<itemid>\n"
+			"        Dispense named item (<name> matches if it is a unique prefix)\n"
+			);
+	if( giTextArgc == 0 || strcmp(gsTextArgs[0], "give") == 0 )
+		printf(
+			"    dispense give <user> <ammount> \"<reason>\"\n"
+			"        Give money to another user\n"
+			);
+	
+	if( giTextArgc == 0 || strcmp(gsTextArgs[0], "donate") == 0 )
+		printf(
+			"    dispense donate <ammount> \"<reason>\"\n"
+			"        Donate to the club\n"
+			);
+	if( giTextArgc == 0 || strcmp(gsTextArgs[0], "iteminfo") == 0 )
+		printf(
+			"    dispense iteminfo <itemid>\n"
+			"        Get the name and price for an item\n"
+			);
+	if( giTextArgc == 0 )
+		printf("  == Coke members == \n");
+	if( giTextArgc == 0 || strcmp(gsTextArgs[0], "acct") == 0 )
+		printf(
+			"    dispense acct [<user>]\n"
+			"        Show user balances\n"
+			"    dispense acct <user> [+-]<ammount> \"<reason>\"\n"
+			"        Alter a account value\n"
+			"    dispense acct <user> =<ammount> \"<reason>\"\n"
+			"        Set an account balance\n"
+			);
+	if( giTextArgc == 0 || strcmp(gsTextArgs[0], "refund") == 0 )
+		printf(
+			"    dispense refund <user> <itemid> [<price>]\n"
+			"        Refund an item to a user (with optional price override)\n"
+			);
+	if( giTextArgc == 0 || strcmp(gsTextArgs[0], "slot") == 0 )
+		printf(
+			"    dispense slot <itemid> <price> <name>\n"
+			"        Rename/Re-price a slot\n"
+			);
+	if( giTextArgc == 0 )
+		printf("  == Dispense administrators ==\n");
+	if( giTextArgc == 0 || strcmp(gsTextArgs[0], "user") == 0 )
+		printf(
+			"    dispense user add <user>\n"
+			"        Create new account\n"
+			"    dispense user type <user> <flags>\n"
+			"        Alter a user's flags\n"
+			"        <flags> is a comma-separated list of user, coke, admin, internal or disabled\n"
+			"        Flags are removed by preceding the name with '-' or '!'\n"
+			);
+	if( giTextArgc == 0 )
+		printf(	"\n"
+			"General Options:\n"
+			"    -c <count>\n"
+			"        Dispense multiple times\n"
+			"    -u <username>\n"
+			"        Set a different user (Coke members only)\n"
+			"    -h / -?\n"
+			"        Show help text\n"
+			"    -G\n"
+			"        Use simple textual interface (instead of ncurses)\n"
+			"    -n\n"
+			"        Dry run - Do not actually do dispenses\n"
+			"    -m <min balance>\n"
+			"    -M <max balance>\n"
+			"        Set the Maximum/Minimum balances shown in `dispense acct`\n"
+			"Definitions:\n"
+			"    <itemid>\n"
+			"        Item ID of the form <type>:<num> where <type> is a non-empty string of alpha-numeric characters, and <num> is a non-negative integer\n"
+//			"    <user>\n"
+//			"        Account name\n"
+			);
 }
 
 int main(int argc, char *argv[])
@@ -178,10 +207,8 @@ int main(int argc, char *argv[])
 	 int	sock;
 	 int	i, ret = 0;
 	char	buffer[BUFSIZ];
-	char	*text_args[MAX_TXT_ARGS];	// Non-flag arguments
-	 int	text_argc = 0;
 	
-	text_args[0] = "";
+	gsTextArgs[0] = "";
 
 	// -- Create regular expressions
 	// > Code Type Count ...
@@ -268,13 +295,13 @@ int main(int argc, char *argv[])
 			
 			// Set slot name/price
 			case 's':
-				if( text_argc != 0 ) {
+				if( giTextArgc != 0 ) {
 					fprintf(stderr, "%s: -s must appear before other arguments\n", argv[0]);
 					ShowUsage();
 					return RV_ARGUMENTS;
 				}
-				text_args[0] = "slot";	// HACK!!
-				text_argc ++;
+				gsTextArgs[0] = "slot";	// HACK!!
+				giTextArgc ++;
 				break;
 			
 			case 'G':	// Don't use GUI
@@ -300,54 +327,54 @@ int main(int argc, char *argv[])
 			default:
 				// The first argument is not allowed to begin with 'i'
 				// (catches most bad flags)
-				if( text_argc == 0 ) {
+				if( giTextArgc == 0 ) {
 					fprintf(stderr, "%s: Unknown switch '%s'\n", argv[0], argv[i]);
 					ShowUsage();
 					return RV_ARGUMENTS;
 				}
-				if( text_argc + 1 ==  MAX_TXT_ARGS )
+				if( giTextArgc + 1 ==  MAX_TXT_ARGS )
 				{
 					fprintf(stderr, "ERROR: Too many arguments\n");
 					return RV_ARGUMENTS;
 				}
-				text_args[text_argc++] = argv[i];
+				gsTextArgs[giTextArgc++] = argv[i];
 				break;
 			}
 
 			continue;
 		}
 
-		if( text_argc + 1 == MAX_TXT_ARGS )
+		if( giTextArgc + 1 == MAX_TXT_ARGS )
 		{
 			fprintf(stderr, "ERROR: Too many arguments\n");
 			return RV_ARGUMENTS;
 		}
 	
-		text_args[text_argc++] = argv[i];
+		gsTextArgs[giTextArgc++] = argv[i];
 	
 	}
 
 	//
 	// `dispense acct`
 	// - 
-	if( strcmp(text_args[0], "acct") == 0 )
+	if( strcmp(gsTextArgs[0], "acct") == 0 )
 	{
 		// Connect to server
 		sock = OpenConnection(gsDispenseServer, giDispensePort);
 		if( sock < 0 )	return RV_SOCKET_ERROR;
 		// List accounts?
-		if( text_argc == 1 ) {
+		if( giTextArgc == 1 ) {
 			ret = Dispense_EnumUsers(sock);
 			close(sock);
 			return ret;
 		}
 			
-		// text_args[1]: Username
+		// gsTextArgs[1]: Username
 		
 		// Alter account?
-		if( text_argc != 2 )
+		if( giTextArgc != 2 )
 		{
-			if( text_argc != 4 ) {
+			if( giTextArgc != 4 ) {
 				fprintf(stderr, "`dispense acct` requires a reason\n");
 				ShowUsage();
 				return RV_ARGUMENTS;
@@ -357,28 +384,28 @@ int main(int argc, char *argv[])
 			ret = Authenticate(sock);
 			if(ret)	return ret;
 			
-			// text_args[1]: Username
-			// text_args[2]: Ammount
-			// text_args[3]: Reason
+			// gsTextArgs[1]: Username
+			// gsTextArgs[2]: Ammount
+			// gsTextArgs[3]: Reason
 			
-			if( text_args[2][0] == '=' ) {
+			if( gsTextArgs[2][0] == '=' ) {
 				// Set balance
-				if( text_args[2][1] != '0' && atoi(text_args[2]+1) == 0 ) {
+				if( gsTextArgs[2][1] != '0' && atoi(gsTextArgs[2]+1) == 0 ) {
 					fprintf(stderr, "Error: Invalid balance to be set\n");
 					exit(1);
 				}
 				
-				ret = Dispense_SetBalance(sock, text_args[1], atoi(text_args[2]+1), text_args[3]);
+				ret = Dispense_SetBalance(sock, gsTextArgs[1], atoi(gsTextArgs[2]+1), gsTextArgs[3]);
 			}
 			else {
 				// Alter balance
-				ret = Dispense_AlterBalance(sock, text_args[1], atoi(text_args[2]), text_args[3]);
+				ret = Dispense_AlterBalance(sock, gsTextArgs[1], atoi(gsTextArgs[2]), gsTextArgs[3]);
 			}
 		}
 		// TODO: Preserve ret if non-zero
 		
 		// Show user information
-		ret = Dispense_ShowUser(sock, text_args[1]);
+		ret = Dispense_ShowUser(sock, gsTextArgs[1]);
 		
 		close(sock);
 		return ret;
@@ -386,17 +413,17 @@ int main(int argc, char *argv[])
 	//
 	// `dispense give`
 	// - "Here, have some money."
-	else if( strcmp(text_args[0], "give") == 0 )
+	else if( strcmp(gsTextArgs[0], "give") == 0 )
 	{
-		if( text_argc != 4 ) {
+		if( giTextArgc != 4 ) {
 			fprintf(stderr, "`dispense give` takes three arguments\n");
 			ShowUsage();
 			return RV_ARGUMENTS;
 		}
 		
-		// text_args[1]: Destination
-		// text_args[2]: Ammount
-		// text_args[3]: Reason
+		// gsTextArgs[1]: Destination
+		// gsTextArgs[2]: Ammount
+		// gsTextArgs[3]: Reason
 		
 		// Connect to server
 		sock = OpenConnection(gsDispenseServer, giDispensePort);
@@ -406,7 +433,7 @@ int main(int argc, char *argv[])
 		ret = Authenticate(sock);
 		if(ret)	return ret;
 		
-		ret = Dispense_Give(sock, text_args[1], atoi(text_args[2]), text_args[3]);
+		ret = Dispense_Give(sock, gsTextArgs[1], atoi(gsTextArgs[2]), gsTextArgs[3]);
 
 		close(sock);
 	
@@ -415,10 +442,10 @@ int main(int argc, char *argv[])
 	// 
 	// `dispense user`
 	// - User administration (Admin Only)
-	if( strcmp(text_args[0], "user") == 0 )
+	if( strcmp(gsTextArgs[0], "user") == 0 )
 	{
 		// Check argument count
-		if( text_argc == 1 ) {
+		if( giTextArgc == 1 ) {
 			fprintf(stderr, "Error: `dispense user` requires arguments\n");
 			ShowUsage();
 			return RV_ARGUMENTS;
@@ -433,26 +460,26 @@ int main(int argc, char *argv[])
 		if(ret)	return ret;
 		
 		// Add new user?
-		if( strcmp(text_args[1], "add") == 0 )
+		if( strcmp(gsTextArgs[1], "add") == 0 )
 		{
-			if( text_argc != 3 ) {
+			if( giTextArgc != 3 ) {
 				fprintf(stderr, "Error: `dispense user add` requires an argument\n");
 				ShowUsage();
 				return RV_ARGUMENTS;
 			}
 			
-			ret = Dispense_AddUser(sock, text_args[2]);
+			ret = Dispense_AddUser(sock, gsTextArgs[2]);
 		}
 		// Update a user
-		else if( strcmp(text_args[1], "type") == 0 || strcmp(text_args[1], "flags") == 0 )
+		else if( strcmp(gsTextArgs[1], "type") == 0 || strcmp(gsTextArgs[1], "flags") == 0 )
 		{
-			if( text_argc != 4 ) {
-				fprintf(stderr, "Error: `dispense user flags` requires two arguments\n");
+			if( giTextArgc != 4 ) {
+				fprintf(stderr, "Error: `dispense user type` requires two arguments\n");
 				ShowUsage();
 				return RV_ARGUMENTS;
 			}
 			
-			ret = Dispense_SetUserType(sock, text_args[2], text_args[3]);
+			ret = Dispense_SetUserType(sock, gsTextArgs[2], gsTextArgs[3]);
 		}
 		else
 		{
@@ -464,10 +491,10 @@ int main(int argc, char *argv[])
 		return ret;
 	}
 	// Donation!
-	else if( strcmp(text_args[0], "donate") == 0 )
+	else if( strcmp(gsTextArgs[0], "donate") == 0 )
 	{
 		// Check argument count
-		if( text_argc != 3 ) {
+		if( giTextArgc != 3 ) {
 			fprintf(stderr, "Error: `dispense donate` requires two arguments\n");
 			ShowUsage();
 			return RV_ARGUMENTS;
@@ -482,18 +509,18 @@ int main(int argc, char *argv[])
 		if(ret)	return ret;
 		
 		// Do donation
-		ret = Dispense_Donate(sock, atoi(text_args[1]), text_args[2]);
+		ret = Dispense_Donate(sock, atoi(gsTextArgs[1]), gsTextArgs[2]);
 				
 		close(sock);
 
 		return ret;
 	}
 	// Refund an item
-	else if( strcmp(text_args[0], "refund") == 0 )
+	else if( strcmp(gsTextArgs[0], "refund") == 0 )
 	{
 		 int	 price = 0;
 		// Check argument count
-		if( text_argc != 3 && text_argc != 4 ) {
+		if( giTextArgc != 3 && giTextArgc != 4 ) {
 			fprintf(stderr, "Error: `dispense refund` takes 2 or 3 arguments\n");
 			ShowUsage();
 			return RV_ARGUMENTS;
@@ -507,8 +534,8 @@ int main(int argc, char *argv[])
 		ret = Authenticate(sock);
 		if(ret)	return ret;
 
-		if( text_argc == 4 ) {
-			price = atoi(text_args[3]);
+		if( giTextArgc == 4 ) {
+			price = atoi(gsTextArgs[3]);
 			if( price <= 0 ) {
 				fprintf(stderr, "Error: Override price is invalid (should be > 0)\n");
 				return RV_ARGUMENTS;
@@ -516,32 +543,32 @@ int main(int argc, char *argv[])
 		}
 
 		// Username, Item, cost
-		ret = Dispense_Refund(sock, text_args[1], text_args[2], price);
+		ret = Dispense_Refund(sock, gsTextArgs[1], gsTextArgs[2], price);
 
 		// TODO: More
 		close(sock);
 		return RV_UNKNOWN_ERROR;
 	}
 	// Query an item price
-	else if( strcmp(text_args[0], "iteminfo") == 0 )
+	else if( strcmp(gsTextArgs[0], "iteminfo") == 0 )
 	{
 		regmatch_t matches[3];
 		char	*type;
 		 int	id;
 		// Check argument count
-		if( text_argc != 2 ) {
+		if( giTextArgc != 2 ) {
 			fprintf(stderr, "Error: `dispense iteminfo` requires an argument\n");
 			ShowUsage();
 			return RV_ARGUMENTS;
 		}
 		// Parse item ID
-		if( RunRegex(&gUserItemIdentRegex, text_args[1], 3, matches, NULL) != 0 ) {
+		if( RunRegex(&gUserItemIdentRegex, gsTextArgs[1], 3, matches, NULL) != 0 ) {
 			fprintf(stderr, "Error: Invalid item ID passed (<type>:<id> expected)\n");
 			return RV_ARGUMENTS;
 		}
-		type = text_args[1] + matches[1].rm_so;
-		text_args[1][ matches[1].rm_eo ] = '\0';
-		id = atoi( text_args[1] + matches[2].rm_so );
+		type = gsTextArgs[1] + matches[1].rm_so;
+		gsTextArgs[1][ matches[1].rm_eo ] = '\0';
+		id = atoi( gsTextArgs[1] + matches[2].rm_so );
 
 		sock = OpenConnection(gsDispenseServer, giDispensePort);
 		if( sock < 0 )	return RV_SOCKET_ERROR;
@@ -551,37 +578,37 @@ int main(int argc, char *argv[])
 		return ret;
 	}
 	// Set slot
-	else if( strcmp(text_args[0], "slot") == 0 )
+	else if( strcmp(gsTextArgs[0], "slot") == 0 )
 	{
 		regmatch_t matches[3];
 		char	*item_type, *newname;
 		 int	item_id, price;
 		
 		// Check arguments
-		if( text_argc != 4 ) {
+		if( giTextArgc != 4 ) {
 			fprintf(stderr, "Error: `dispense slot` takes three arguments\n");
 			ShowUsage();
 			return RV_ARGUMENTS;
 		}
 		
 		// Parse arguments
-		if( RunRegex(&gUserItemIdentRegex, text_args[1], 3, matches, NULL) != 0 ) {
+		if( RunRegex(&gUserItemIdentRegex, gsTextArgs[1], 3, matches, NULL) != 0 ) {
 			fprintf(stderr, "Error: Invalid item ID passed (<type>:<id> expected)\n");
 			return RV_ARGUMENTS;
 		}
-		item_type = text_args[1] + matches[1].rm_so;
-		text_args[1][ matches[1].rm_eo ] = '\0';
-		item_id = atoi( text_args[1] + matches[2].rm_so );
+		item_type = gsTextArgs[1] + matches[1].rm_so;
+		gsTextArgs[1][ matches[1].rm_eo ] = '\0';
+		item_id = atoi( gsTextArgs[1] + matches[2].rm_so );
 
 		// - Price
-		price = atoi( text_args[2] );
-		if( price <= 0 && text_args[2][0] != '0' ) {
+		price = atoi( gsTextArgs[2] );
+		if( price <= 0 && gsTextArgs[2][0] != '0' ) {
 			fprintf(stderr, "Error: Invalid price passed (must be >= 0)\n");
 			return RV_ARGUMENTS;
 		}
 		
 		// - New name
-		newname = text_args[3];
+		newname = gsTextArgs[3];
 		// -- Sanity
 		{
 			char *pos;
@@ -608,7 +635,7 @@ int main(int argc, char *argv[])
 	// Item name / pattern
 	else
 	{
-		gsItemPattern = text_args[0];
+		gsItemPattern = gsTextArgs[0];
 	}
 	
 	// Connect to server
@@ -782,6 +809,8 @@ int main(int argc, char *argv[])
 		}
 		close(sock);
 	}
+
+	Dispense_ShowUser(sock, gsUserName);
 
 	return ret;
 }
@@ -2161,8 +2190,8 @@ char *ReadLine(int Socket)
 	
 	#if DEBUG_TRACE_SERVER
 	printf("ReadLine: ");
-	#endif
 	fflush(stdout);
+	#endif
 	
 	ret[0] = '\0';
 	

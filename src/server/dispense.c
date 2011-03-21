@@ -237,7 +237,7 @@ int DispenseDonate(int ActualUser, int User, int Ammount, const char *ReasonGive
 	
 	if( Ammount < 0 )	return 2;
 	
-	ret = _Transfer( User, Bank_GetAcctByName(COKEBANK_DEBT_ACCT,1), Ammount, ReasonGiven );
+	ret = _Transfer( User, Bank_GetAcctByName(COKEBANK_DONATE_ACCT,1), Ammount, ReasonGiven );
 	if(ret)	return 2;
 	
 	byName = Bank_GetAcctName(ActualUser);

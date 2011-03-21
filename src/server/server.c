@@ -148,7 +148,7 @@ void Server_Start(void)
 		return ;
 	}
 
-	// 
+	// Fork into background
 	if( gbServer_RunInBackground )
 	{
 		int newin, newout, newerr;
@@ -353,9 +353,7 @@ void Server_ParseClientCommand(tClient *Client, char *CommandString)
 	if( Server_int_ParseArgs(1, CommandString, &command, &args, NULL) )
 	{
 		if( command == NULL )	return ;
-//		printf("command=%s, args=%s\n", command, args);
 		// Is this an error? (just ignore for now)
-		//args = "";
 	}
 	
 	
@@ -533,6 +531,12 @@ void Server_Cmd_SETEUSER(tClient *Client, char *Args)
 	
 	if( !strlen(Args) ) {
 		sendf(Client->Socket, "407 SETEUSER expects an argument\n");
+		return ;
+	}
+	
+	// Check authentication
+	if( !Client->bIsAuthed ) {
+		sendf(Client->Socket, "401 Not Authenticated\n");
 		return ;
 	}
 
@@ -788,6 +792,7 @@ void Server_Cmd_GIVE(tClient *Client, char *Args)
 		sendf(Client->Socket, "407 GIVE takes only 3 arguments\n");
 		return ;
 	}
+	
 	// Check for authed
 	if( !Client->bIsAuthed ) {
 		sendf(Client->Socket, "401 Not Authenticated\n");
@@ -1235,6 +1240,12 @@ void Server_Cmd_USERADD(tClient *Client, char *Args)
 		return ;
 	}
 	
+	// Check authentication
+	if( !Client->bIsAuthed ) {
+		sendf(Client->Socket, "401 Not Authenticated\n");
+		return ;
+	}
+	
 	// Check permissions
 	if( !(Bank_GetFlags(Client->UID) & USER_FLAG_ADMIN) ) {
 		sendf(Client->Socket, "403 Not a coke admin\n");
@@ -1258,13 +1269,22 @@ void Server_Cmd_USERADD(tClient *Client, char *Args)
 
 void Server_Cmd_USERFLAGS(tClient *Client, char *Args)
 {
-	char	*username, *flags;
+	char	*username, *flags, *reason=NULL;
 	 int	mask=0, value=0;
 	 int	uid;
 	
 	// Parse arguments
-	if( Server_int_ParseArgs(0, Args, &username, &flags, NULL) ) {
-		sendf(Client->Socket, "407 USER_FLAGS takes 2 arguments\n");
+	if( Server_int_ParseArgs(1, Args, &username, &flags, &reason, NULL) ) {
+		if( !flags ) {
+			sendf(Client->Socket, "407 USER_FLAGS takes at least 2 arguments\n");
+			return ;
+		}
+		reason = "";
+	}
+	
+	// Check authentication
+	if( !Client->bIsAuthed ) {
+		sendf(Client->Socket, "401 Not Authenticated\n");
 		return ;
 	}
 	
@@ -1291,6 +1311,10 @@ void Server_Cmd_USERFLAGS(tClient *Client, char *Args)
 	
 	// Apply flags
 	Bank_SetFlags(uid, mask, value);
+
+	// Log the change
+	Log_Info("Updated '%s' with flag set '%s' - Reason: %s",
+		username, flags, reason);
 	
 	// Return OK
 	sendf(Client->Socket, "200 User Updated\n");
