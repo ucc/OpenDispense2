@@ -87,7 +87,7 @@ void	PopulateItemList(int Socket);
  int	Dispense_ShowUser(int Socket, const char *Username);
 void	_PrintUserLine(const char *Line);
  int	Dispense_AddUser(int Socket, const char *Username);
- int	Dispense_SetUserType(int Socket, const char *Username, const char *TypeString);
+ int	Dispense_SetUserType(int Socket, const char *Username, const char *TypeString, const char *Reason);
  int	Dispense_SetItem(int Socket, const char *Type, int ID, int NewPrice, const char *NewName);
 // --- Helpers ---
 char	*ReadLine(int Socket);
@@ -173,7 +173,7 @@ void ShowUsage(void)
 		printf(
 			"    dispense user add <user>\n"
 			"        Create new account\n"
-			"    dispense user type <user> <flags>\n"
+			"    dispense user type <user> <flags> <reason>\n"
 			"        Alter a user's flags\n"
 			"        <flags> is a comma-separated list of user, coke, admin, internal or disabled\n"
 			"        Flags are removed by preceding the name with '-' or '!'\n"
@@ -332,7 +332,7 @@ int main(int argc, char *argv[])
 					ShowUsage();
 					return RV_ARGUMENTS;
 				}
-				if( giTextArgc + 1 ==  MAX_TXT_ARGS )
+				if( giTextArgc == MAX_TXT_ARGS )
 				{
 					fprintf(stderr, "ERROR: Too many arguments\n");
 					return RV_ARGUMENTS;
@@ -344,7 +344,7 @@ int main(int argc, char *argv[])
 			continue;
 		}
 
-		if( giTextArgc + 1 == MAX_TXT_ARGS )
+		if( giTextArgc == MAX_TXT_ARGS )
 		{
 			fprintf(stderr, "ERROR: Too many arguments\n");
 			return RV_ARGUMENTS;
@@ -473,13 +473,16 @@ int main(int argc, char *argv[])
 		// Update a user
 		else if( strcmp(gsTextArgs[1], "type") == 0 || strcmp(gsTextArgs[1], "flags") == 0 )
 		{
-			if( giTextArgc != 4 ) {
+			if( giTextArgc < 4 || giTextArgc > 5 ) {
 				fprintf(stderr, "Error: `dispense user type` requires two arguments\n");
 				ShowUsage();
 				return RV_ARGUMENTS;
 			}
 			
-			ret = Dispense_SetUserType(sock, gsTextArgs[2], gsTextArgs[3]);
+			if( giTextArgc == 4 )
+				ret = Dispense_SetUserType(sock, gsTextArgs[2], gsTextArgs[3], "");
+			else
+				ret = Dispense_SetUserType(sock, gsTextArgs[2], gsTextArgs[3], gsTextArgs[4]);
 		}
 		else
 		{
@@ -2080,7 +2083,7 @@ int Dispense_AddUser(int Socket, const char *Username)
 	return ret;
 }
 
-int Dispense_SetUserType(int Socket, const char *Username, const char *TypeString)
+int Dispense_SetUserType(int Socket, const char *Username, const char *TypeString, const char *Reason)
 {
 	char	*buf;
 	 int	responseCode, ret;
@@ -2093,7 +2096,7 @@ int Dispense_SetUserType(int Socket, const char *Username, const char *TypeStrin
 	
 	// TODO: Pre-validate the string
 	
-	sendf(Socket, "USER_FLAGS %s %s\n", Username, TypeString);
+	sendf(Socket, "USER_FLAGS %s %s %s\n", Username, TypeString, Reason);
 	
 	buf = ReadLine(Socket);
 	responseCode = atoi(buf);
@@ -2106,7 +2109,7 @@ int Dispense_SetUserType(int Socket, const char *Username, const char *TypeStrin
 		break;
 		
 	case 403:
-		printf("Only wheel can modify users\n");
+		printf("Only dispense admins can modify users\n");
 		ret = RV_PERMISSIONS;
 		break;
 	
