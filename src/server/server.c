@@ -728,7 +728,7 @@ void Server_Cmd_DISPENSE(tClient *Client, char *Args)
 	case 1:	sendf(Client->Socket, "501 Unable to dispense\n");	return ;
 	case 2:	sendf(Client->Socket, "402 Poor You\n");	return ;
 	default:
-		sendf(Client->Socket, "500 Dispense Error\n");
+		sendf(Client->Socket, "500 Dispense Error (%i)\n", ret);
 		return ;
 	}
 }

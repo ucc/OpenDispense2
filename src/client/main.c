@@ -402,7 +402,11 @@ int main(int argc, char *argv[])
 				ret = Dispense_AlterBalance(sock, gsTextArgs[1], atoi(gsTextArgs[2]), gsTextArgs[3]);
 			}
 		}
-		// TODO: Preserve ret if non-zero
+		// On error, quit
+		if( ret ) {
+			close(sock);
+			return ret;
+		}
 		
 		// Show user information
 		ret = Dispense_ShowUser(sock, gsTextArgs[1]);
@@ -550,7 +554,7 @@ int main(int argc, char *argv[])
 
 		// TODO: More
 		close(sock);
-		return RV_UNKNOWN_ERROR;
+		return ret;
 	}
 	// Query an item price
 	else if( strcmp(gsTextArgs[0], "iteminfo") == 0 )
@@ -1533,7 +1537,7 @@ void PopulateItemList(int Socket)
 	char	*buf;
 	 int	responseCode;
 	
-	char	*itemType, *itemStart;
+	char	*arrayType;
 	 int	count, i;
 	regmatch_t	matches[4];
 	
@@ -1556,19 +1560,16 @@ void PopulateItemList(int Socket)
 	//  202 Item <count>
 	RunRegex(&gArrayRegex, buf, 4, matches, "Malformed server response");
 		
-	itemType = &buf[ matches[2].rm_so ];	buf[ matches[2].rm_eo ] = '\0';
+	arrayType = &buf[ matches[2].rm_so ];	buf[ matches[2].rm_eo ] = '\0';
 	count = atoi( &buf[ matches[3].rm_so ] );
 		
 	// Check array type
-	if( strcmp(itemType, "Items") != 0 ) {
+	if( strcmp(arrayType, "Items") != 0 ) {
 		// What the?!
 		fprintf(stderr, "Unexpected array type, expected 'Items', got '%s'\n",
-			itemType);
+			arrayType);
 		exit(RV_UNKNOWN_ERROR);
 	}
-		
-	itemStart = &buf[ matches[3].rm_eo ];
-	
 	free(buf);
 	
 	giNumItems = count;
