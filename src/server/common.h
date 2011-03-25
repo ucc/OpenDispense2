@@ -33,6 +33,7 @@ struct sItem
 	char	*Name;	//!< Display Name
 	 int	Price;	//!< Price
 	 int	bHidden;	//!< Hidden item?
+	 int	bDisabledi;	//!< Disabled Item
 	
 	tHandler	*Handler;	//!< Handler for the item
 	short	ID;	//!< Item ID
@@ -75,6 +76,7 @@ extern int	giDebugLevel;
 extern void	Items_UpdateFile(void);
 
 // --- Helpers --
+extern void	StartPeriodicThread(void);
 extern void	AddPeriodicFunction(void (*Fcn)(void));
 extern void	CompileRegex(regex_t *Regex, const char *Pattern, int Flags);
 extern int	RunRegex(regex_t *regex, const char *string, int nMatches, regmatch_t *matches, const char *errorMessage);

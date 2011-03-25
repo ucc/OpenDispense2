@@ -81,7 +81,7 @@ void ItemList_Changed(int signum)
 #endif
 
 /**
- * \brief Read the initiali item list
+ * \brief Read the initial item list
  */
 void Load_Itemlist(void)
 {

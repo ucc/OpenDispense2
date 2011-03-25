@@ -43,6 +43,7 @@ char	*gsCokebankPath = "cokebank.db";
 struct sPeriodicCall {
 	void	(*Function)(void);
 }	gaPeriodicCalls[ciMaxPeriodics];
+pthread_t	gTimerThread;
 
 // === CODE ===
 void sigint_handler()
@@ -68,7 +69,6 @@ void PrintUsage(const char *progname)
 int main(int argc, char *argv[])
 {
 	 int	i;
-	pthread_t	timer_thread;
 	
 	// Parse Arguments
 	for( i = 1; i < argc; i++ )
@@ -130,7 +130,7 @@ int main(int argc, char *argv[])
 				gbServer_RunInBackground = 1;
 			}
 			else if( strcmp(arg, "--dont-daemonise") == 0 ) {
-				gbServer_RunInBackground = 1;
+				gbServer_RunInBackground = 0;
 			}
 			else {
 				// Usage error?
@@ -157,11 +157,9 @@ int main(int argc, char *argv[])
 
 	Load_Itemlist();
 	
-	pthread_create( &timer_thread, NULL, Periodic_Thread, NULL );
-	
 	Server_Start();
 	
-	pthread_kill(timer_thread, SIGKILL);
+	pthread_kill(gTimerThread, SIGKILL);
 
 	return 0;
 }
@@ -182,6 +180,11 @@ void *Periodic_Thread(void *Unused)
 		}
 	}
 	return NULL;
+}
+
+void StartPeriodicThread(void)
+{
+	pthread_create( &gTimerThread, NULL, Periodic_Thread, NULL );
 }
 
 void AddPeriodicFunction(void (*Fcn)(void))

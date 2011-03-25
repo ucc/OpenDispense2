@@ -1684,7 +1684,7 @@ int DispenseItem(int Socket, const char *Type, int ID)
 int Dispense_AlterBalance(int Socket, const char *Username, int Ammount, const char *Reason)
 {
 	char	*buf;
-	 int	responseCode;
+	 int	responseCode, rv = -1;
 	
 	// Check for a dry run
 	if( gbDryRun ) {
@@ -1702,26 +1702,32 @@ int Dispense_AlterBalance(int Socket, const char *Username, int Ammount, const c
 	buf = ReadLine(Socket);
 	
 	responseCode = atoi(buf);
-	free(buf);
 	
 	switch(responseCode)
 	{
-	case 200:	return 0;	// OK
+	case 200:
+		rv = 0;	// OK
+		break;
 	case 402:
 		fprintf(stderr, "Insufficient balance\n");
-		return RV_BAD_ITEM;
+		rv = RV_BAD_ITEM;
+		break;
 	case 403:	// Not in coke
 		fprintf(stderr, "You are not in coke (sucker)\n");
-		return RV_PERMISSIONS;
+		rv = RV_PERMISSIONS;
+		break;
 	case 404:	// Unknown user
 		fprintf(stderr, "Unknown user '%s'\n", Username);
-		return RV_INVALID_USER;
+		rv = RV_INVALID_USER;
+		break;
 	default:
-		fprintf(stderr, "Unknown response code %i\n", responseCode);
-		return RV_UNKNOWN_RESPONSE;
+		fprintf(stderr, "Unknown response code %i\n'%s'\n", responseCode, buf);
+		rv = RV_UNKNOWN_RESPONSE;
+		break;
 	}
+	free(buf);
 	
-	return -1;
+	return rv;
 }
 
 /**
@@ -2210,8 +2216,8 @@ char *ReadLine(int Socket)
 				free(ret);
 				return strdup("499 Client Connection Error\n");
 			}
-			buf[bufPos+len] = '\0';
 		}
+		buf[bufPos+len] = '\0';
 		
 		newline = strchr( buf+bufPos, '\n' );
 		if( newline ) {

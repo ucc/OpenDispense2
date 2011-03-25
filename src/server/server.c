@@ -21,6 +21,7 @@
 #include <signal.h>
 
 #define	DEBUG_TRACE_CLIENT	0
+#define HACK_NO_REFUNDS	1
 
 // Statistics
 #define MAX_CONNECTION_QUEUE	5
@@ -171,6 +172,9 @@ void Server_Start(void)
 		dup2(newout, 1);
 		dup2(newerr, 2);
 	}
+
+	// Start the helper thread
+	StartPeriodicThread();
 	
 	// Listen
 	if( listen(giServer_Socket, MAX_CONNECTION_QUEUE) < 0 ) {
@@ -909,6 +913,14 @@ void Server_Cmd_ADD(tClient *Client, char *Args)
 		sendf(Client->Socket, "403 Not in coke\n");
 		return ;
 	}
+
+	#if HACK_NO_REFUNDS
+	if( strstr(reason, "refund") != NULL || strstr(reason, "misdispense") != NULL )
+	{
+		sendf(Client->Socket, "499 Don't use `dispense acct` for refunds, use `dispense refund` (and `dispense -G` to get item IDs)\n");
+		return ;
+	}
+	#endif
 
 	// Get recipient
 	uid = Bank_GetAcctByName(user, 0);
