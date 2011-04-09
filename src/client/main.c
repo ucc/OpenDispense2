@@ -1125,7 +1125,7 @@ int ShowItemAt(int Row, int Col, int Width, int Index, int bHilighted)
 	}
 	
 	// If the item isn't availiable for sale, return -1 (so it's skipped)
-	if( status || price >= giUserBalance )
+	if( status || price > giUserBalance )
 		Index = -1;
 	
 	return Index;
@@ -2214,7 +2214,7 @@ char *ReadLine(int Socket)
 			len = recv(Socket, buf+bufPos, BUFSIZ-1-bufPos, 0);
 			if( len < 0 ) {
 				free(ret);
-				return strdup("499 Client Connection Error\n");
+				return strdup("599 Client Connection Error\n");
 			}
 		}
 		buf[bufPos+len] = '\0';
