@@ -238,12 +238,14 @@ void Server_Start(void)
 			{
 			case 0x7F000001:	// 127.0.0.1	localhost
 		//	case 0x825F0D00:	// 130.95.13.0
+			case 0x825F0D04:	// 130.95.13.4  merlo
+			case 0x825F0D05:	// 130.95.13.5  heathred (MR)
 			case 0x825F0D07:	// 130.95.13.7	motsugo
 			case 0x825F0D11:	// 130.95.13.17	mermaid
 			case 0x825F0D12:	// 130.95.13.18	mussel
 			case 0x825F0D17:	// 130.95.13.23	martello
 			case 0x825F0D2A:	// 130.95.13.42 meersau
-			case 0x825F0D42:	// 130.95.13.66	heathred
+			case 0x825F0D42:	// 130.95.13.66	heathred (Clubroom)
 				bTrusted = 1;
 				break;
 			default:

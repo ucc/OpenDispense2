@@ -97,7 +97,7 @@ char	*trim(char *string);
 void	CompileRegex(regex_t *regex, const char *pattern, int flags);
 
 // === GLOBALS ===
-char	*gsDispenseServer = "heathred";
+char	*gsDispenseServer = "merlo.ucc.gu.uwa.edu.au";
  int	giDispensePort = 11020;
 
 tItem	*gaItems;
