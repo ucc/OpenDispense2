@@ -23,7 +23,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <openssl/sha.h>	// SHA1
+//#include <openssl/sha.h>	// SHA1
 
 #define	USE_NCURSES_INTERFACE	0
 #define DEBUG_TRACE_SERVER	0

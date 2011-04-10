@@ -21,7 +21,7 @@
 #include <pthread.h>
 
 #define READ_TIMEOUT	2	// 2 seconds for ReadChar
-#define TRACE_COKE	0
+#define TRACE_COKE	1
 
 #if TRACE_COKE
 # define TRACE(v...) do{printf("%s: ",__func__);printf(v);}while(0)
@@ -60,7 +60,7 @@ int Coke_InitHandler()
 {
 	CompileRegex(&gCoke_StatusRegex, "^slot\\s+([0-9]+)\\s+([^:]+):([a-zA-Z]+)\\s*", REG_EXTENDED);
 	
-	printf("connecting to coke machine...\n");
+	printf("Connecting to coke machine on '%s'\n", gsCoke_SerialPort);
 	
 	giCoke_SerialFD = InitSerial(gsCoke_SerialPort, 9600);
 	if( giCoke_SerialFD == -1 ) {
@@ -90,6 +90,8 @@ int Coke_InitHandler()
 			
 			Coke_int_UpdateSlotStatuses();
 		}
+		else
+			fprintf(stderr, "Coke machine timed out.\n");
 	}
 	
 	AddPeriodicFunction(Coke_int_UpdateSlotStatuses);
@@ -154,7 +156,8 @@ void Coke_int_UpdateSlotStatuses(void)
 	
 	for( i = 0; i <= 6; i ++ )
 	{
-		len = ReadLine(sizeof tmp, tmp);
+		// Read until non-blank line
+		while( (len = ReadLine(sizeof tmp, tmp)) == 0 )	;
 		if( len == -1 ) {
 			TRACE("Read failed on slot %i\n", i);
 			goto ret;	// I give up :(

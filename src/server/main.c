@@ -250,6 +250,8 @@ int InitSerial(const char *File, int BaudRate)
 	
 	info.c_lflag = 0;	// Non-Canoical, No Echo
 	info.c_cflag = baud | CS8 | CLOCAL | CREAD;	// baud, 8N1
+	info.c_iflag = IGNCR;	// Ignore \r
+	info.c_oflag = 0;	// ???
 	cfsetspeed(&info, baud);
 	info.c_cc[VTIME] = 0;	// No time limit
 	info.c_cc[VMIN] = 1;	// Block until 1 char
