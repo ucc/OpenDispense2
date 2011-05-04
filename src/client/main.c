@@ -161,6 +161,8 @@ void ShowUsage(void)
 		printf(
 			"    dispense refund <user> <itemid> [<price>]\n"
 			"        Refund an item to a user (with optional price override)\n"
+			"        Item IDs can be seen in the cokelog (in the brackets after the item name)\n"
+			"        e.g. coke:6 for a coke, snack:33 for slot 33 of the snack machine\n"
 			);
 	if( giTextArgc == 0 || strcmp(gsTextArgs[0], "slot") == 0 )
 		printf(

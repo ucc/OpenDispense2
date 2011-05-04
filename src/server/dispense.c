@@ -50,7 +50,7 @@ int DispenseItem(int ActualUser, int User, tItem *Item)
 		ret = handler->DoDispense( User, Item->ID );
 		if(ret) {
 			Log_Error("Dispense failed (%s dispensing %s:%i '%s')",
-				username, Item->Name, Item->Handler->Name, Item->ID);
+				username, Item->Handler->Name, Item->ID, Item->Name);
 			free( username );
 			return -1;	// 1: Unknown Error again
 		}

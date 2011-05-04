@@ -152,7 +152,6 @@ void Server_Start(void)
 	// Fork into background
 	if( gbServer_RunInBackground )
 	{
-		int newin, newout, newerr;
 		int pid = fork();
 		if( pid == -1 ) {
 			fprintf(stderr, "ERROR: Unable to fork\n");
@@ -165,12 +164,9 @@ void Server_Start(void)
 		}
 		// In child
 		// - Sort out stdin/stdout
-		newin  = open("/dev/null", O_RDONLY);
-		newout = open(gsServer_LogFile, O_CREAT|O_APPEND, 0644);
-		newerr = open(gsServer_ErrorLog, O_CREAT|O_APPEND, 0644);
-		dup2(newin, 0);
-		dup2(newout, 1);
-		dup2(newerr, 2);
+		dup2( open("/dev/null", O_RDONLY, 0644), STDIN_FILENO );
+		dup2( open(gsServer_LogFile, O_CREAT|O_APPEND, 0644), STDOUT_FILENO );
+		dup2( open(gsServer_ErrorLog, O_CREAT|O_APPEND, 0644), STDERR_FILENO );
 	}
 
 	// Start the helper thread
