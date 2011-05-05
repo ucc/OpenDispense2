@@ -164,9 +164,15 @@ void Server_Start(void)
 		}
 		// In child
 		// - Sort out stdin/stdout
+		#if 0
 		dup2( open("/dev/null", O_RDONLY, 0644), STDIN_FILENO );
 		dup2( open(gsServer_LogFile, O_CREAT|O_APPEND, 0644), STDOUT_FILENO );
 		dup2( open(gsServer_ErrorLog, O_CREAT|O_APPEND, 0644), STDERR_FILENO );
+		#else
+		freopen("/dev/null", "r", stdin);
+		freopen(gsServer_LogFile, "a", stdout);
+		freopen(gsServer_ErrorLog, "a", stderr);
+		#endif
 	}
 
 	// Start the helper thread

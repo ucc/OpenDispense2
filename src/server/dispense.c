@@ -120,6 +120,10 @@ int DispenseGive(int ActualUser, int SrcUser, int DestUser, int Ammount, const c
 	char	*actualUsername;
 	char	*srcName, *dstName;
 	
+	// HACK: Naming a slot "dead" disables it (catch for snack)
+	if( strcmp(ReasonGiven, "dead") == 0 )
+		return 1;
+	
 	if( Ammount < 0 )	return 1;	// Um... negative give? Not on my watch!
 	
 	ret = _Transfer( SrcUser, DestUser, Ammount, ReasonGiven );

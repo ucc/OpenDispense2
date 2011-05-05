@@ -816,10 +816,10 @@ int main(int argc, char *argv[])
 		if( j > 1 ) {
 			printf("%i items dispensed\n", j);
 		}
+		Dispense_ShowUser(sock, gsUserName);
 		close(sock);
-	}
 
-	Dispense_ShowUser(sock, gsUserName);
+	}
 
 	return ret;
 }
