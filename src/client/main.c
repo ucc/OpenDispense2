@@ -146,6 +146,11 @@ void ShowUsage(void)
 			"    dispense iteminfo <itemid>\n"
 			"        Get the name and price for an item\n"
 			);
+//	if( giTextArgc == 0 || strcmp(gsTextArgs[0], "enumitems") == 0 )
+//		printf(
+//			"    dispense enumitems\n"
+//			"        List avaliable items\n"
+//			);
 	if( giTextArgc == 0 )
 		printf("  == Coke members == \n");
 	if( giTextArgc == 0 || strcmp(gsTextArgs[0], "acct") == 0 )
