@@ -241,13 +241,13 @@ void Server_Start(void)
 			case 0x7F000001:	// 127.0.0.1	localhost
 		//	case 0x825F0D00:	// 130.95.13.0
 			case 0x825F0D04:	// 130.95.13.4  merlo
-			case 0x825F0D05:	// 130.95.13.5  heathred (MR)
+		//	case 0x825F0D05:	// 130.95.13.5  heathred (MR)
 			case 0x825F0D07:	// 130.95.13.7	motsugo
 			case 0x825F0D11:	// 130.95.13.17	mermaid
 			case 0x825F0D12:	// 130.95.13.18	mussel
 			case 0x825F0D17:	// 130.95.13.23	martello
 			case 0x825F0D2A:	// 130.95.13.42 meersau
-			case 0x825F0D42:	// 130.95.13.66	heathred (Clubroom)
+		//	case 0x825F0D42:	// 130.95.13.66	heathred (Clubroom)
 				bTrusted = 1;
 				break;
 			default:
@@ -514,6 +514,11 @@ void Server_Cmd_AUTOAUTH(tClient *Client, char *Args)
 		sendf(Client->Socket, "403 Account disabled\n");
 		return ;
 	}
+
+	// Save username
+	if(Client->Username)
+		free(Client->Username);
+	Client->Username = strdup(username);
 
 	Client->bIsAuthed = 1;
 	
@@ -917,6 +922,16 @@ void Server_Cmd_ADD(tClient *Client, char *Args)
 		sendf(Client->Socket, "403 Not in coke\n");
 		return ;
 	}
+
+	#if !ROOT_CAN_ADD
+	if( strcmp( Client->Username, "root" ) == 0 ) {
+		// Allow adding for new users
+		if( strcmp(reason, "treasurer: new user") != 0 ) {
+			sendf(Client->Socket, "403 Root may not add\n");
+			return ;
+		}
+	}
+	#endif
 
 	#if HACK_NO_REFUNDS
 	if( strstr(reason, "refund") != NULL || strstr(reason, "misdispense") != NULL )
