@@ -1344,8 +1344,8 @@ void Server_Cmd_USERFLAGS(tClient *Client, char *Args)
 	Bank_SetFlags(uid, mask, value);
 
 	// Log the change
-	Log_Info("Updated '%s' with flag set '%s' - Reason: %s",
-		username, flags, reason);
+	Log_Info("Updated '%s' with flag set '%s' by '%s' - Reason: %s",
+		username, flags, Client->Username, reason);
 	
 	// Return OK
 	sendf(Client->Socket, "200 User Updated\n");

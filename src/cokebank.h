@@ -18,9 +18,10 @@
 
 #define COKEBANK_SALES_ACCT	">sales"	//!< Sales made into
 #define COKEBANK_SALES_PREFIX	">sales:"	//!< Sales made into
-#define COKEBANK_DEBT_ACCT	">liability"	//!< Credit taken out of
+#define COKEBANK_DEBT_ACCT	">countersum"	//!< Credit taken out of
 #define COKEBANK_FREE_ACCT	">freeitems"	//!< ODay drink costs taken out of
 #define COKEBANK_DONATE_ACCT	">donations"	//!< Donations go here
+#define COKEBANK_GRAT_ACCR	">gratuities"	//!< Coke runs and new users
 
 /**
  * \brief Account iterator opaque structure
