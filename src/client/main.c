@@ -2219,7 +2219,7 @@ char *ReadLine(int Socket)
 		}
 		else {
 			len = recv(Socket, buf+bufPos, BUFSIZ-1-bufPos, 0);
-			if( len < 0 ) {
+			if( len <= 0 ) {
 				free(ret);
 				return strdup("599 Client Connection Error\n");
 			}
