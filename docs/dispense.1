@@ -1,0 +1,128 @@
+.TH dispense 1 "June 17, 2011" "OpenDispense2" "USER COMMANDS"
+.SH NAME
+dispense \- OpenDispense2 command line client
+.SH SYNOPSIS
+.B dispense
+[\-hG]
+.RI "[\-u " "user" "]"
+.PP
+.B dispense
+.RI "[\-u " "user" "]"
+.I item
+.PP
+.B dispense
+.RI "[\-u " "user" "]"
+.I command
+.I args...
+
+.SH DESCRIPTION
+The
+.B dispense
+command provides access to the UCC's coke machine and other systems. It can be used to drop a drink, open the door, or pay for other items.
+
+If called with no arguments,
+.B dispense
+displays an interactive list of avaliable items. This list can be navigated using the arrow keys, enter/return (for select) and q/ESC to quit.
+
+If the first argument is not a recognised command (see below) then
+.B dispense
+attempts to interpret the argument as an item name, and if it matches, dispenses the item.
+
+.SH OPTIONS
+.TP
+\-h, \--help
+Display a list of commands and options
+.TP
+\-G
+Use a non-interactive list instead of the ncurses interface.
+
+.SH SUB-COMMANDS
+.SS "All users"
+.TP
+.RI "give " "user ammount reason"
+Give some money to another user (e.g. for pizza).
+
+.TP
+.RI "acct [" "user" "]"
+List users (including balances and flags)
+
+.SS "Door Members"
+.TP
+.RI "door"
+Open the UCC door
+
+.SS "Coke Controllers"
+
+.TP
+.RI "acct " "user" " [+-]" "ammount" " '" "reason" "'"
+Alter a user's balance by
+.I ammount
+cents, leaving a reason for the coke logs.
+
+.TP
+.RI "refund " "user item_id" " [" "price" "]"
+Refund a bad dispense for a user (the item_id can be found in the coke log usually)
+It is is of the form <type>:<slot>, for example coke:6 or snack:33
+
+.TP
+.RI "slot " "item_id price name"
+Update a slot's contents (name and price)
+
+.SS "Administrators"
+
+.TP
+.RI "acct " "user" " =" "ammount" " '" reason "'"
+Set a user's balance to a number of cents
+
+.TP
+.RI "user add " "username"
+Create a new account with the specified username.
+
+.TP
+.RI "user type " "username flags"
+Alter the flags on a user. Valid flags are user, coke, admin, internal and disabled.
+Flags can be removed by prepending the flag with a '-'
+
+.SH EXIT STATUS
+
+.TP
+0
+Success
+
+.TP
+1
+Invalid item selected
+
+.TP
+2
+Bad username for 
+.B acct
+or
+.B -u
+
+.TP
+3
+You are not permitted to perform that action
+
+.TP
+4
+Invalid arguments passed
+
+.TP
+5
+Insufficient balance avaliable
+
+.TP
+-1
+Unknown error
+
+.TP
+-2
+Socket/connection error of some form
+
+.TP
+-3
+Unknown response from the server
+
+.SH AUTHOR
+John Hodge (tpg@ucc.asn.au)
