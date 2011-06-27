@@ -30,7 +30,7 @@ extern int	giServer_Port;
 extern char	*gsItemListFile;
 extern char	*gsCoke_SerialPort;
 extern char	*gsSnack_SerialPort;
-extern char	*gsDoor_Password;
+extern char	*gsDoor_SerialPort;
 
 // === PROTOTYPES ===
 void	*Periodic_Thread(void *Unused);
@@ -60,10 +60,12 @@ void PrintUsage(const char *progname)
 	fprintf(stderr, "        Set debug level (0 - 2, default 0)\n");
 	fprintf(stderr, "  --cokeport\n");
 	fprintf(stderr, "        Coke machine serial port (Default \"/dev/ttyS0\")\n");
-	fprintf(stderr, "  --doorpass\n");
-	fprintf(stderr, "        Door LAT password file (Default empty password)\n");
+	fprintf(stderr, "  --doorport\n");
+	fprintf(stderr, "        Door modem/relay serial port (Default \"/dev/ttyS3\")\n");
 	fprintf(stderr, "  --cokebank\n");
 	fprintf(stderr, "        Coke bank database file (Default \"cokebank.db\")\n");
+	fprintf(stderr, "  --[dont-]daemonise\n");
+	fprintf(stderr, "        Run (or explicitly don't) the server disconnected from the terminal\n");
 }
 
 int main(int argc, char *argv[])
@@ -108,19 +110,9 @@ int main(int argc, char *argv[])
 				if( i + 1 >= argc )	return -1;
 				gsSnack_SerialPort = argv[++i];
 			}
-			else if( strcmp(arg, "--doorpass") == 0 ) {
-				FILE	*fp;
-				char	buf[30];
+			else if( strcmp(arg, "--doorport") == 0 ) {
 				if( i + 1 >= argc )	return -1;
-				fp = fopen(argv[++i], "r");
-				if( !fp ) {
-					fprintf(stderr, "ERROR: Unable to read password file\n");
-					perror("reading LAT password");
-					return -1;
-				}
-				fgets(buf, sizeof buf, fp);
-				fclose(fp);
-				gsDoor_Password = strdup(buf);
+				gsDoor_SerialPort = argv[++i];
 			}
 			else if( strcmp(arg, "--cokebank") == 0 ) {
 				if( i + 1 >= argc )	return -1;
