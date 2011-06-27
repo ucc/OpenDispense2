@@ -236,6 +236,7 @@ int InitSerial(const char *File, int BaudRate)
 	
 	switch(BaudRate)
 	{
+	case 1200:	baud = B1200;	break;
 	case 9600:	baud = B9600;	break;
 	default:	close(fd);	return -1;
 	}

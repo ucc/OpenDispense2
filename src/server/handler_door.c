@@ -93,7 +93,7 @@ int Door_DoDispense(int User, int Item)
 		return 1;
 	}
 	
-	door_serial_handle = InitSerial(gsDoor_SerialPort, 9600);
+	door_serial_handle = InitSerial(gsDoor_SerialPort, 1200);
 
 	if( write(door_serial_handle, "ATH1\n", 5) != 5 ) {
 		fprintf(stderr, "Unable to open door (sending ATH1)\n");
