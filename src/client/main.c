@@ -854,7 +854,7 @@ int ShowNCursesUI(void)
 	 int	ch;
 	 int	i, times;
 	 int	xBase, yBase;
-	const int	displayMinWidth = 40;
+	const int	displayMinWidth = 50;
 	char	*titleString = "Dispense";
 	 int	items_in_view;
 	 int	maxItemIndex;
@@ -1112,7 +1112,7 @@ int ShowItemAt(int Row, int Col, int Width, int Index, int bHilighted)
 	if( Width > 0 )
 	{
 		// 4 preceding, 5 price
-		int nameWidth = Width - 4 - 5;
+		int nameWidth = Width - 4 - 4 - snprintf(NULL, 0, "%i", price/100);
 		move( Row, Col );
 		
 		if( Index >= 0 )
@@ -1136,17 +1136,9 @@ int ShowItemAt(int Row, int Col, int Width, int Index, int bHilighted)
 				break;
 			}
 			
-			if( price > 100*100 ) {
-				nameWidth --;
-			}
-			if( price > 1000*100 ) {
-				nameWidth --;
-			}
-			
 			printw("%-*.*s", nameWidth, nameWidth, name);
 		
-			// 99.99 should be enough
-			printw(" %4i", price);
+			printw(" %i.%02i", price/100, price%100);
 		}
 		else
 		{
