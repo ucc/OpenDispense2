@@ -107,14 +107,19 @@ regex_t	gArrayRegex, gItemRegex, gSaltRegex, gUserInfoRegex, gUserItemIdentRegex
 
 char	*gsItemPattern;	//!< Item pattern
 char	*gsEffectiveUser;	//!< '-u' Dispense as another user
+
  int	giUIMode = UI_MODE_STANDARD;
  int	gbDryRun = 0;	//!< '-n' Read-only
+ int	gbDisallowSelectWithoutBalance = 1;	//!< Don't allow items to be hilighted if not affordable
+
  int	giMinimumBalance = INT_MIN;	//!< '-m' Minumum balance for `dispense acct`
  int	giMaximumBalance = INT_MAX;	//!< '-M' Maximum balance for `dispense acct`
-char	*gsUserName;	//!< User that dispense will happen as
+
+ char	*gsUserName;	//!< User that dispense will happen as
 char	*gsUserFlags;	//!< User's flag set
- int	giUserBalance=-1;	//!< User balance (set by Authenticate)
+ int	giUserBalance = -1;	//!< User balance (set by Authenticate)
  int	giDispenseCount = 1;	//!< Number of dispenses to do
+
 char	*gsTextArgs[MAX_TXT_ARGS];
  int	giTextArgc;
 
@@ -324,6 +329,15 @@ int main(int argc, char *argv[])
 				if( strcmp(argv[i], "--help") == 0 ) {
 					ShowUsage();
 					return 0;
+				}
+				else if( strcmp(argv[i], "--dry-run") == 0 ) {
+					gbDryRun = 1;
+				}
+				else if( strcmp(argv[i], "--drinks-only") == 0 ) {
+					giUIMode = UI_MODE_DRINKSONLY;
+				}
+				else if( strcmp(argv[i], "--can-select-all") == 0 ) {
+					gbDisallowSelectWithoutBalance = 0;
 				}
 				else {
 					fprintf(stderr, "%s: Unknown switch '%s'\n", argv[0], argv[i]);
@@ -842,7 +856,7 @@ int ShowNCursesUI(void)
 	 int	xBase, yBase;
 	const int	displayMinWidth = 40;
 	char	*titleString = "Dispense";
-	 int	itemCount;
+	 int	items_in_view;
 	 int	maxItemIndex;
 	 int	itemBase = 0;
 	 int	currentItem;
@@ -862,7 +876,7 @@ int ShowNCursesUI(void)
 		username = pwd->pw_name;
 	}
 	// Get balance
-	snprintf(balance_str, sizeof balance_str, "$%i.%02i", giUserBalance/100, abs(giUserBalance)%100);
+	snprintf(balance_str, sizeof(balance_str), "$%i.%02i", giUserBalance/100, abs(giUserBalance)%100);
 	
 	// Enter curses mode
 	initscr();
@@ -872,9 +886,9 @@ int ShowNCursesUI(void)
 	maxItemIndex = ShowItemAt(0, 0, 0, -1, 0);
 	// Get item count per screen
 	// - 6: randomly chosen (Need at least 3)
-	itemCount = LINES - 6;
-	if( itemCount > maxItemIndex )
-		itemCount = maxItemIndex;
+	items_in_view = LINES - 6;
+	if( items_in_view > maxItemIndex )
+		items_in_view = maxItemIndex;
 	// Get first index
 	currentItem = 0;
 	while( ShowItemAt(0, 0, 0, currentItem, 0) == -1 )
@@ -882,7 +896,7 @@ int ShowNCursesUI(void)
 	
 	
 	// Get dimensions
-	height = itemCount + 3;
+	height = items_in_view + 3;
 	width = displayMinWidth;
 	
 	// Get positions
@@ -895,7 +909,7 @@ int ShowNCursesUI(void)
 		PrintAlign(yBase, xBase, width, "/", '-', titleString, '-', "\\");
 		
 		// Items
-		for( i = 0; i < itemCount; i ++ )
+		for( i = 0; i < items_in_view; i ++ )
 		{
 			 int	pos = 0;
 			
@@ -907,7 +921,7 @@ int ShowNCursesUI(void)
 			// Check for the '...' row
 			// - Oh god, magic numbers!
 			if( (i == 0 && itemBase > 0)
-			 || (i == itemCount - 1 && itemBase < maxItemIndex - itemCount) )
+			 || (i == items_in_view - 1 && itemBase < maxItemIndex - items_in_view) )
 			{
 				printw("     ...");	pos += 8;
 				times = (width - pos) - 1;
@@ -925,16 +939,16 @@ int ShowNCursesUI(void)
 			}
 			
 			// Scrollbar (if needed)
-			if( maxItemIndex > itemCount ) {
+			if( maxItemIndex > items_in_view ) {
 				if( i == 0 ) {
 					addch('A');
 				}
-				else if( i == itemCount - 1 ) {
+				else if( i == items_in_view - 1 ) {
 					addch('V');
 				}
 				else {
-					 int	percentage = itemBase * 100 / (maxItemIndex-itemCount);
-					if( i-1 == percentage*(itemCount-3)/100 ) {
+					 int	percentage = itemBase * 100 / (maxItemIndex-items_in_view);
+					if( i-1 == percentage*(items_in_view-3)/100 ) {
 						addch('#');
 					}
 					else {
@@ -997,11 +1011,22 @@ int ShowNCursesUI(void)
 			else {
 				
 			}
-			
-			if( itemCount > maxItemIndex && currentItem < itemBase + 2 && itemBase > 0 )
-				itemBase = currentItem - 2;
-			if( itemCount > maxItemIndex && currentItem > itemBase + itemCount - 2 && itemBase < maxItemIndex-1 )
-				itemBase = currentItem - itemCount + 2;
+		
+			// Scroll only if needed
+			if( items_in_view < maxItemIndex )
+			{
+				// - If the current item is above the second item shown, and we're not at the top
+				if( currentItem < itemBase + 2 && itemBase > 0 ) {
+					itemBase = currentItem - 2;
+					if(itemBase < 0)	itemBase = 0;
+				}
+				// - If the current item is below the second item show, and we're not at the bottom
+				if( currentItem > itemBase + items_in_view - 2 && itemBase + items_in_view < maxItemIndex ) {
+					itemBase = currentItem - items_in_view + 2;
+					if( itemBase > maxItemIndex - items_in_view )
+						itemBase = maxItemIndex - items_in_view;
+				}
+			}
 		}
 		else {
 			switch(ch)
@@ -1120,23 +1145,17 @@ int ShowItemAt(int Row, int Col, int Width, int Index, int bHilighted)
 			
 			printw("%-*.*s", nameWidth, nameWidth, name);
 		
-//			getyx(stdscr, _y, _x);
-			// Assumes max 4 digit prices
-//			times = Width - 5 - (_x - Col);	// TODO: Better handling for large prices
-//			while(times--)	addch(' ');
-			
-			// 999.99 should be enough
+			// 99.99 should be enough
 			printw(" %4i", price);
 		}
 		else
 		{
-//			 int	_x, _y, times;
 			printw("-- %-*.*s ", Width-4, Width-4, name);
 		}
 	}
 	
 	// If the item isn't availiable for sale, return -1 (so it's skipped)
-	if( status || price > giUserBalance )
+	if( status || (price > giUserBalance && gbDisallowSelectWithoutBalance) )
 		Index = -1;
 	
 	return Index;
