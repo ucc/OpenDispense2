@@ -1034,7 +1034,6 @@ int ShowNCursesUI(void)
  */
 int ShowItemAt(int Row, int Col, int Width, int Index, int bHilighted)
 {
-	 int	_x, _y, times;
 	char	*name = NULL;
 	 int	price = 0;
 	 int	status = -1;
@@ -1112,6 +1111,13 @@ int ShowItemAt(int Row, int Col, int Width, int Index, int bHilighted)
 				break;
 			}
 			
+			if( price > 100*100 ) {
+				nameWidth --;
+			}
+			if( price > 1000*100 ) {
+				nameWidth --;
+			}
+			
 			printw("%-*.*s", nameWidth, nameWidth, name);
 		
 //			getyx(stdscr, _y, _x);
@@ -1119,15 +1125,13 @@ int ShowItemAt(int Row, int Col, int Width, int Index, int bHilighted)
 //			times = Width - 5 - (_x - Col);	// TODO: Better handling for large prices
 //			while(times--)	addch(' ');
 			
+			// 999.99 should be enough
 			printw(" %4i", price);
 		}
 		else
 		{
-			printw("-- %s", name);
-			getyx(stdscr, _y, _x);
-			times = Width - 4 - (_x - Col);
-			while(times--)	addch(' ');
-			printw("    ");
+//			 int	_x, _y, times;
+			printw("-- %-*.*s ", Width-4, Width-4, name);
 		}
 	}
 	
