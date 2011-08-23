@@ -1112,7 +1112,7 @@ int ShowItemAt(int Row, int Col, int Width, int Index, int bHilighted)
 	if( Width > 0 )
 	{
 		// 4 preceding, 5 price
-		int nameWidth = Width - 4 - 4 - snprintf(NULL, 0, "%i", price/100);
+		int nameWidth = Width - 4 - snprintf(NULL, 0, " %4i", price);
 		move( Row, Col );
 		
 		if( Index >= 0 )
@@ -1138,7 +1138,7 @@ int ShowItemAt(int Row, int Col, int Width, int Index, int bHilighted)
 			
 			printw("%-*.*s", nameWidth, nameWidth, name);
 		
-			printw(" %i.%02i", price/100, price%100);
+			printw(" %4i", price);
 		}
 		else
 		{
@@ -2253,9 +2253,10 @@ char *ReadLine(int Socket)
 		if( newline ) {
 			 int	newLen = newline - (buf+bufPos) + 1;
 			bufValid = len - newLen;
-			bufPos += newLen;
+			len = newLen;
 		}
 		if( len + bufPos == BUFSIZ - 1 )	bufPos = 0;
+		else	bufPos += len;
 	}
 	
 	#if DEBUG_TRACE_SERVER
