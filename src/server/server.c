@@ -19,6 +19,7 @@
 #include <limits.h>
 #include <stdarg.h>
 #include <signal.h>
+#include <ident.h>
 
 #define	DEBUG_TRACE_CLIENT	0
 #define HACK_NO_REFUNDS	1
@@ -58,6 +59,7 @@ void	Server_ParseClientCommand(tClient *Client, char *CommandString);
 void	Server_Cmd_USER(tClient *Client, char *Args);
 void	Server_Cmd_PASS(tClient *Client, char *Args);
 void	Server_Cmd_AUTOAUTH(tClient *Client, char *Args);
+void	Server_Cmd_AUTHIDENT(tClient *Client, char *Args);
 void	Server_Cmd_SETEUSER(tClient *Client, char *Args);
 void	Server_Cmd_ENUMITEMS(tClient *Client, char *Args);
 void	Server_Cmd_ITEMINFO(tClient *Client, char *Args);
@@ -88,6 +90,7 @@ const struct sClientCommand {
 	{"USER", Server_Cmd_USER},
 	{"PASS", Server_Cmd_PASS},
 	{"AUTOAUTH", Server_Cmd_AUTOAUTH},
+	{"AUTHIDENT", Server_Cmd_AUTHIDENT},
 	{"SETEUSER", Server_Cmd_SETEUSER},
 	{"ENUM_ITEMS", Server_Cmd_ENUMITEMS},
 	{"ITEM_INFO", Server_Cmd_ITEMINFO},
@@ -525,6 +528,79 @@ void Server_Cmd_AUTOAUTH(tClient *Client, char *Args)
 	if(giDebugLevel)
 		Debug(Client, "Auto authenticated as '%s' (%i)", username, Client->UID);
 	
+	sendf(Client->Socket, "200 Auth OK\n");
+}
+
+/**
+ * \brief Authenticate as a user using the IDENT protocol
+ *
+ * Usage: AUTHIDENT
+ */
+void Server_Cmd_AUTHIDENT(tClient *Client, char *Args)
+{
+	char	*username;
+	 int	userflags;
+	const int ident_timeout = 5;
+
+	if( Args != NULL && strlen(Args) ) {
+		sendf(Client->Socket, "407 AUTHIDENT takes no arguments\n");
+		return ;
+	}
+
+	// Check if trusted
+	if( !Client->bIsTrusted ) {
+		if(giDebugLevel)
+			Debug(Client, "Untrusted client attempting to AUTHIDENT");
+		sendf(Client->Socket, "401 Untrusted\n");
+		return ;
+	}
+
+	// Get username via IDENT
+	username = ident_id(Client->Socket, ident_timeout);
+	if (!username) {
+		sendf(Client->Socket, "403 Authentication failure: IDENT auth timed out\n");
+	}
+
+	// Get UID
+	Client->UID = Bank_GetAcctByName( username, 0 );
+	if( Client->UID < 0 ) {
+		if(giDebugLevel)
+			Debug(Client, "Unknown user '%s'", username);
+		sendf(Client->Socket, "403 Authentication failure: unknown account\n");
+		free(username);
+		return ;
+	}
+
+	userflags = Bank_GetFlags(Client->UID);
+	// You can't be an internal account
+	if( userflags & USER_FLAG_INTERNAL ) {
+		if(giDebugLevel)
+			Debug(Client, "IDENT auth as '%s', not allowed", username);
+		Client->UID = -1;
+		sendf(Client->Socket, "403 Authentication failure: that account is internal\n");
+		free(username);
+		return ;
+	}
+
+	// Disabled accounts
+	if( userflags & USER_FLAG_DISABLED ) {
+		Client->UID = -1;
+		sendf(Client->Socket, "403 Authentication failure: account disabled\n");
+		free(username);
+		return ;
+	}
+
+	// Save username
+	if(Client->Username)
+		free(Client->Username);
+	Client->Username = strdup(username);
+
+	Client->bIsAuthed = 1;
+
+	if(giDebugLevel)
+		Debug(Client, "IDENT authenticated as '%s' (%i)", username, Client->UID);
+	free(username);
+
 	sendf(Client->Socket, "200 Auth OK\n");
 }
 
