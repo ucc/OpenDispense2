@@ -13,7 +13,7 @@ DEPFILES := $(OBJ:%.o=%.d)
 all: $(BIN)
 
 clean:
-	$(RM) $(BIN) $(OBJ)
+	$(RM) $(BIN) $(OBJ) $(DEPFILES)
 
 $(BIN): $(OBJ)
 	$(CC) -o $(BIN) $(OBJ) $(LDFLAGS)
