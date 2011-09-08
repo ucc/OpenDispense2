@@ -39,40 +39,40 @@ Use a non-interactive list instead of the ncurses interface.
 .SH SUB-COMMANDS
 .SS "All users"
 .TP
-.RI "give " "user ammount reason"
+.RI "give " "user amount reason"
 Give some money to another user (e.g. for pizza).
 
 .TP
 .RI "acct [" "user" "]"
-List users (including balances and flags)
+List users (including balances and flags).
 
 .SS "Door Members"
 .TP
 .RI "door"
-Open the UCC door
+Open the UCC door.
 
 .SS "Coke Controllers"
 
 .TP
-.RI "acct " "user" " [+-]" "ammount" " '" "reason" "'"
+.RI "acct " "user" " [+-]" "amount" " '" "reason" "'"
 Alter a user's balance by
-.I ammount
+.I amount
 cents, leaving a reason for the coke logs.
 
 .TP
 .RI "refund " "user item_id" " [" "price" "]"
-Refund a bad dispense for a user (the item_id can be found in the coke log usually)
-It is is of the form <type>:<slot>, for example coke:6 or snack:33
+Refund a bad dispense for a user (the item_id can be found in the coke log usually).
+It is is of the form <type>:<slot>, for example coke:6 or snack:33.
 
 .TP
 .RI "slot " "item_id price name"
-Update a slot's contents (name and price)
+Update a slot's contents (name and price).
 
 .SS "Administrators"
 
 .TP
-.RI "acct " "user" " =" "ammount" " '" reason "'"
-Set a user's balance to a number of cents
+.RI "acct " "user" " =" "amount" " '" reason "'"
+Set a user's balance to a number of cents.
 
 .TP
 .RI "user add " "username"
@@ -81,7 +81,7 @@ Create a new account with the specified username.
 .TP
 .RI "user type " "username flags"
 Alter the flags on a user. Valid flags are user, coke, admin, internal and disabled.
-Flags can be removed by prepending the flag with a '-'
+Flags can be removed by prepending the flag with a '-'.
 
 .SH EXIT STATUS
 
