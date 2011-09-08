@@ -34,6 +34,9 @@
 
 #define MSG_STR_TOO_LONG	"499 Command too long (limit "EXPSTR(INPUT_BUFFER_SIZE)")\n"
 
+#define IDENT_TRUSTED_NETWORK 0x825F0D00
+#define IDENT_TRUSTED_NETMASK 0xFFFFFFC0
+
 // === TYPES ===
 typedef struct sClient
 {
@@ -541,18 +544,27 @@ void Server_Cmd_AUTHIDENT(tClient *Client, char *Args)
 	char	*username;
 	 int	userflags;
 	const int ident_timeout = 5;
+	socklen_t len;
+	struct sockaddr_in client_addr;
+	uint32_t  client_ip;
 
 	if( Args != NULL && strlen(Args) ) {
 		sendf(Client->Socket, "407 AUTHIDENT takes no arguments\n");
 		return ;
 	}
 
-	// Check if trusted
-	if( !Client->bIsTrusted ) {
-		if(giDebugLevel)
-			Debug(Client, "Untrusted client attempting to AUTHIDENT");
-		sendf(Client->Socket, "401 Untrusted\n");
-		return ;
+	// Check if trusted (only works with INET sockets at present)
+	len = sizeof(client_addr);
+	if ( ! getpeername(Client->Socket, (struct sockaddr*)&client_addr, &len) ) {
+		// throw an error
+	}
+
+	client_ip = client_addr.sin_addr.s_addr;
+	if ( ! (ntohl(client_ip) == 0x7F000001 || ( (ntohl(client_ip) & IDENT_TRUSTED_NETMASK) == IDENT_TRUSTED_NETWORK ) )) {
+			if(giDebugLevel)
+				Debug(Client, "Untrusted client attempting to AUTHIDENT");
+			sendf(Client->Socket, "401 Untrusted\n");
+			return ;
 	}
 
 	// Get username via IDENT
