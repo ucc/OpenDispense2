@@ -137,13 +137,13 @@ void ShowUsage(void)
 			);
 	if( giTextArgc == 0 || strcmp(gsTextArgs[0], "give") == 0 )
 		printf(
-			"    dispense give <user> <ammount> \"<reason>\"\n"
+			"    dispense give <user> <amount> \"<reason>\"\n"
 			"        Give money to another user\n"
 			);
 	
 	if( giTextArgc == 0 || strcmp(gsTextArgs[0], "donate") == 0 )
 		printf(
-			"    dispense donate <ammount> \"<reason>\"\n"
+			"    dispense donate <amount> \"<reason>\"\n"
 			"        Donate to the club\n"
 			);
 	if( giTextArgc == 0 || strcmp(gsTextArgs[0], "iteminfo") == 0 )
@@ -162,9 +162,9 @@ void ShowUsage(void)
 		printf(
 			"    dispense acct [<user>]\n"
 			"        Show user balances\n"
-			"    dispense acct <user> [+-]<ammount> \"<reason>\"\n"
+			"    dispense acct <user> [+-]<amount> \"<reason>\"\n"
 			"        Alter a account value\n"
-			"    dispense acct <user> =<ammount> \"<reason>\"\n"
+			"    dispense acct <user> =<amount> \"<reason>\"\n"
 			"        Set an account balance\n"
 			);
 	if( giTextArgc == 0 || strcmp(gsTextArgs[0], "refund") == 0 )
@@ -1716,7 +1716,7 @@ int Dispense_AlterBalance(int Socket, const char *Username, int Ammount, const c
 
 	// Sanity
 	if( Ammount == 0 ) {
-		printf("An ammount would be nice\n");
+		printf("An amount would be nice\n");
 		return RV_ARGUMENTS;
 	}
 	
