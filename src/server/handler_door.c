@@ -104,11 +104,15 @@ int Door_DoDispense(int User, int Item)
 	{
 		struct termios	info;
 		tcgetattr(door_serial_handle, &info);
-		info.c_iflag &= ~IGNCR;	// Ignore \r
+//		info.c_iflag &= ~IGNCR;	// Ignore \r
+		info.c_cflag &= ~CLOCAL;
 		tcsetattr(door_serial_handle, TCSANOW, &info);
 	}
 
-	if( writes(door_serial_handle, "\r\nATH1\r\n") ) {
+	writes(door_serial_handle, "\r\r");
+	sleep(1);
+
+	if( writes(door_serial_handle, "ATH1\r") ) {
 		fprintf(stderr, "Unable to open door (sending ATH1)\n");
 		perror("Sending ATH1");
 		return -1;
@@ -117,7 +121,7 @@ int Door_DoDispense(int User, int Item)
 	// Wait before re-locking
 	sleep(DOOR_UNLOCKED_DELAY);
 
-	if( writes(door_serial_handle, "\r\nATH0\r\n") ) {
+	if( writes(door_serial_handle, "ATH0\r") ) {
 		fprintf(stderr, "Oh, hell! Door not re-locking, big error (sending ATH0 failed)\n");
 		perror("Sending ATH0");
 		return -1;
