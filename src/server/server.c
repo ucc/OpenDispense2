@@ -555,12 +555,18 @@ void Server_Cmd_AUTHIDENT(tClient *Client, char *Args)
 
 	// Check if trusted (only works with INET sockets at present)
 	len = sizeof(client_addr);
-	if ( ! getpeername(Client->Socket, (struct sockaddr*)&client_addr, &len) ) {
-		// throw an error
+	if( getpeername(Client->Socket, (struct sockaddr*)&client_addr, &len) == -1 ) {
+		Debug(Client, "500 getpeername() failed\n");
+		perror("Getting AUTHIDENT peer name");
+		sendf(Client->Socket, "500 getpeername() failed\n");
+		return ;
 	}
 
 	client_ip = client_addr.sin_addr.s_addr;
-	if ( ! (ntohl(client_ip) == 0x7F000001 || ( (ntohl(client_ip) & IDENT_TRUSTED_NETMASK) == IDENT_TRUSTED_NETWORK ) )) {
+	if(giDebugLevel >= 2) {
+		Debug(Client, "client_ip = %x, ntohl(client_ip) = %x", client_ip, ntohl(client_ip));
+	}
+	if( ntohl(client_ip) != 0x7F000001 && (ntohl(client_ip) & IDENT_TRUSTED_NETMASK) != IDENT_TRUSTED_NETWORK ) {
 			if(giDebugLevel)
 				Debug(Client, "Untrusted client attempting to AUTHIDENT");
 			sendf(Client->Socket, "401 Untrusted\n");
@@ -569,8 +575,9 @@ void Server_Cmd_AUTHIDENT(tClient *Client, char *Args)
 
 	// Get username via IDENT
 	username = ident_id(Client->Socket, ident_timeout);
-	if (!username) {
+	if( !username ) {
 		sendf(Client->Socket, "403 Authentication failure: IDENT auth timed out\n");
+		return ;
 	}
 
 	// Get UID

@@ -151,7 +151,8 @@ int main(int argc, char *argv[])
 	
 	Server_Start();
 	
-	pthread_kill(gTimerThread, SIGKILL);
+	if(gTimerThread)
+		pthread_kill(gTimerThread, SIGKILL);
 
 	return 0;
 }
