@@ -134,6 +134,8 @@ void ShowUsage(void)
 			"        Show interactive list\n"
 			"    dispense <name>|<index>|<itemid>\n"
 			"        Dispense named item (<name> matches if it is a unique prefix)\n"
+			"    dispense finger\n"
+			"        Show the finger output\n"
 			);
 	if( giTextArgc == 0 || strcmp(gsTextArgs[0], "give") == 0 )
 		printf(
@@ -373,6 +375,37 @@ int main(int argc, char *argv[])
 	
 		gsTextArgs[giTextArgc++] = argv[i];
 	
+	}
+
+	//
+	// `dispense finger`
+	// -
+	if( strcmp(gsTextArgs[0], "finger") == 0 )
+	{
+		// Connect to server
+		sock = OpenConnection(gsDispenseServer, giDispensePort);
+		if( sock < 0 )	return RV_SOCKET_ERROR;
+
+		// Get items
+		PopulateItemList(sock);
+
+		// Only get coke slot statuses
+		for( i = 0; i <= 6; i ++ )
+		{
+			const char *status;
+			switch(gaItems[i].Status)
+			{
+			case 0:	status = "Avail";	break;
+			case 1:	status = "Sold ";	break;
+			default:
+				status = "Error";
+				break;
+			}
+			printf("%i - %s %3i %s\n", gaItems[i].ID, status, gaItems[i].Price, gaItems[i].Desc);
+			
+		}
+
+		return 0;
 	}
 
 	//
