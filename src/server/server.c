@@ -682,6 +682,13 @@ void Server_Cmd_SETEUSER(tClient *Client, char *Args)
 			return ;
 		}
 	}
+
+	// Disabled accounts
+	if( userFlags & USER_FLAG_DISABLED ) {
+		Client->UID = -1;
+		sendf(Client->Socket, "403 Account disabled\n");
+		return ;
+	}
 	
 	sendf(Client->Socket, "200 User set\n");
 }
