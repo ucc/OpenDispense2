@@ -16,6 +16,8 @@
 #include <sys/stat.h>
 #include <time.h>
 
+#define DUMP_ITEMS	0
+
 // === IMPORTS ===
 extern tHandler	gCoke_Handler;
 extern tHandler	gSnack_Handler;
@@ -169,7 +171,9 @@ void Items_ReadFromFile(void)
 		price = atoi( line + matches[3].rm_so );
 		desc  = line + matches[4].rm_so;	
 
+		#if DUMP_ITEMS
 		printf("Item '%s' - %i cents, %s:%i\n", desc, price, type, num);
+		#endif
 
 		handler = NULL;
 		for( i = 0; i < giNumHandlers; i ++ )
@@ -190,7 +194,9 @@ void Items_ReadFromFile(void)
 			if( items[i].Handler != handler )	continue;
 			if( items[i].ID != num )	continue;
 
+			#if DUMP_ITEMS
 			printf("Redefinition of %s:%i, updated\n", handler->Name, num);
+			#endif
 			items[i].Price = price;
 			free(items[i].Name);
 			items[i].Name = strdup(desc);

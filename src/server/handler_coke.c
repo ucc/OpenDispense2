@@ -73,20 +73,21 @@ int Coke_InitHandler()
 		// Reset the slot names.
 		// - Dunno why this is needed, but the machine plays silly
 		//   sometimes.
-		Writef("n0 Slot0\n");
+		Writef("n0 Slot0\r\n");
 		if( !WaitForColon() )
 		{
-			Writef("n1 Slot1\n");
+			Writef("n1 Slot1\r\n");
 			WaitForColon();
-			Writef("n2 Slot2\n");
+			Writef("n2 Slot2\r\n");
 			WaitForColon();
-			Writef("n3 Slot3\n");
+			Writef("n3 Slot3\r\n");
 			WaitForColon();
-			Writef("n4 Slot4\n");
+			Writef("n4 Slot4\r\n");
 			WaitForColon();
-			Writef("n5 Slot5\n");
+			Writef("n5 Slot5\r\n");
 			WaitForColon();
-			Writef("n6 Coke\n");
+			Writef("n6 Coke\r\n");
+			WaitForColon();
 			
 			Coke_int_UpdateSlotStatuses();
 		}

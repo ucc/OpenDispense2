@@ -18,8 +18,9 @@
 #include <string.h>
 #include <limits.h>
 #include <stdarg.h>
-#include <signal.h>
-#include <ident.h>
+#include <signal.h>	// Signal handling
+#include <ident.h>	// AUTHIDENT
+#include <time.h>	// time(2)
 
 #define	DEBUG_TRACE_CLIENT	0
 #define HACK_NO_REFUNDS	1
@@ -166,6 +167,7 @@ void Server_Start(void)
 		}
 		if( pid != 0 ) {
 			// Parent, quit
+			printf("Forked child %i\n", pid);
 			exit(0);
 		}
 		// In child
@@ -178,6 +180,8 @@ void Server_Start(void)
 		freopen("/dev/null", "r", stdin);
 		freopen(gsServer_LogFile, "a", stdout);
 		freopen(gsServer_ErrorLog, "a", stderr);
+		fprintf(stdout, "OpenDispense 2 Server Started at %lld\n", (long long)time(NULL));
+		fprintf(stderr, "OpenDispense 2 Server Started at %lld\n", (long long)time(NULL));
 		#endif
 	}
 
