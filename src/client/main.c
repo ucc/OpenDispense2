@@ -389,6 +389,8 @@ int main(int argc, char *argv[])
 		// Get items
 		PopulateItemList(sock);
 
+		printf("The UCC Coke machine.\n\n");
+
 		// Only get coke slot statuses
 		for( i = 0; i <= 6; i ++ )
 		{
@@ -404,6 +406,8 @@ int main(int argc, char *argv[])
 			printf("%i - %s %3i %s\n", gaItems[i].ID, status, gaItems[i].Price, gaItems[i].Desc);
 			
 		}
+
+		printf("\nMay your pink fish bing into the distance.\n");
 
 		return 0;
 	}
