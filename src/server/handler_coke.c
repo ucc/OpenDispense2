@@ -73,6 +73,8 @@ int Coke_InitHandler()
 		// Reset the slot names.
 		// - Dunno why this is needed, but the machine plays silly
 		//   sometimes.
+		Writef("\r\n\r\n");
+		WaitForColon();
 		Writef("n0 Slot0\r\n");
 		if( !WaitForColon() )
 		{
@@ -186,7 +188,11 @@ int Coke_CanDispense(int UNUSED(User), int Item)
 	// Can't dispense if the machine is not connected
 	if( giCoke_SerialFD == -1 )
 		return -2;
-	
+
+	// HACK!
+	// 2011-10-21: The sensors in slot 1 and 3 a bad, just ignore the sensor result
+	if( Item == 1 || Item == 3 )	return 0;
+
 	return gaCoke_CachedStatus[Item];
 }
 
@@ -304,7 +310,10 @@ char ReadChar()
 	FD_SET(giCoke_SerialFD, &readfs);
 	
 	ret = select(giCoke_SerialFD+1, &readfs, NULL, NULL, &timeout);
-	if( ret == 0 )	return 0;	// Timeout
+	if( ret == 0 ) {
+		fprintf(stderr, "ReadChar: Timeout of %is expired\n", READ_TIMEOUT);
+		return 0;	// Timeout
+	}
 	if( ret != 1 ) {
 		printf("ReadChar: select return %i\n", ret);
 		return 0;
