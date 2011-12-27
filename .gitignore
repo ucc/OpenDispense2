@@ -1,5 +1,7 @@
 *.[od]
 *.so
 *~
+*.swp
 dispsrv
 dispense
+cokebank.log

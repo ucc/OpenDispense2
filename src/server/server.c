@@ -44,7 +44,8 @@ typedef struct sClient
 	 int	Socket;	// Client socket ID
 	 int	ID;	// Client ID
 	 
-	 int	bIsTrusted;	// Is the connection from a trusted host/port
+	 int	bTrustedHost;
+	 int	bCanAutoAuth;	// Is the connection from a trusted host/port
 	
 	char	*Username;
 	char	Salt[9];
@@ -57,7 +58,7 @@ typedef struct sClient
 // === PROTOTYPES ===
 void	Server_Start(void);
 void	Server_Cleanup(void);
-void	Server_HandleClient(int Socket, int bTrusted);
+void	Server_HandleClient(int Socket, int bTrustedHost, int bRootPort);
 void	Server_ParseClientCommand(tClient *Client, char *CommandString);
 // --- Commands ---
 void	Server_Cmd_USER(tClient *Client, char *Args);
@@ -118,6 +119,8 @@ const struct sClientCommand {
  int	gbServer_RunInBackground = 0;
 char	*gsServer_LogFile = "/var/log/dispsrv.log";
 char	*gsServer_ErrorLog = "/var/log/dispsrv.err";
+ int	giServer_NumTrustedHosts;
+struct in_addr	*gaServer_TrustedHosts;
 // - State variables
  int	giServer_Socket;	// Server socket
  int	giServer_NextClientID = 1;	// Debug client ID
@@ -131,6 +134,19 @@ void Server_Start(void)
 {
 	 int	client_socket;
 	struct sockaddr_in	server_addr, client_addr;
+
+	// Parse trusted hosts list
+	giServer_NumTrustedHosts = Config_GetValueCount("trusted_host");
+	gaServer_TrustedHosts = malloc(giServer_NumTrustedHosts * sizeof(*gaServer_TrustedHosts));
+	for( int i = 0; i < giServer_NumTrustedHosts; i ++ )
+	{
+		const char	*addr = Config_GetValue("trusted_host", i);
+		
+		if( inet_aton(addr, &gaServer_TrustedHosts[i]) == 0 ) {
+			fprintf(stderr, "Invalid IP address '%s'\n", addr);
+			continue ;
+		}
+	}
 
 	atexit(Server_Cleanup);
 	// Ignore SIGPIPE (stops crashes when the client exits early)
@@ -210,6 +226,7 @@ void Server_Start(void)
 	{
 		uint	len = sizeof(client_addr);
 		 int	bTrusted = 0;
+		 int	bRootPort = 0;
 		
 		// Accept a connection
 		client_socket = accept(giServer_Socket, (struct sockaddr *) &client_addr, &len);
@@ -241,9 +258,22 @@ void Server_Start(void)
 		// Doesn't matter what, localhost is trusted
 		if( ntohl( client_addr.sin_addr.s_addr ) == 0x7F000001 )
 			bTrusted = 1;
-		
-		// Trusted Connections
+	
+		// Check if the host is on the trusted list	
+		for( int i = 0; i < giServer_NumTrustedHosts; i ++ )
+		{
+			if( memcmp(&client_addr.sin_addr, &gaServer_TrustedHosts[i], sizeof(struct in_addr)) == 0 )
+			{
+				bTrusted = 1;
+				break;
+			}
+		}
+
+		// Root port (can AUTOAUTH if also a trusted machine
 		if( ntohs(client_addr.sin_port) < 1024 )
+			bRootPort = 1;
+		
+		#if 0
 		{
 			// TODO: Make this runtime configurable
 			switch( ntohl( client_addr.sin_addr.s_addr ) )
@@ -264,9 +294,10 @@ void Server_Start(void)
 				break;
 			}
 		}
+		#endif
 		
 		// TODO: Multithread this?
-		Server_HandleClient(client_socket, bTrusted);
+		Server_HandleClient(client_socket, bTrusted, bRootPort);
 		
 		close(client_socket);
 	}
@@ -284,7 +315,7 @@ void Server_Cleanup(void)
  * \param Socket	Client socket number/handle
  * \param bTrusted	Is the client trusted?
  */
-void Server_HandleClient(int Socket, int bTrusted)
+void Server_HandleClient(int Socket, int bTrusted, int bRootPort)
 {
 	char	inbuf[INPUT_BUFFER_SIZE];
 	char	*buf = inbuf;
@@ -297,7 +328,8 @@ void Server_HandleClient(int Socket, int bTrusted)
 	// Initialise Client info
 	clientInfo.Socket = Socket;
 	clientInfo.ID = giServer_NextClientID ++;
-	clientInfo.bIsTrusted = bTrusted;
+	clientInfo.bTrustedHost = bTrusted;
+	clientInfo.bCanAutoAuth = bTrusted && bRootPort;
 	clientInfo.EffectiveUID = -1;
 	
 	// Read from client
@@ -492,7 +524,7 @@ void Server_Cmd_AUTOAUTH(tClient *Client, char *Args)
 	}
 	
 	// Check if trusted
-	if( !Client->bIsTrusted ) {
+	if( !Client->bCanAutoAuth ) {
 		if(giDebugLevel)
 			Debug(Client, "Untrusted client attempting to AUTOAUTH");
 		sendf(Client->Socket, "401 Untrusted\n");
@@ -548,33 +580,18 @@ void Server_Cmd_AUTHIDENT(tClient *Client, char *Args)
 	char	*username;
 	 int	userflags;
 	const int ident_timeout = 5;
-	socklen_t len;
-	struct sockaddr_in client_addr;
-	uint32_t  client_ip;
 
 	if( Args != NULL && strlen(Args) ) {
 		sendf(Client->Socket, "407 AUTHIDENT takes no arguments\n");
 		return ;
 	}
 
-	// Check if trusted (only works with INET sockets at present)
-	len = sizeof(client_addr);
-	if( getpeername(Client->Socket, (struct sockaddr*)&client_addr, &len) == -1 ) {
-		Debug(Client, "500 getpeername() failed\n");
-		perror("Getting AUTHIDENT peer name");
-		sendf(Client->Socket, "500 getpeername() failed\n");
+	// Check if trusted
+	if( !Client->bTrustedHost ) {
+		if(giDebugLevel)
+			Debug(Client, "Untrusted client attempting to AUTHIDENT");
+		sendf(Client->Socket, "401 Untrusted\n");
 		return ;
-	}
-
-	client_ip = client_addr.sin_addr.s_addr;
-	if(giDebugLevel >= 2) {
-		Debug(Client, "client_ip = %x, ntohl(client_ip) = %x", client_ip, ntohl(client_ip));
-	}
-	if( ntohl(client_ip) != 0x7F000001 && (ntohl(client_ip) & IDENT_TRUSTED_NETMASK) != IDENT_TRUSTED_NETWORK ) {
-			if(giDebugLevel)
-				Debug(Client, "Untrusted client attempting to AUTHIDENT");
-			sendf(Client->Socket, "401 Untrusted\n");
-			return ;
 	}
 
 	// Get username via IDENT

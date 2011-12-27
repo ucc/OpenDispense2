@@ -27,17 +27,16 @@ extern void	Load_Itemlist(void);
 extern void	Server_Start(void);
 extern int	gbServer_RunInBackground;
 extern int	giServer_Port;
-extern char	*gsItemListFile;
-extern char	*gsCoke_SerialPort;
-extern char	*gsSnack_SerialPort;
-extern char	*gsDoor_SerialPort;
+extern const char	*gsItemListFile;
+extern const char	*gsCoke_ModbusAddress;
+extern const char	*gsDoor_SerialPort;
 
 // === PROTOTYPES ===
 void	*Periodic_Thread(void *Unused);
 
 // === GLOBALS ===
  int	giDebugLevel = 0;
-char	*gsCokebankPath = "cokebank.db";
+const char	*gsCokebankPath = "cokebank.db";
 // - Functions called every 20s (or so)
 #define ciMaxPeriodics	10
 struct sPeriodicCall {
@@ -54,24 +53,16 @@ void sigint_handler()
 void PrintUsage(const char *progname)
 {
 	fprintf(stderr, "Usage: %s\n", progname);
-	fprintf(stderr, "  -p    Set server port (default 11020)\n");
 	fprintf(stderr, "  -d    Set debug level (0 - 2, default 0)\n");
-	fprintf(stderr, "  --itemsfile\n");
-	fprintf(stderr, "        Set debug level (0 - 2, default 0)\n");
-	fprintf(stderr, "  --cokeport\n");
-	fprintf(stderr, "        Coke machine serial port (Default \"/dev/ttyS0\")\n");
-	fprintf(stderr, "  --doorport\n");
-	fprintf(stderr, "        Door modem/relay serial port (Default \"/dev/ttyS3\")\n");
-	fprintf(stderr, "  --cokebank\n");
-	fprintf(stderr, "        Coke bank database file (Default \"cokebank.db\")\n");
 	fprintf(stderr, "  --[dont-]daemonise\n");
-	fprintf(stderr, "        Run (or explicitly don't) the server disconnected from the terminal\n");
+	fprintf(stderr, "        Run (or explicitly don't run) the server disconnected from the terminal\n");
 }
 
 int main(int argc, char *argv[])
 {
 	 int	i;
-	
+	const char	*config_file = "dispsrv.conf";
+
 	// Parse Arguments
 	for( i = 1; i < argc; i++ )
 	{
@@ -80,62 +71,56 @@ int main(int argc, char *argv[])
 		{
 			switch(arg[1])
 			{
-			case 'p':
+			case 'f':
 				if( i + 1 >= argc )	return -1;
-				giServer_Port = atoi(argv[++i]);
+				config_file = argv[++i];
 				break;
 			case 'd':
 				if( i + 1 >= argc )	return -1;
-				giDebugLevel = atoi(argv[++i]);
+				Config_AddValue("debug_level", argv[++i]);
+				giDebugLevel = atoi(argv[i]);
 				break;
-			case 'D':
-				gbServer_RunInBackground = 1;
-				return -1;
 			default:
-				// Usage Error?
+				// Usage Error
 				PrintUsage(argv[0]);
 				return -1;
 			}
 		}
-		else if( arg[0] == '-' && arg[1] == '-' ) {
-			if( strcmp(arg, "--itemsfile") == 0 ) {
+		else if( arg[0] == '-' && arg[1] == '-' )
+		{
+			if( strcmp(arg, "--configfile") == 0 ) {
 				if( i + 1 >= argc )	return -1;
-				gsItemListFile = argv[++i];
-			}
-			else if( strcmp(arg, "--cokeport") == 0 ) {
-				if( i + 1 >= argc )	return -1;
-				gsCoke_SerialPort = argv[++i];
-			}
-			else if( strcmp(arg, "--snackport") == 0 ) {
-				if( i + 1 >= argc )	return -1;
-				gsSnack_SerialPort = argv[++i];
-			}
-			else if( strcmp(arg, "--doorport") == 0 ) {
-				if( i + 1 >= argc )	return -1;
-				gsDoor_SerialPort = argv[++i];
-			}
-			else if( strcmp(arg, "--cokebank") == 0 ) {
-				if( i + 1 >= argc )	return -1;
-				gsCokebankPath = argv[++i];
+				config_file = argv[++i];
 			}
 			else if( strcmp(arg, "--daemonise") == 0 ) {
-				gbServer_RunInBackground = 1;
+				Config_AddValue("daemonise", "true");
 			}
 			else if( strcmp(arg, "--dont-daemonise") == 0 ) {
-				gbServer_RunInBackground = 0;
+				Config_AddValue("daemonise", "false");
 			}
 			else {
-				// Usage error?
+				// Usage error
 				PrintUsage(argv[0]);
 				return -1;
 			}
 		}
-		else {
-			// Usage Error?
+		else
+		{
+			// Usage Error
 			PrintUsage(argv[0]);
 			return -1;
 		}
 	}
+
+	Config_ParseFile( config_file );
+
+	// Parse config values
+	gbServer_RunInBackground = Config_GetValue_Bool("daemonise", 0);
+	gsCokebankPath       = Config_GetValue("cokebank_database", 0);
+	gsDoor_SerialPort    = Config_GetValue("door_serial_port", 0);
+	gsCoke_ModbusAddress = Config_GetValue("coke_modbus_address", 0);
+	giServer_Port        = Config_GetValue_Int("server_port", 0);
+	gsItemListFile       = Config_GetValue("items_file", 0);
 	
 	signal(SIGINT, sigint_handler);
 	signal(SIGTERM, sigint_handler);
@@ -157,10 +142,9 @@ int main(int argc, char *argv[])
 	return 0;
 }
 
-void *Periodic_Thread(void *Unused)
+void *Periodic_Thread(void *Unused __attribute__((unused)))
 {
 	 int	i;
-	Unused = NULL;	// quiet, gcc
 	
 	for( ;; )
 	{
@@ -220,7 +204,7 @@ void CompileRegex(regex_t *regex, const char *pattern, int flags)
 		size_t	len = regerror(ret, regex, NULL, 0);
 		char    errorStr[len];
 		regerror(ret, regex, errorStr, len);
-		fprintf(stderr, "Regex compilation failed - %s\n", errorStr);
+		fprintf(stderr, "Regex compilation failed - %s\n%s\n", errorStr, pattern);
 		exit(-1);
 	}
 }

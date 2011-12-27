@@ -1314,28 +1314,14 @@ int OpenConnection(const char *Host, int Port)
 	return sock;
 }
 
-/**
- * \brief Authenticate with the server
- * \return Boolean Failure
- */
-int Authenticate(int Socket)
+int Authenticate_AutoAuth(int Socket, const char *Username)
 {
-	struct passwd	*pwd;
 	char	*buf;
 	 int	responseCode;
-	#if ATTEMPT_PASSWORD_AUTH
-	char	salt[32];
-	 int	i;
-	regmatch_t	matches[4];
-	#endif
-	
-	if( gbIsAuthenticated )	return 0;
-	
-	// Get user name
-	pwd = getpwuid( getuid() );
+	 int	ret = -1;
 	
 	// Attempt automatic authentication
-	sendf(Socket, "AUTOAUTH %s\n", pwd->pw_name);
+	sendf(Socket, "AUTOAUTH %s\n", Username);
 	
 	// Check if it worked
 	buf = ReadLine(Socket);
@@ -1344,98 +1330,170 @@ int Authenticate(int Socket)
 	switch( responseCode )
 	{
 	case 200:	// Autoauth succeeded, return
-		free(buf);
+		ret = 0;
 		break;
 	
-	case 401:	// Untrusted, attempt password authentication
-		free(buf);
-
-		#if ATTEMPT_PASSWORD_AUTH	
-		sendf(Socket, "USER %s\n", pwd->pw_name);
-		printf("Using username %s\n", pwd->pw_name);
-		
-		buf = ReadLine(Socket);
-		
-		// TODO: Get Salt
-		// Expected format: 100 SALT <something> ...
-		// OR             : 100 User Set
-		RunRegex(&gSaltRegex, buf, 4, matches, "Malformed server response");
-		responseCode = atoi(buf);
-		if( responseCode != 100 ) {
-			fprintf(stderr, "Unknown repsonse code %i from server\n%s\n", responseCode, buf);
-			free(buf);
-			return RV_UNKNOWN_ERROR;	// ERROR
-		}
-		
-		// Check for salt
-		if( memcmp( buf+matches[2].rm_so, "SALT", matches[2].rm_eo - matches[2].rm_so) == 0) {
-			// Store it for later
-			memcpy( salt, buf + matches[3].rm_so, matches[3].rm_eo - matches[3].rm_so );
-			salt[ matches[3].rm_eo - matches[3].rm_so ] = 0;
-		}
-		free(buf);
-		
-		// Give three attempts
-		for( i = 0; i < 3; i ++ )
-		{
-			 int	ofs = strlen(pwd->pw_name)+strlen(salt);
-			char	tmpBuf[42];
-			char	tmp[ofs+20];
-			char	*pass = getpass("Password: ");
-			uint8_t	h[20];
-			
-			// Create hash string
-			// <username><salt><hash>
-			strcpy(tmp, pwd->pw_name);
-			strcat(tmp, salt);
-			SHA1( (unsigned char*)pass, strlen(pass), h );
-			memcpy(tmp+ofs, h, 20);
-			
-			// Hash all that
-			SHA1( (unsigned char*)tmp, ofs+20, h );
-			sprintf(tmpBuf, "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
-				h[ 0], h[ 1], h[ 2], h[ 3], h[ 4], h[ 5], h[ 6], h[ 7], h[ 8], h[ 9],
-				h[10], h[11], h[12], h[13], h[14], h[15], h[16], h[17], h[18], h[19]
-				);
-		
-			// Send password
-			sendf(Socket, "PASS %s\n", tmpBuf);
-			buf = ReadLine(Socket);
-		
-			responseCode = atoi(buf);
-			// Auth OK?
-			if( responseCode == 200 )	break;
-			// Bad username/password
-			if( responseCode == 401 )	continue;
-			
-			fprintf(stderr, "Unknown repsonse code %i from server\n%s\n", responseCode, buf);
-			free(buf);
-			return RV_UNKNOWN_ERROR;
-		}
-		free(buf);
-		if( i == 3 )
-			return RV_INVALID_USER;	// 2 = Bad Password
-		
-		#else
+	case 401:	// Untrusted
 		fprintf(stderr, "Untrusted host, AUTOAUTH unavaliable\n");
-		return RV_INVALID_USER;
-		#endif
+		ret = RV_PERMISSIONS;
 		break;
-	
 	case 404:	// Bad Username
-		fprintf(stderr, "Bad Username '%s'\n", pwd->pw_name);
-		free(buf);
-		return RV_INVALID_USER;
+		fprintf(stderr, "Bad Username '%s'\n", Username);
+		ret = RV_INVALID_USER;
+		break;
 	
 	default:
 		fprintf(stderr, "Unkown response code %i from server\n", responseCode);
 		printf("%s\n", buf);
-		free(buf);
-		return RV_UNKNOWN_ERROR;
+		ret = RV_UNKNOWN_ERROR;
+		break;;
 	}
 	
+	free(buf);
+	return ret;
+}
+
+int Authenticate_AuthIdent(int Socket)
+{
+	char	*buf;
+	 int	responseCode;
+	 int	ret = -1;
+	
+	// Attempt automatic authentication
+	sendf(Socket, "AUTHIDENT\n");
+	
+	// Check if it worked
+	buf = ReadLine(Socket);
+	
+	responseCode = atoi(buf);
+	switch( responseCode )
+	{
+	case 200:	// Autoauth succeeded, return
+		ret = 0;
+		break;
+	
+	case 401:	// Untrusted
+		fprintf(stderr, "Untrusted host, AUTOAUTH unavaliable\n");
+		ret = RV_PERMISSIONS;
+		break;
+	
+	default:
+		fprintf(stderr, "Unkown response code %i from server\n", responseCode);
+		printf("%s\n", buf);
+		ret = RV_UNKNOWN_RESPONSE;
+		break;
+	}
+	
+	free(buf);
+
+	return ret;
+}
+
+int Authenticate_Password(int Socket, const char *Username)
+{
+	#if USE_PASSWORD_AUTH
+	char	*buf;
+	 int	responseCode;	
+	char	salt[32];
+	 int	i;
+	regmatch_t	matches[4];
+
+	sendf(Socket, "USER %s\n", Username);
+	printf("Using username %s\n", Username);
+	
+	buf = ReadLine(Socket);
+	
+	// TODO: Get Salt
+	// Expected format: 100 SALT <something> ...
+	// OR             : 100 User Set
+	RunRegex(&gSaltRegex, buf, 4, matches, "Malformed server response");
+	responseCode = atoi(buf);
+	if( responseCode != 100 ) {
+		fprintf(stderr, "Unknown repsonse code %i from server\n%s\n", responseCode, buf);
+		free(buf);
+		return RV_UNKNOWN_ERROR;	// ERROR
+	}
+	
+	// Check for salt
+	if( memcmp( buf+matches[2].rm_so, "SALT", matches[2].rm_eo - matches[2].rm_so) == 0) {
+		// Store it for later
+		memcpy( salt, buf + matches[3].rm_so, matches[3].rm_eo - matches[3].rm_so );
+		salt[ matches[3].rm_eo - matches[3].rm_so ] = 0;
+	}
+	free(buf);
+	
+	// Give three attempts
+	for( i = 0; i < 3; i ++ )
+	{
+		 int	ofs = strlen(Username)+strlen(salt);
+		char	tmpBuf[42];
+		char	tmp[ofs+20];
+		char	*pass = getpass("Password: ");
+		uint8_t	h[20];
+		
+		// Create hash string
+		// <username><salt><hash>
+		strcpy(tmp, Username);
+		strcat(tmp, salt);
+		SHA1( (unsigned char*)pass, strlen(pass), h );
+		memcpy(tmp+ofs, h, 20);
+		
+		// Hash all that
+		SHA1( (unsigned char*)tmp, ofs+20, h );
+		sprintf(tmpBuf, "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
+			h[ 0], h[ 1], h[ 2], h[ 3], h[ 4], h[ 5], h[ 6], h[ 7], h[ 8], h[ 9],
+			h[10], h[11], h[12], h[13], h[14], h[15], h[16], h[17], h[18], h[19]
+			);
+	
+		// Send password
+		sendf(Socket, "PASS %s\n", tmpBuf);
+		buf = ReadLine(Socket);
+	
+		responseCode = atoi(buf);
+		// Auth OK?
+		if( responseCode == 200 )	break;
+		// Bad username/password
+		if( responseCode == 401 )	continue;
+		
+		fprintf(stderr, "Unknown repsonse code %i from server\n%s\n", responseCode, buf);
+		free(buf);
+		return -1;
+	}
+	free(buf);
+	if( i == 3 )
+		return RV_INVALID_USER;	// 2 = Bad Password
+
+	return 0;
+	#else
+	return RV_INVALID_USER;
+	#endif
+}
+
+/**
+ * \brief Authenticate with the server
+ * \return Boolean Failure
+ */
+int Authenticate(int Socket)
+{
+	struct passwd	*pwd;
+	
+	if( gbIsAuthenticated )	return 0;
+	
+	// Get user name
+	pwd = getpwuid( getuid() );
+
+	// Attempt AUTOAUTH
+	if( Authenticate_AutoAuth(Socket, pwd->pw_name) == 0 )
+		;
+	else if( Authenticate_AuthIdent(Socket) == 0 )
+		;
+	else if( Authenticate_Password(Socket, pwd->pw_name) == 0 )
+		return RV_INVALID_USER;
+
 	// Set effective user
 	if( gsEffectiveUser ) {
+		char	*buf;
+		 int	responseCode;
 		sendf(Socket, "SETEUSER %s\n", gsEffectiveUser);
 		
 		buf = ReadLine(Socket);

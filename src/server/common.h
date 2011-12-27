@@ -22,6 +22,8 @@
 
 #define UNUSED(var)	unused__##var __attribute__((__unused__))
 
+#define ASSERT(cnd) do{if(!(cnd)){fprintf(stderr, "ASSERT failed at "__FILE__":"EXPSTR(__LINE__)" - "EXPSTR(cnd)"\n");exit(-1);}}while(0)
+
 // === STRUCTURES ===
 typedef struct sItem	tItem;
 typedef struct sUser	tUser;
@@ -95,5 +97,13 @@ extern int	DispenseUpdateItem(int User, tItem *Item, const char *NewName, int Ne
 // --- Logging ---
 extern void	Log_Error(const char *Format, ...);
 extern void	Log_Info(const char *Format, ...);
+
+// --- Config Database ---
+extern void	Config_ParseFile(const char *Filename);
+extern void	Config_AddValue(const char *Key, const char *Value);
+extern int	Config_GetValueCount(const char *KeyName);
+extern const char	*Config_GetValue(const char *KeyName, int Index);
+extern int	Config_GetValue_Bool(const char *KeyName, int Index);
+extern int	Config_GetValue_Int(const char *KeyName, int Index);
 
 #endif
