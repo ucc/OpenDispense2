@@ -1334,7 +1334,7 @@ int Authenticate_AutoAuth(int Socket, const char *Username)
 		break;
 	
 	case 401:	// Untrusted
-		fprintf(stderr, "Untrusted host, AUTOAUTH unavaliable\n");
+//		fprintf(stderr, "Untrusted host, AUTOAUTH unavaliable\n");
 		ret = RV_PERMISSIONS;
 		break;
 	case 404:	// Bad Username
@@ -1373,7 +1373,7 @@ int Authenticate_AuthIdent(int Socket)
 		break;
 	
 	case 401:	// Untrusted
-//		fprintf(stderr, "Untrusted host, AUTOAUTH unavaliable\n");
+//		fprintf(stderr, "Untrusted host, AUTHIDENT unavaliable\n");
 		ret = RV_PERMISSIONS;
 		break;
 	
