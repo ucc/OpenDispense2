@@ -47,8 +47,6 @@ time_t	gtCoke_LastDispenseTime;
 // == CODE ===
 int Coke_InitHandler()
 {
-	printf("Connecting to coke machine on '%s'\n", gsCoke_ModbusAddress);
-
 	// Configuable dummy/blank mode (all dispenses succeed)
 	// TODO: Find a better way of handling missing/invalid options
 	if( Config_GetValueCount("coke_dummy_mode") > 0 )
@@ -58,16 +56,21 @@ int Coke_InitHandler()
 	}
 
 	// Open modbus
-	modbus_new_tcp(gsCoke_ModbusAddress, 502);
-	if( !gCoke_Modbus )
+	if( !gbCoke_DummyMode )
 	{
-		perror("coke - modbus_new_tcp");
-	}
-	else
-	{
-		if( modbus_connect(gCoke_Modbus) )
+		printf("Connecting to coke machine on '%s'\n", gsCoke_ModbusAddress);
+		
+		modbus_new_tcp(gsCoke_ModbusAddress, 502);
+		if( !gCoke_Modbus )
+		{
+			perror("coke - modbus_new_tcp");
+		}
+		
+		if( gCoke_Modbus && modbus_connect(gCoke_Modbus) )
 		{
 			perror("coke - modbus_connect");
+			modbus_free(gCoke_Modbus);
+			gCoke_Modbus = NULL;
 		}
 	}
 
@@ -88,7 +91,10 @@ int Coke_CanDispense(int UNUSED(User), int Item)
 	if( !gCoke_Modbus )
 		return -2;
 
-	modbus_read_bits(gCoke_Modbus, ciCoke_StatusBitBase + Item, 1, &status);
+	if( modbus_read_bits(gCoke_Modbus, ciCoke_StatusBitBase + Item, 1, &status) )
+	{
+		// TODO: Check for a connection issue
+	}
 
 	return status == 0;
 }
@@ -118,8 +124,11 @@ int Coke_DoDispense(int UNUSED(User), int Item)
 		printf("wait done\n");
 	}
 	
-	// Dispense (with locking)
-	modbus_write_bit(gCoke_Modbus, ciCoke_DropBitBase + Item, 1);
+	// Dispense
+	if( modbus_write_bit(gCoke_Modbus, ciCoke_DropBitBase + Item, 1) )
+	{
+		// TODO: Handle connection issues
+	}
 	
 	return 0;
 }
