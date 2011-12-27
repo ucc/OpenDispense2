@@ -94,6 +94,7 @@ int Coke_CanDispense(int UNUSED(User), int Item)
 	if( modbus_read_bits(gCoke_Modbus, ciCoke_StatusBitBase + Item, 1, &status) )
 	{
 		// TODO: Check for a connection issue
+		perror("Coke_CanDispense - modbus_read_bits");
 	}
 
 	return status == 0;
@@ -128,6 +129,7 @@ int Coke_DoDispense(int UNUSED(User), int Item)
 	if( modbus_write_bit(gCoke_Modbus, ciCoke_DropBitBase + Item, 1) )
 	{
 		// TODO: Handle connection issues
+		perror("Coke_DoDispense - modbus_write_bit");
 	}
 	
 	return 0;
