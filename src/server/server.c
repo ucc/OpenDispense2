@@ -811,6 +811,8 @@ tItem *_GetItemFromString(char *String)
 
 /**
  * \brief Fetch information on a specific item
+ *
+ * Usage: ITEMINFO <item ID>
  */
 void Server_Cmd_ITEMINFO(tClient *Client, char *Args)
 {
@@ -831,6 +833,11 @@ void Server_Cmd_ITEMINFO(tClient *Client, char *Args)
 	Server_int_SendItem( Client, item );
 }
 
+/**
+ * \brief Dispense an item
+ *
+ * Usage: DISPENSE <Item ID>
+ */
 void Server_Cmd_DISPENSE(tClient *Client, char *Args)
 {
 	tItem	*item;
@@ -872,6 +879,11 @@ void Server_Cmd_DISPENSE(tClient *Client, char *Args)
 	}
 }
 
+/**
+ * \brief Refund an item to a user
+ *
+ * Usage: REFUND <user> <item id> [<price>]
+ */
 void Server_Cmd_REFUND(tClient *Client, char *Args)
 {
 	tItem	*item;
@@ -920,6 +932,11 @@ void Server_Cmd_REFUND(tClient *Client, char *Args)
 	}
 }
 
+/**
+ * \brief Transfer money to another account
+ *
+ * Usage: GIVE <dest> <ammount> <reason...>
+ */
 void Server_Cmd_GIVE(tClient *Client, char *Args)
 {
 	char	*recipient, *ammount, *reason;
