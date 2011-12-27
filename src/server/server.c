@@ -597,6 +597,7 @@ void Server_Cmd_AUTHIDENT(tClient *Client, char *Args)
 	// Get username via IDENT
 	username = ident_id(Client->Socket, ident_timeout);
 	if( !username ) {
+		perror("AUTHIDENT - IDENT timed out");
 		sendf(Client->Socket, "403 Authentication failure: IDENT auth timed out\n");
 		return ;
 	}
