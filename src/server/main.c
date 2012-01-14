@@ -36,6 +36,7 @@ void	*Periodic_Thread(void *Unused);
 
 // === GLOBALS ===
  int	giDebugLevel = 0;
+ int	gbNoCostMode = 0;
 const char	*gsCokebankPath = "cokebank.db";
 // - Functions called every 20s (or so)
 #define ciMaxPeriodics	10
@@ -121,7 +122,9 @@ int main(int argc, char *argv[])
 	gsCoke_ModbusAddress = Config_GetValue("coke_modbus_address", 0);
 	giServer_Port        = Config_GetValue_Int("server_port", 0);
 	gsItemListFile       = Config_GetValue("items_file", 0);
-	
+
+	gbNoCostMode         = Config_GetValue_Bool("test_mode", 0);
+
 	signal(SIGINT, sigint_handler);
 	signal(SIGTERM, sigint_handler);
 	

@@ -73,6 +73,7 @@ extern int	giNumItems;
 extern tHandler	*gaHandlers[];
 extern int	giNumHandlers;
 extern int	giDebugLevel;
+extern int	gbNoCostMode;
 
 // === FUNCTIONS ===
 extern void	Items_UpdateFile(void);

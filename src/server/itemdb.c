@@ -207,7 +207,10 @@ void Items_ReadFromFile(void)
 		items = realloc( items, (numItems + 1)*sizeof(items[0]) );
 		items[numItems].Handler = handler;
 		items[numItems].ID = num;
-		items[numItems].Price = price;
+		if( gbNoCostMode )
+			items[numItems].Price = 0;
+		else
+			items[numItems].Price = price;
 		items[numItems].Name = strdup(desc);
 		items[numItems].bHidden = (line[0] == '-');
 		numItems ++;

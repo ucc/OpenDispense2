@@ -731,7 +731,7 @@ void Server_int_SendItem(tClient *Client, tItem *Item)
 		}
 	}
 	
-	if( Item->Price == 0 )
+	if( !gbNoCostMode && Item->Price == 0 )
 		status = "error";
 	// KNOWN HACK: Naming a slot 'dead' disables it
 	if( strcmp(Item->Name, "dead") == 0 )

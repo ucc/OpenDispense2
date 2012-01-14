@@ -223,6 +223,7 @@ int Coke_int_DropSlot(int Slot)
 	if( res == 0 )
 	{
 		// Oops!, no drink
+		printf("Drink dispense failed, bit lowered too quickly\n");
 		return 1;
 	}
 	
