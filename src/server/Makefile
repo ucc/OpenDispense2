@@ -8,7 +8,8 @@ OBJ += dispense.o itemdb.o
 OBJ += handler_coke.o handler_snack.o handler_door.o
 BIN := ../../dispsrv
 
-DEPFILES := $(OBJ:%.o=%.d)
+OBJ := $(OBJ:%=obj/%)
+DEPFILES := $(OBJ:%=%.d)
 
 LINKFLAGS := -g ../../cokebank.so -lutil -lident -lmodbus -Wl,-rpath,. -Wl,-rpath,$(INSTALLDIR)
 CPPFLAGS := 
@@ -19,14 +20,15 @@ CFLAGS := -Wall -Wextra -Werror -g -std=gnu99
 all: $(BIN)
 
 clean:
-	$(RM) $(BIN) $(OBJ)
+	$(RM) $(BIN) $(OBJ) $(DEPFILES)
 
 $(BIN): $(OBJ)
 	$(CC) -o $(BIN) $(OBJ) $(LINKFLAGS)
 
-%.o: %.c
+obj/%.o: %.c
+	@mkdir -p $(dir $@)
 	$(CC) -c $< -o $@ $(CFLAGS) $(CPPFLAGS)
-	@cpp $< -MM -MF $*.d
+	@cpp $< -MM -MF $@.d
 	
 -include $(DEPFILES)
 
