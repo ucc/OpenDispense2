@@ -123,7 +123,7 @@ int main(int argc, char *argv[])
 	giServer_Port        = Config_GetValue_Int("server_port", 0);
 	gsItemListFile       = Config_GetValue("items_file", 0);
 
-	gbNoCostMode         = Config_GetValue_Bool("test_mode", 0);
+	gbNoCostMode         = (Config_GetValue_Bool("test_mode", 0) == 1);
 
 	signal(SIGINT, sigint_handler);
 	signal(SIGTERM, sigint_handler);
