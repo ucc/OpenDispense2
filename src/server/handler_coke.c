@@ -20,6 +20,7 @@
 #include <errno.h>
 
 #define MIN_DISPENSE_PERIOD	5
+#define COKE_RECONNECT_RATELIMIT	2
 
 // === CONSTANTS ===
 const int	ciCoke_MinPeriod = 5;
@@ -36,6 +37,8 @@ const int	ciCoke_StatusBitBase = 16;
  int	Coke_int_GetSlotFromItem(int Item, int bDispensing);
  int	Coke_int_IsSlotEmpty(int Slot);
  int	Coke_int_DropSlot(int Slot);
+static int	_ReadBit(int BitNum, uint8_t *Value);
+static int	_WriteBit(int BitNum, uint8_t Value);
 
 // === GLOBALS ===
 tHandler	gCoke_Handler = {
@@ -47,6 +50,7 @@ tHandler	gCoke_Handler = {
 const char	*gsCoke_ModbusAddress = "130.95.13.73";
 modbus_t	*gCoke_Modbus;
 time_t	gtCoke_LastDispenseTime;
+time_t	gtCoke_LastReconnectTime;
  int	gbCoke_DummyMode = 1;
  int	giCoke_NextCokeSlot = 0;
 
@@ -107,6 +111,7 @@ int Coke_DoDispense(int UNUSED(User), int Item)
 		sleep( delay );
 		printf("wait done\n");
 	}
+	gtCoke_LastDispenseTime = time(NULL);
 
 	return Coke_int_DropSlot(slot);
 }
@@ -114,19 +119,26 @@ int Coke_DoDispense(int UNUSED(User), int Item)
 // --- INTERNAL FUNCTIONS ---
 int Coke_int_ConnectToPLC(void)
 {
+	// Ratelimit
+	if( time(NULL) - gtCoke_LastReconnectTime < COKE_RECONNECT_RATELIMIT )
+		return -1;
+
 	if( !gCoke_Modbus )
 	{
 		gCoke_Modbus = modbus_new_tcp(gsCoke_ModbusAddress, 502);
 		if( !gCoke_Modbus )
 		{
 			perror("coke - modbus_new_tcp");
+			gtCoke_LastReconnectTime = time(NULL);
 			return 1;
 		}
 	}
 	printf("Connecting to coke PLC machine on '%s'\n", gsCoke_ModbusAddress);
+	fprintf(stderr, "Connecting to coke PLC machine on '%s'\n", gsCoke_ModbusAddress);
 	
 	if( modbus_connect(gCoke_Modbus) )
 	{
+		gtCoke_LastReconnectTime = time(NULL);
 		perror("coke - modbus_connect");
 		modbus_free(gCoke_Modbus);
 		gCoke_Modbus = NULL;
@@ -170,13 +182,9 @@ int Coke_int_IsSlotEmpty(int Slot)
 
 	if( Slot < 0 || Slot > 9 )	return -1;
 
-	if(!gCoke_Modbus)
-		return -2;
-
 	errno = 0;
-	if( modbus_read_bits(gCoke_Modbus, ciCoke_StatusBitBase + Slot, 1, &status) <= 0 )
+	if( _ReadBit(ciCoke_StatusBitBase + Slot, &status) )
 	{
-		// TODO: Retry connection, or fail
 		perror("Coke_int_IsSlotEmpty - modbus_read_bits");
 		return -2;
 	}
@@ -190,12 +198,8 @@ int Coke_int_DropSlot(int Slot)
 
 	if(Slot < 0 || Slot > 9)	return -1;
 
-	// Can't dispense if the machine is not connected
-	if( !gCoke_Modbus )
-		return -2;
-
 	// Check if a dispense is in progress
-	if( modbus_read_bits(gCoke_Modbus, ciCoke_DropBitBase + Slot, 1, &res) <= 0 )
+	if( _ReadBit(ciCoke_DropBitBase + Slot, &res) )
 	{
 		perror("Coke_int_DropSlot - modbus_read_bits#1");
 		return -2;
@@ -207,7 +211,7 @@ int Coke_int_DropSlot(int Slot)
 	}
 
 	// Dispense
-	if( modbus_write_bit(gCoke_Modbus, ciCoke_DropBitBase + Slot, 1) < 0 )
+	if( _WriteBit(ciCoke_DropBitBase + Slot, 1) )
 	{
 		perror("Coke_int_DropSlot - modbus_write_bit");
 		return -2;
@@ -215,7 +219,7 @@ int Coke_int_DropSlot(int Slot)
 
 	// Check that it started
 	usleep(1000);	// 1ms
-	if( modbus_read_bits(gCoke_Modbus, ciCoke_DropBitBase + Slot, 1, &res) <= 0 )
+	if( _ReadBit(ciCoke_DropBitBase + Slot, &res) )
 	{
 		perror("Coke_int_DropSlot - modbus_read_bits#2");
 		return -2;
@@ -228,5 +232,33 @@ int Coke_int_DropSlot(int Slot)
 	}
 	
 	return 0;
+}
+
+int _ReadBit(int BitNum, uint8_t *Value)
+{
+	errno = 0;
+	if( !gCoke_Modbus && Coke_int_ConnectToPLC() )
+		return -1;
+	if( modbus_read_bits( gCoke_Modbus, BitNum, 1, Value) >= 0 )
+		return 0;
+	if( Coke_int_ConnectToPLC() )
+		return -1;
+	if( modbus_read_bits( gCoke_Modbus, BitNum, 1, Value) >= 0 )
+		return 0;
+	return -1;
+}
+
+int _WriteBit(int BitNum, uint8_t Value)
+{
+	errno = 0;
+	if( !gCoke_Modbus && Coke_int_ConnectToPLC() )
+		return -1;
+	if( modbus_write_bit( gCoke_Modbus, BitNum, Value != 0 ) >= 0 )
+		return 0;
+	if( Coke_int_ConnectToPLC() )
+		return -1;
+	if( modbus_write_bit( gCoke_Modbus, BitNum, Value != 0 ) >= 0 )
+		return 0;
+	return -1;
 }
 
