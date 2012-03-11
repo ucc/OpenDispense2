@@ -904,7 +904,37 @@ int ShowNCursesUI(void)
 	struct passwd *pwd;
 	 
 	 int	height, width;
-	 
+	
+	void _ItemDown(void)
+	{
+		currentItem ++;
+		// Skip over spacers
+		while( ShowItemAt(0, 0, 0, currentItem, 0) == -1 )
+			currentItem ++;
+		
+		if( currentItem >= maxItemIndex ) {
+			currentItem = 0;
+			// Skip over spacers
+			while( ShowItemAt(0, 0, 0, currentItem, 0) == -1 )
+				currentItem ++;
+		}
+	}
+	
+	void _ItemUp(void)
+	{
+		currentItem --;
+		// Skip over spacers
+		while( ShowItemAt(0, 0, 0, currentItem, 0) == -1 )
+			currentItem --;
+		
+		if( currentItem < 0 ) {
+			currentItem = maxItemIndex - 1;
+			// Skip over spacers
+			while( ShowItemAt(0, 0, 0, currentItem, 0) == -1 )
+				currentItem --;
+		}
+	}
+
 	// Get Username
 	if( gsEffectiveUser )
 		username = gsEffectiveUser;
@@ -1017,52 +1047,12 @@ int ShowNCursesUI(void)
 				
 				switch(ch)
 				{
-				case 'B':
-					currentItem ++;
-					// Skip over spacers
-					while( ShowItemAt(0, 0, 0, currentItem, 0) == -1 )
-						currentItem ++;
-					
-					if( currentItem >= maxItemIndex ) {
-						currentItem = 0;
-						// Skip over spacers
-						while( ShowItemAt(0, 0, 0, currentItem, 0) == -1 )
-							currentItem ++;
-					}
-					break;
-				case 'A':
-					currentItem --;
-					// Skip over spacers
-					while( ShowItemAt(0, 0, 0, currentItem, 0) == -1 )
-						currentItem --;
-					
-					if( currentItem < 0 ) {
-						currentItem = maxItemIndex - 1;
-						// Skip over spacers
-						while( ShowItemAt(0, 0, 0, currentItem, 0) == -1 )
-							currentItem --;
-					}
-					break;
+				case 'B':	_ItemDown();	break;
+				case 'A':	_ItemUp();	break;
 				}
 			}
 			else {
 				
-			}
-		
-			// Scroll only if needed
-			if( items_in_view < maxItemIndex )
-			{
-				// - If the current item is above the second item shown, and we're not at the top
-				if( currentItem < itemBase + 2 && itemBase > 0 ) {
-					itemBase = currentItem - 2;
-					if(itemBase < 0)	itemBase = 0;
-				}
-				// - If the current item is below the second item show, and we're not at the bottom
-				if( currentItem > itemBase + items_in_view - 2 && itemBase + items_in_view < maxItemIndex ) {
-					itemBase = currentItem - items_in_view + 2;
-					if( itemBase > maxItemIndex - items_in_view )
-						itemBase = maxItemIndex - items_in_view;
-				}
 			}
 		}
 		else {
@@ -1071,6 +1061,10 @@ int ShowNCursesUI(void)
 			case '\n':
 				ret = ShowItemAt(0, 0, 0, currentItem, 0);
 				break;
+			case 'h':	break;
+			case 'j':	_ItemDown();	break;
+			case 'k':	_ItemUp();	break;
+			case 'l':	break;
 			case 0x1b:	// Escape
 			case 'q':
 				ret = -1;	// -1: Return with no dispense
@@ -1081,6 +1075,21 @@ int ShowNCursesUI(void)
 			if( ret != -2 )	break;
 		}
 		
+		// Scroll only if needed
+		if( items_in_view < maxItemIndex )
+		{
+			// - If the current item is above the second item shown, and we're not at the top
+			if( currentItem < itemBase + 2 && itemBase > 0 ) {
+				itemBase = currentItem - 2;
+				if(itemBase < 0)	itemBase = 0;
+			}
+			// - If the current item is below the second item show, and we're not at the bottom
+			if( currentItem > itemBase + items_in_view - 2 && itemBase + items_in_view < maxItemIndex ) {
+				itemBase = currentItem - items_in_view + 2;
+				if( itemBase > maxItemIndex - items_in_view )
+					itemBase = maxItemIndex - items_in_view;
+			}
+		}
 	}
 	
 	
