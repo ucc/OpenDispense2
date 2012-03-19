@@ -2,7 +2,7 @@
  * OpenDispense 2 
  * UCC (University [of WA] Computer Club) Electronic Accounting System
  *
- * handler_doror.c - Door Relay code
+ * handler_door.c - Door Relay code
  *
  * This file is licenced under the 3-clause BSD Licence. See the file
  * COPYING for full details.
@@ -18,7 +18,6 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <unistd.h>
-#include <sys/wait.h>
 #include <pty.h>
 
 #define DOOR_UNLOCKED_DELAY	5	// Time in seconds before the door re-locks
@@ -30,6 +29,7 @@
  int	Door_CanDispense(int User, int Item);
  int	Door_DoDispense(int User, int Item);
  int	writes(int fd, const char *str);
+char	*ReadStatus(int FD);
 
 // === GLOBALS ===
 tHandler	gDoor_Handler = {
@@ -38,7 +38,7 @@ tHandler	gDoor_Handler = {
 	Door_CanDispense,
 	Door_DoDispense
 };
-char	*gsDoor_SerialPort = "/dev/ttyS3";
+char	*gsDoor_SerialPort;	// Set from config in main.c
 
 // == CODE ===
 int Door_InitHandler(void)
@@ -94,38 +94,33 @@ int Door_DoDispense(int User, int Item)
 		return 1;
 	}
 	
-	door_serial_handle = InitSerial(gsDoor_SerialPort, 1200);
+	door_serial_handle = InitSerial(gsDoor_SerialPort, 115200);
 	if(door_serial_handle < 0) {
 		fprintf(stderr, "Unable to open door serial '%s'\n", gsDoor_SerialPort);
 		perror("Opening door port");
 		return -1;
 	}
 
+	// Disable local echo
 	{
 		struct termios	info;
 		tcgetattr(door_serial_handle, &info);
-//		info.c_iflag &= ~IGNCR;	// Ignore \r
 		info.c_cflag &= ~CLOCAL;
 		tcsetattr(door_serial_handle, TCSANOW, &info);
 	}
 
-	writes(door_serial_handle, "\r\r");
-	sleep(1);
+//	flush(door_serial_handle);
 
-	if( writes(door_serial_handle, "ATH1\r") ) {
-		fprintf(stderr, "Unable to open door (sending ATH1)\n");
-		perror("Sending ATH1");
+	writes(door_serial_handle, "4;");
+
+#if 0
+	char *status = ReadStatus(door_serial_handle);
+	if( !status )	return -1;
+	if( strcmp(status, "Opening door") != 0 ) {
+		fprintf(stderr, "Unknown/unexpected door status '%s'\n", status);
 		return -1;
 	}
-	
-	// Wait before re-locking
-	sleep(DOOR_UNLOCKED_DELAY);
-
-	if( writes(door_serial_handle, "ATH0\r") ) {
-		fprintf(stderr, "Oh, hell! Door not re-locking, big error (sending ATH0 failed)\n");
-		perror("Sending ATH0");
-		return -1;
-	}
+#endif
 
 	close(door_serial_handle);
 	
@@ -147,3 +142,24 @@ int writes(int fd, const char *str)
 	return 0;
 }
 
+char *ReadStatus(int FD)
+{
+	char	tmpbuf[32];
+	 int	len;
+	len = read(FD, tmpbuf, sizeof(tmpbuf)-1);
+	tmpbuf[len] = 0;
+	char *msg = strchr(tmpbuf, ',');
+	if( !msg ) {
+		fprintf(stderr, "Door returned malformed data (no ',')\n");
+		return NULL;
+	}
+	msg ++;
+	char *end = strchr(tmpbuf, ';');
+	if( !end ) {
+		fprintf(stderr, "Door returned malformed data (no ';')\n");
+		return NULL;
+	}
+	*end = '\0';
+
+	return strdup(msg);
+}
