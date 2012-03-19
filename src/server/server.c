@@ -25,6 +25,8 @@
 #define	DEBUG_TRACE_CLIENT	0
 #define HACK_NO_REFUNDS	1
 
+#define PIDFILE	"/var/run/dispsrv.pid"
+
 // Statistics
 #define MAX_CONNECTION_QUEUE	5
 #define INPUT_BUFFER_SIZE	256
@@ -215,7 +217,7 @@ void Server_Start(void)
 	
 	// write pidfile
 	{
-		FILE *fp = fopen("/var/run/dispsrv.pid", "w");
+		FILE *fp = fopen(PIDFILE, "w");
 		if( fp ) {
 			fprintf(fp, "%i", getpid());
 			fclose(fp);
@@ -307,7 +309,7 @@ void Server_Cleanup(void)
 {
 	printf("\nClose(%i)\n", giServer_Socket);
 	close(giServer_Socket);
-	unlink("/var/run/dispsrv.pid");
+	unlink(PIDFILE);
 }
 
 /**
