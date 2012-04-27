@@ -251,6 +251,8 @@ int main(int argc, char *argv[])
 				return 0;
 					
 			case 'c':
+				if( i > 2 && strcmp(argv[i-1], "type") == 0 )
+					goto _default;
 				if( i + 1 >= argc ) {
 					fprintf(stderr, "%s: -c takes an argument\n", argv[0]);
 					ShowUsage();
@@ -347,7 +349,7 @@ int main(int argc, char *argv[])
 					return RV_ARGUMENTS;
 				}
 				break;
-			default:
+			default: _default:
 				// The first argument is not allowed to begin with 'i'
 				// (catches most bad flags)
 				if( giTextArgc == 0 ) {
