@@ -68,10 +68,21 @@ int DispenseItem(int ActualUser, int User, tItem *Item)
 	actualUsername = Bank_GetAcctName(ActualUser);
 	
 	// And log that it happened
-	Log_Info("dispense '%s' (%s:%i) for %s by %s [cost %i, balance %i]",
-		Item->Name, handler->Name, Item->ID,
-		username, actualUsername, Item->Price, Bank_GetBalance(User)
-		);
+	if( gbNoCostMode )
+	{
+		// Special format for zero cost dispenses
+		Log_Info("test dispense '%s' (%s:%i) for %s by %s [no change]",
+			Item->Name, handler->Name, Item->ID,
+			username, actualUsername
+			);
+	}
+	else
+	{
+		Log_Info("dispense '%s' (%s:%i) for %s by %s [cost %i, balance %i]",
+			Item->Name, handler->Name, Item->ID,
+			username, actualUsername, Item->Price, Bank_GetBalance(User)
+			);
+	}
 	
 	free( username );
 	free( actualUsername );
