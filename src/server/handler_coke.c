@@ -19,7 +19,7 @@
 #include <modbus/modbus.h>
 #include <errno.h>
 
-#define MIN_DISPENSE_PERIOD	5
+#define MIN_DISPENSE_PERIOD	2
 #define COKE_RECONNECT_RATELIMIT	2
 
 // === CONSTANTS ===
