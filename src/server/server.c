@@ -685,8 +685,7 @@ void Server_Cmd_SETEUSER(tClient *Client, char *Args)
 		sendf(Client->Socket, "404 User not found\n");
 		return ;
 	}
-	
-	// You can't be an internal account
+	// You can't be an internal account (unless you're an admin)
 	if( !(userFlags & USER_FLAG_ADMIN) )
 	{
 		eUserFlags = Bank_GetFlags(Client->EffectiveUID);
@@ -705,7 +704,7 @@ void Server_Cmd_SETEUSER(tClient *Client, char *Args)
 
 	// Disabled accounts
 	if( userFlags & USER_FLAG_DISABLED ) {
-		Client->UID = -1;
+		Client->EffectiveUID = -1;
 		sendf(Client->Socket, "403 Account disabled\n");
 		return ;
 	}

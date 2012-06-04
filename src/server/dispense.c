@@ -334,8 +334,8 @@ int _GetMinBalance(int Account)
  */
 int _CanTransfer(int Source, int Destination, int Ammount)
 {
-	if( Bank_GetFlags(Source) & USER_FLAG_DISABLED )
-		return 0;
+//	if( Bank_GetFlags(Source) & USER_FLAG_DISABLED )
+//		return 0;
 	if( Ammount > 0 )
 	{
 		if( Bank_GetBalance(Source) - Ammount < _GetMinBalance(Source) )
