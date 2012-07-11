@@ -14,6 +14,10 @@
 #include <unistd.h>	// getuid
 #include "common.h"
 
+// === CONSTANTS ===
+#define COLOURPAIR_CANTBUY	1
+#define COLOURPAIR_SELECTED	2
+
 // === PROTOTYPES ===
  int	ShowItemAt(int Row, int Col, int Width, int Index, int bHilighted);
 void	PrintAlign(int Row, int Col, int Width, const char *Left, char Pad1, const char *Mid, char Pad2, const char *Right, ...);
@@ -85,6 +89,9 @@ int ShowNCursesUI(void)
 	
 	// Enter curses mode
 	initscr();
+	start_color();
+	init_pair(COLOURPAIR_CANTBUY,  COLOR_BLACK,   COLOR_BLACK);	// Not avaliable
+	init_pair(COLOURPAIR_SELECTED, COLOR_GREEN,  COLOR_BLACK);	// Selected
 	cbreak(); noecho();
 	
 	// Get max index
@@ -174,7 +181,7 @@ int ShowNCursesUI(void)
 		PrintAlign(yBase+height-1, xBase+1, width-2,
 			username, ' ', balance_str, ' ', gsUserFlags);
 		PrintAlign(yBase+height, xBase+1, width-2,
-			"q: Quit", ' ', "Arrow: Select", ' ', "Enter: Drop");
+			"q: Quit", ' ', "Arrows: Select", ' ', "Enter: Buy");
 		
 		
 		// Get input
@@ -209,7 +216,6 @@ int ShowNCursesUI(void)
 			case 'j':	_ItemDown();	break;
 			case 'k':	_ItemUp();	break;
 			case 'l':	break;
-			case 0x1b:	// Escape
 			case 'q':
 				ret = -1;	// -1: Return with no dispense
 				break;
@@ -311,17 +317,29 @@ int ShowItemAt(int Row, int Col, int Width, int Index, int bHilighted)
 			switch( status )
 			{
 			case 0:
-				if( bHilighted )
+				if( bHilighted ) {
+					color_set( COLOURPAIR_SELECTED, NULL );
 					printw("->  ");
-				else
+				}
+				else if( price > giUserBalance ) {
+					attrset(A_BOLD);
+					color_set( COLOURPAIR_CANTBUY, NULL );
 					printw("    ");
+				}
+				else {
+					color_set( 0, NULL );
+					printw("    ");
+				}
 				break;
 			case 1:
+				attrset(A_BOLD);
+				color_set( COLOURPAIR_CANTBUY, NULL );
 				printw("SLD ");
 				break;
 			
 			default:
 			case -1:
+				color_set( COLOURPAIR_CANTBUY, NULL );
 				printw("ERR ");
 				break;
 			}
@@ -329,6 +347,8 @@ int ShowItemAt(int Row, int Col, int Width, int Index, int bHilighted)
 			printw("%-*.*s", nameWidth, nameWidth, name);
 		
 			printw(" %4i", price);
+			color_set(0, NULL);
+			attrset(A_NORMAL);
 		}
 		else
 		{
