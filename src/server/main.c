@@ -54,6 +54,8 @@ void sigint_handler()
 void PrintUsage(const char *progname)
 {
 	fprintf(stderr, "Usage: %s\n", progname);
+	fprintf(stderr, "  -f,--configfile\n");
+	fprintf(stderr, "        Set the config file path (default `dispsrv.conf')\n");
 	fprintf(stderr, "  -d    Set debug level (0 - 2, default 0)\n");
 	fprintf(stderr, "  --[dont-]daemonise\n");
 	fprintf(stderr, "        Run (or explicitly don't run) the server disconnected from the terminal\n");
@@ -83,6 +85,7 @@ int main(int argc, char *argv[])
 				break;
 			default:
 				// Usage Error
+				fprintf(stderr, "Unknown option '-%c'\n", arg[1]);
 				PrintUsage(argv[0]);
 				return -1;
 			}
@@ -101,6 +104,7 @@ int main(int argc, char *argv[])
 			}
 			else {
 				// Usage error
+				fprintf(stderr, "Unknown option '%s'\n", arg);
 				PrintUsage(argv[0]);
 				return -1;
 			}

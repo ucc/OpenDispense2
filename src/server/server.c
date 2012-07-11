@@ -21,6 +21,7 @@
 #include <signal.h>	// Signal handling
 #include <ident.h>	// AUTHIDENT
 #include <time.h>	// time(2)
+#include <ctype.h>
 
 #define	DEBUG_TRACE_CLIENT	0
 #define HACK_NO_REFUNDS	1
@@ -82,6 +83,8 @@ void	_SendUserInfo(tClient *Client, int UserID);
 void	Server_Cmd_USERADD(tClient *Client, char *Args);
 void	Server_Cmd_USERFLAGS(tClient *Client, char *Args);
 void	Server_Cmd_UPDATEITEM(tClient *Client, char *Args);
+void	Server_Cmd_PINCHECK(tClient *Client, char *Args);
+void	Server_Cmd_PINSET(tClient *Client, char *Args);
 // --- Helpers ---
 void	Debug(tClient *Client, const char *Format, ...);
  int	sendf(int Socket, const char *Format, ...);
@@ -111,7 +114,9 @@ const struct sClientCommand {
 	{"USER_INFO", Server_Cmd_USERINFO},
 	{"USER_ADD", Server_Cmd_USERADD},
 	{"USER_FLAGS", Server_Cmd_USERFLAGS},
-	{"UPDATE_ITEM", Server_Cmd_UPDATEITEM}
+	{"UPDATE_ITEM", Server_Cmd_UPDATEITEM},
+	{"PIN_CHECK", Server_Cmd_PINCHECK},
+	{"PIN_SET", Server_Cmd_PINSET}
 };
 #define NUM_COMMANDS	((int)(sizeof(gaServer_Commands)/sizeof(gaServer_Commands[0])))
 
@@ -1540,6 +1545,95 @@ void Server_Cmd_UPDATEITEM(tClient *Client, char *Args)
 	}
 }
 
+void Server_Cmd_PINCHECK(tClient *Client, char *Args)
+{
+	char	*username, *pinstr;
+	 int	pin;
+
+	if( Server_int_ParseArgs(0, Args, &username, &pinstr, NULL) ) {
+		sendf(Client->Socket, "407 PIN_CHECK takes 2 arguments\n");
+		return ;
+	}
+	
+	if( !isdigit(pinstr[0]) || !isdigit(pinstr[1]) || !isdigit(pinstr[2]) || !isdigit(pinstr[3]) || pinstr[4] != '\0' ) {
+		sendf(Client->Socket, "407 PIN should be four digits\n");
+		return ;
+	}
+	pin = atoi(pinstr);
+
+	// Not strictly needed, but ensures that randoms don't do brute forcing
+	if( !Client->bIsAuthed ) {
+		sendf(Client->Socket, "401 Not Authenticated\n");
+		return ;
+	}
+	
+	// Check user permissions
+	if( !(Bank_GetFlags(Client->UID) & (USER_FLAG_COKE|USER_FLAG_ADMIN))  ) {
+		sendf(Client->Socket, "403 Not in coke\n");
+		return ;
+	}
+	
+	// Get user
+	int uid = Bank_GetAcctByName(username, 0);
+	if( uid == -1 ) {
+		sendf(Client->Socket, "404 User '%s' not found\n", username);
+		return ;
+	}
+	
+	// Get the pin
+	static time_t	last_wrong_pin_time;
+	static int	backoff = 1;
+	if( time(NULL) - last_wrong_pin_time < backoff ) {
+		sendf(Client->Socket, "407 Rate limited (%i seconds remaining)\n",
+			backoff - (time(NULL) - last_wrong_pin_time));
+		return ;
+	}	
+	last_wrong_pin_time = time(NULL);
+	if( !Bank_IsPinValid(uid, pin) )
+	{
+		sendf(Client->Socket, "403 Pin incorrect\n");
+		if( backoff < 5)
+			backoff ++;
+		return ;
+	}
+
+	last_wrong_pin_time = 0;
+	backoff = 1;
+	sendf(Client->Socket, "200 Pin correct\n");
+	return ;
+}
+void Server_Cmd_PINSET(tClient *Client, char *Args)
+{
+	char	*pinstr;
+	 int	pin;
+	
+
+	if( Server_int_ParseArgs(0, Args, &pinstr, NULL) ) {
+		sendf(Client->Socket, "407 PIN_SET takes 2 arguments\n");
+		return ;
+	}
+	
+	if( !isdigit(pinstr[0]) || !isdigit(pinstr[1]) || !isdigit(pinstr[2]) || !isdigit(pinstr[3]) || pinstr[4] != '\0' ) {
+		sendf(Client->Socket, "407 PIN should be four digits\n");
+		return ;
+	}
+	pin = atoi(pinstr);
+
+	// Not strictly needed, but ensures that randoms don't do brute forcing
+	if( !Client->bIsAuthed ) {
+		sendf(Client->Socket, "401 Not Authenticated\n");
+		return ;
+	}
+	
+	int uid = Client->EffectiveUID;
+	if(uid == -1)
+		uid = Client->UID;
+	// Can only pinset yourself (well, the effective user)
+	Bank_SetPin(uid, pin);
+	sendf(Client->Socket, "200 Pin updated\n");
+	return ;
+}
+
 // --- INTERNAL HELPERS ---
 void Debug(tClient *Client, const char *Format, ...)
 {
@@ -1716,3 +1810,4 @@ int Server_int_ParseFlags(tClient *Client, const char *Str, int *Mask, int *Valu
 	
 	return 0;
 }
+

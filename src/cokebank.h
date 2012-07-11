@@ -181,6 +181,21 @@ extern void	Bank_DelIterator(tAcctIterator *It);
 extern int	Bank_GetUserAuth(const char *Salt, const char *Username, const char *Password);
 
 /**
+ * \brief Checks the validity of a pin against a username
+ * \param AcctID	Account ID
+ * \param Pin  	Integer version of the pin
+ * \return Boolean correct
+ */
+extern int	Bank_IsPinValid(int AcctID, int Pin);
+
+/**
+ * \brief Update a user's pin
+ * \param AcctID	Account ID
+ * \param NewPin	New pin for the account
+ */
+extern void	Bank_SetPin(int AcctID, int NewPin);
+
+/**
  * \brief Get an account ID from a MIFARE card ID
  * \param CardID	MIFARE card ID
  * \return Account ID

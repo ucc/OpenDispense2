@@ -63,6 +63,8 @@ struct sAcctIterator	// Unused really, just used as a void type
  int	Bank_SetFlags(int AcctID, int Mask, int Value);
  int	Bank_GetBalance(int AcctID);
 char	*Bank_GetAcctName(int AcctID);
+ int	Bank_IsPinValid(int AcctID, int Pin);
+void	Bank_SetPin(int AcctID, int Pin);
 sqlite3_stmt	*Bank_int_MakeStatemnt(sqlite3 *Database, const char *Query);
  int	Bank_int_QueryNone(sqlite3 *Database, const char *Query, char **ErrorMessage);
 sqlite3_stmt	*Bank_int_QuerySingle(sqlite3 *Database, const char *Query);
@@ -354,6 +356,34 @@ int Bank_CreateAcct(const char *Name)
 	return sqlite3_last_insert_rowid(gBank_Database);
 }
 
+int Bank_IsPinValid(int AcctID, int Pin)
+{
+	char *query = mkstr("SELECT acct_id FROM accounts WHERE acct_id=%i AND acct_pin=%i LIMIT 1", AcctID, Pin);
+	sqlite3_stmt *statement = Bank_int_QuerySingle(gBank_Database, query);
+	free(query);
+	
+	if( statement ) {
+		sqlite3_finalize(statement);
+	}
+
+	return (statement != NULL);
+}
+
+void Bank_SetPin(int AcctID, int Pin)
+{
+	char *errmsg;
+	char *query = mkstr("UPDATE accounts SET acct_pin=%i WHERE acct_id=%i", Pin, AcctID);
+	int rv = Bank_int_QueryNone(gBank_Database, query, &errmsg);
+	if( rv != SQLITE_OK )
+	{
+		fprintf(stderr, "Bank_CreateAcct - SQLite Error: '%s'\n", errmsg);
+		fprintf(stderr, "Query = '%s'\n", query);
+		sqlite3_free(errmsg);
+		free(query);
+		return ;
+	}
+	free(query);
+}
 /*
  * Create an iterator for user accounts
  */
