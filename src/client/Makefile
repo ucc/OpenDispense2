@@ -4,7 +4,7 @@ LDFLAGS := -g -lncurses
 # -lssl
 
 BIN := ../../dispense
-OBJ := main.o
+OBJ := main.o protocol.o menu.o
 
 DEPFILES := $(OBJ:%.o=%.d)
 
