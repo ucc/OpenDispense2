@@ -15,6 +15,7 @@
 #include "common.h"
 
 // === CONSTANTS ===
+#define COLOURPAIR_DEFAULT	0
 #define COLOURPAIR_CANTBUY	1
 #define COLOURPAIR_SELECTED	2
 
@@ -90,8 +91,10 @@ int ShowNCursesUI(void)
 	// Enter curses mode
 	initscr();
 	start_color();
-	init_pair(COLOURPAIR_CANTBUY,  COLOR_BLACK,   COLOR_BLACK);	// Not avaliable
-	init_pair(COLOURPAIR_SELECTED, COLOR_GREEN,  COLOR_BLACK);	// Selected
+	use_default_colors();
+	init_pair(COLOURPAIR_DEFAULT,  -1,  -1);	// Not avaliable
+	init_pair(COLOURPAIR_CANTBUY,  COLOR_BLACK,  -1);	// Not avaliable
+	init_pair(COLOURPAIR_SELECTED, COLOR_GREEN,  -1);	// Selected
 	cbreak(); noecho();
 	
 	// Get max index
