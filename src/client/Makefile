@@ -1,5 +1,5 @@
 
-CFLAGS := -Wall -Werror -g
+CFLAGS := -Wall -Werror -g -std=gnu99
 LDFLAGS := -g -lncurses
 # -lssl
 

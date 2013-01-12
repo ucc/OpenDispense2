@@ -55,8 +55,6 @@ int OpenConnection(const char *Host, int Port)
 		return -1;
 	}
 
-//	printf("geteuid() = %i, getuid() = %i\n", geteuid(), getuid());
-	
 	if( geteuid() == 0 || getuid() == 0 )
 	{
 		 int	i;
@@ -74,8 +72,6 @@ int OpenConnection(const char *Host, int Port)
 		}
 		if( i == 1024 )
 			printf("Warning: AUTOAUTH unavaliable\n");
-//		else
-//			printf("Bound to 0.0.0.0:%i\n", i);
 	}
 	
 	if( connect(sock, (struct sockaddr *) &serverAddr, sizeof(serverAddr)) < 0 ) {
@@ -512,6 +508,62 @@ int Dispense_ItemInfo(int Socket, const char *Type, int ID)
 	free(item.Desc);
 	
 	return 0;
+}
+
+int DispenseCheckPin(int Socket, const char *Username, const char *Pin)
+{
+	 int	ret, responseCode;
+	char	*buf;
+	
+	if( strlen(Pin) != 4 ) {
+		fprintf(stderr, "Pin format incorrect (not 4 characters long)\n");
+		return RV_ARGUMENTS;
+	}
+		
+	for( int i = 0; i < 4; i ++ )
+		if( !isdigit(Pin[i]) ) {
+			fprintf(stderr, "Pin format incorrect (character %i not a digit)\n", i);
+			return RV_ARGUMENTS;
+		}
+	}
+	
+	sendf(Socket, "CHECK_PIN %s %s\n", Username, Pin);
+	buf = ReadLine(Socket);
+	
+	responseCode = atoi(buf);
+	switch( responseCode )
+	{
+	case 200:	// Pin correct
+		printf("Pin OK\n");
+		ret = 0;
+		break;
+	case 201:
+		printf("Pin incorrect\n");
+		ret = RV_INVALID_USER;
+		break;
+	case 401:
+		printf("Not authenticated\n");
+		ret = RV_PERMISSIONS;
+		break;
+	case 403:
+		printf("Only coke members can check accounts other than their own\n");
+		ret = RV_PERMISSIONS;
+		break;
+	case 404:
+		printf("User '%s' not found\n", Username);
+		ret = RV_INVALID_USER;
+		break;
+	case 407:
+		printf("Rate limited or client-server disagree on pin format\n");
+		ret = RV_SERVER_ERROR;
+		break;
+	default:
+		printf("Unknown response code %i ('%s')\n", responseCode, buf);
+		ret = RV_UNKNOWN_ERROR;
+		break;
+	}
+	free(buf);
+	return ret;
 }
 
 /**

@@ -699,16 +699,12 @@ void Server_Cmd_SETEUSER(tClient *Client, char *Args)
 			sendf(Client->Socket, "404 User not found\n");
 			return ;
 		}
-		// Disabled only avaliable to admins
-		if( eUserFlags & USER_FLAG_DISABLED ) {
-			Client->EffectiveUID = -1;
-			sendf(Client->Socket, "403 Account disabled\n");
-			return ;
-		}
 	}
 
 	// Disabled accounts
-	if( userFlags & USER_FLAG_DISABLED ) {
+	// - If disabled and the actual user is not an admin (and not root)
+	//   return 403
+	if( (eUserFlags & USER_FLAG_DISABLED) && (Client->UID == 0 || !(userFlags & USER_FLAG_ADMIN)) ) {
 		Client->EffectiveUID = -1;
 		sendf(Client->Socket, "403 Account disabled\n");
 		return ;
@@ -873,6 +869,9 @@ void Server_Cmd_DISPENSE(tClient *Client, char *Args)
 	else {
 		uid = Client->UID;
 	}
+
+//	if( Bank_GetFlags(Client->UID) & USER_FLAG_DISABLED  ) {
+//	}
 
 	switch( ret = DispenseItem( Client->UID, uid, item ) )
 	{
@@ -1567,16 +1566,16 @@ void Server_Cmd_PINCHECK(tClient *Client, char *Args)
 		return ;
 	}
 	
-	// Check user permissions
-	if( !(Bank_GetFlags(Client->UID) & (USER_FLAG_COKE|USER_FLAG_ADMIN))  ) {
-		sendf(Client->Socket, "403 Not in coke\n");
-		return ;
-	}
-	
 	// Get user
 	int uid = Bank_GetAcctByName(username, 0);
 	if( uid == -1 ) {
 		sendf(Client->Socket, "404 User '%s' not found\n", username);
+		return ;
+	}
+	
+	// Check user permissions
+	if( uid != Client->UID && !(Bank_GetFlags(Client->UID) & (USER_FLAG_COKE|USER_FLAG_ADMIN))  ) {
+		sendf(Client->Socket, "403 Not in coke\n");
 		return ;
 	}
 	
@@ -1591,7 +1590,7 @@ void Server_Cmd_PINCHECK(tClient *Client, char *Args)
 	last_wrong_pin_time = time(NULL);
 	if( !Bank_IsPinValid(uid, pin) )
 	{
-		sendf(Client->Socket, "403 Pin incorrect\n");
+		sendf(Client->Socket, "201 Pin incorrect\n");
 		if( backoff < 5)
 			backoff ++;
 		return ;
