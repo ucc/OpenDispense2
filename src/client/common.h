@@ -87,6 +87,8 @@ extern void	_PrintUserLine(const char *Line);
 extern int	Dispense_AddUser(int Socket, const char *Username);
 extern int	Dispense_SetUserType(int Socket, const char *Username, const char *TypeString, const char *Reason);
 extern int	Dispense_SetItem(int Socket, const char *Type, int ID, int NewPrice, const char *NewName);
+extern int	DispenseCheckPin(int Socket, const char *Username, const char *Pin);
+extern int	DispenseSetPin(int Socket, const char *Pin);
 
 #endif
 

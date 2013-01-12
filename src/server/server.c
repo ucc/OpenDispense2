@@ -28,6 +28,9 @@
 
 #define PIDFILE	"/var/run/dispsrv.pid"
 
+#define Debug_Notice(msg, v...)	printf("%08llun: "msg"\n", (unsigned long long)time(NULL) ,##v)
+#define Debug_Debug(msg, v...)	printf("%08llud: "msg"\n", (unsigned long long)time(NULL) ,##v)
+
 // Statistics
 #define MAX_CONNECTION_QUEUE	5
 #define INPUT_BUFFER_SIZE	256
@@ -155,7 +158,6 @@ void Server_Start(void)
 		}
 	}
 
-	atexit(Server_Cleanup);
 	// Ignore SIGPIPE (stops crashes when the client exits early)
 	signal(SIGPIPE, SIG_IGN);
 
@@ -176,6 +178,7 @@ void Server_Start(void)
 	if( bind(giServer_Socket, (struct sockaddr *) &server_addr, sizeof(server_addr)) < 0 ) {
 		fprintf(stderr, "ERROR: Unable to bind to 0.0.0.0:%i\n", giServer_Port);
 		perror("Binding");
+		close(giServer_Socket);
 		return ;
 	}
 
@@ -190,7 +193,7 @@ void Server_Start(void)
 		}
 		if( pid != 0 ) {
 			// Parent, quit
-			printf("Forked child %i\n", pid);
+			Debug_Notice("Forked child server as PID %i\n", pid);
 			exit(0);
 		}
 		// In child
@@ -207,6 +210,7 @@ void Server_Start(void)
 		fprintf(stderr, "OpenDispense 2 Server Started at %lld\n", (long long)time(NULL));
 		#endif
 	}
+	atexit(Server_Cleanup);
 
 	// Start the helper thread
 	StartPeriodicThread();
@@ -218,7 +222,7 @@ void Server_Start(void)
 		return ;
 	}
 	
-	printf("Listening on 0.0.0.0:%i\n", giServer_Port);
+	Debug_Notice("Listening on 0.0.0.0:%i", giServer_Port);
 	
 	// write pidfile
 	{
@@ -258,7 +262,7 @@ void Server_Start(void)
 		if(giDebugLevel >= 2) {
 			char	ipstr[INET_ADDRSTRLEN];
 			inet_ntop(AF_INET, &client_addr.sin_addr, ipstr, INET_ADDRSTRLEN);
-			printf("Client connection from %s:%i\n",
+			Debug_Debug("Client connection from %s:%i",
 				ipstr, ntohs(client_addr.sin_port));
 		}
 		
@@ -312,7 +316,7 @@ void Server_Start(void)
 
 void Server_Cleanup(void)
 {
-	printf("\nClose(%i)\n", giServer_Socket);
+	Debug_Debug("Close(%i)", giServer_Socket);
 	close(giServer_Socket);
 	unlink(PIDFILE);
 }
@@ -1560,7 +1564,7 @@ void Server_Cmd_PINCHECK(tClient *Client, char *Args)
 	}
 	pin = atoi(pinstr);
 
-	// Not strictly needed, but ensures that randoms don't do brute forcing
+	// Not authenticated? go away!
 	if( !Client->bIsAuthed ) {
 		sendf(Client->Socket, "401 Not Authenticated\n");
 		return ;
@@ -1591,6 +1595,13 @@ void Server_Cmd_PINCHECK(tClient *Client, char *Args)
 	if( !Bank_IsPinValid(uid, pin) )
 	{
 		sendf(Client->Socket, "201 Pin incorrect\n");
+		struct sockaddr_storage	addr;
+		socklen_t len = sizeof(addr);
+		char ipstr[INET6_ADDRSTRLEN];
+		getpeername(Client->Socket, (void*)&addr, &len);
+		struct sockaddr_in *s = (struct sockaddr_in *)&addr;
+		inet_ntop(addr.ss_family, &s->sin_addr, ipstr, sizeof(ipstr));
+		Debug_Notice("Bad pin from %s for %s by %i", ipstr, username, Client->UID);
 		if( backoff < 5)
 			backoff ++;
 		return ;
@@ -1608,7 +1619,7 @@ void Server_Cmd_PINSET(tClient *Client, char *Args)
 	
 
 	if( Server_int_ParseArgs(0, Args, &pinstr, NULL) ) {
-		sendf(Client->Socket, "407 PIN_SET takes 2 arguments\n");
+		sendf(Client->Socket, "407 PIN_SET takes 1 argument\n");
 		return ;
 	}
 	
@@ -1618,7 +1629,6 @@ void Server_Cmd_PINSET(tClient *Client, char *Args)
 	}
 	pin = atoi(pinstr);
 
-	// Not strictly needed, but ensures that randoms don't do brute forcing
 	if( !Client->bIsAuthed ) {
 		sendf(Client->Socket, "401 Not Authenticated\n");
 		return ;

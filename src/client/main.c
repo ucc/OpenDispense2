@@ -12,7 +12,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>	// isspace
-#include <unistd.h>	// close
+#include <pwd.h>	// getpwuids
+#include <unistd.h>	// close/getuid
 #include <limits.h>	// INT_MIN/INT_MAX
 #include "common.h"
 
@@ -633,6 +634,54 @@ int main(int argc, char *argv[])
 		if(ret)	return ret;
 		// Update the slot
 		ret = Dispense_SetItem(sock, item_type, item_id, price, newname);
+		
+		close(sock);
+		return ret;
+	}
+	// Check a user's pin
+	else if(strcmp(gsTextArgs[0], "pincheck") == 0)
+	{
+		if( giTextArgc < 2 || giTextArgc > 3 ) {
+			fprintf(stderr, "Error: `dispense pincheck` takes one/two arguments\n");
+			ShowUsage();
+			return RV_ARGUMENTS;
+		}
+		struct passwd	*pwd = getpwuid( getuid() );
+		gsUserName = strdup(pwd->pw_name);
+		
+		const char *pin = gsTextArgs[1];
+		const char *user = gsUserName;
+		if( giTextArgc == 3 )
+			user = gsTextArgs[2];
+
+		
+		sock = OpenConnection(gsDispenseServer, giDispensePort);
+		if( sock < 0 )	return RV_SOCKET_ERROR;
+		ret = Authenticate(sock);
+		if(ret)	return ret;
+		
+		ret = DispenseCheckPin(sock, user, pin);
+		
+		close(sock);
+		return ret;
+	}
+	// Update 'your' pin
+	else if(strcmp(gsTextArgs[0], "pinset") == 0)
+	{
+		if( giTextArgc != 2 ) {
+			fprintf(stderr, "Error: `dispense pinset` takes one argument\n");
+			ShowUsage();
+			return RV_ARGUMENTS;
+		}
+		
+		const char *pin = gsTextArgs[1];
+		
+		sock = OpenConnection(gsDispenseServer, giDispensePort);
+		if( sock < 0 )	return RV_SOCKET_ERROR;
+		ret = Authenticate(sock);
+		if(ret)	return ret;
+
+		ret = DispenseSetPin(sock, pin);
 		
 		close(sock);
 		return ret;

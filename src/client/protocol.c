@@ -21,6 +21,7 @@
 #include <unistd.h>	// close/getuid
 #include <limits.h>	// INT_MIN/INT_MAX
 #include <stdarg.h>
+#include <ctype.h>	// isdigit
 #include "common.h"
 
 // === PROTOTYPES ===
@@ -520,14 +521,14 @@ int DispenseCheckPin(int Socket, const char *Username, const char *Pin)
 		return RV_ARGUMENTS;
 	}
 		
-	for( int i = 0; i < 4; i ++ )
+	for( int i = 0; i < 4; i ++ ) {
 		if( !isdigit(Pin[i]) ) {
 			fprintf(stderr, "Pin format incorrect (character %i not a digit)\n", i);
 			return RV_ARGUMENTS;
 		}
 	}
 	
-	sendf(Socket, "CHECK_PIN %s %s\n", Username, Pin);
+	sendf(Socket, "PIN_CHECK %s %s\n", Username, Pin);
 	buf = ReadLine(Socket);
 	
 	responseCode = atoi(buf);
@@ -563,6 +564,49 @@ int DispenseCheckPin(int Socket, const char *Username, const char *Pin)
 		break;
 	}
 	free(buf);
+	return ret;
+}
+
+int DispenseSetPin(int Socket, const char *Pin)
+{
+	 int	ret, responseCode;
+	char	*buf;
+	
+	if( strlen(Pin) != 4 ) {
+		fprintf(stderr, "Pin format incorrect (not 4 characters long)\n");
+		return RV_ARGUMENTS;
+	}
+		
+	for( int i = 0; i < 4; i ++ ) {
+		if( !isdigit(Pin[i]) ) {
+			fprintf(stderr, "Pin format incorrect (character %i not a digit)\n", i);
+			return RV_ARGUMENTS;
+		}
+	}
+	
+	sendf(Socket, "PIN_SET %s\n", Pin);
+	buf = ReadLine(Socket);
+	
+	responseCode = atoi(buf);
+	switch(responseCode)
+	{
+	case 200:
+		printf("Pin Updated\n");
+		ret = 0;
+		break;
+	case 401:
+		printf("Not authenticated\n");
+		ret = RV_PERMISSIONS;
+		break;
+	case 407:
+		printf("Client/server disagreement on pin format\n");
+		ret = RV_SERVER_ERROR;
+		break;
+	default:
+		printf("Unknown response code %i ('%s')\n", responseCode, buf);
+		ret = RV_UNKNOWN_ERROR;
+		break;
+	}
 	return ret;
 }
 
