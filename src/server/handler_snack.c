@@ -31,18 +31,22 @@ tHandler	gSnack_Handler = {
 	Snack_DoDispense
 };
 char	*gsSnack_SerialPort = "/dev/ttyS1";
+#if 0
  int	giSnack_SerialFD;
 regex_t	gSnack_ResponseRegex;
+#endif
 
 // == CODE ===
 int Snack_InitHandler()
 {
+#if 0
 	giSnack_SerialFD = InitSerial(gsSnack_SerialPort, 9600);
 	if( giSnack_SerialFD == -1 ) {
 		fprintf(stderr, "ERROR: Unable to open snack serial port ('%s')\n", gsSnack_SerialPort);
 	}
 	
 	regcomp(&gSnack_ResponseRegex, "^(\\d\\d\\d)(.*)$", REG_EXTENDED);
+#endif
 	return 0;
 }
 
@@ -61,11 +65,12 @@ int Snack_CanDispense(int UNUSED(User), int Item)
  */
 int Snack_DoDispense(int UNUSED(User), int Item)
 {
-	char	tmp[32];
-	regmatch_t	matches[4];
-
 	// Sanity please
 	if( Item < 0 || Item > 99 )	return -1;
+
+#if 0
+	char	tmp[32];
+	regmatch_t	matches[4];
 
 	// Dispense
 	sprintf(tmp, "V%02i\n", Item);
@@ -74,6 +79,7 @@ int Snack_DoDispense(int UNUSED(User), int Item)
 	// Get status
 	read(giSnack_SerialFD, tmp, sizeof(tmp)-1);
 	regexec(&gSnack_ResponseRegex, tmp, sizeof(matches)/sizeof(matches[0]), matches, 0);
+#endif
 
 	return 0;
 }
