@@ -121,6 +121,11 @@ int Door_DoDispense(int User, int Item)
 		return -1;
 	}
 #endif
+	// Read and discard anything in the buffer
+	{
+		char tmpbuf[32];
+		read(door_serial_handle, tmpbuf, sizeof(tmpbuf));
+	}
 
 	close(door_serial_handle);
 	
