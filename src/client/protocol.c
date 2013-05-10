@@ -701,7 +701,7 @@ int Dispense_AlterBalance(int Socket, const char *Username, int Ammount, const c
 		rv = RV_BAD_ITEM;
 		break;
 	case 403:	// Not in coke
-		fprintf(stderr, "You are not in coke (sucker)\n");
+		fprintf(stderr, "Permissions error: %s\n", buf+4);
 		rv = RV_PERMISSIONS;
 		break;
 	case 404:	// Unknown user
@@ -742,7 +742,7 @@ int Dispense_SetBalance(int Socket, const char *Username, int Balance, const cha
 	switch(responseCode)
 	{
 	case 200:	return 0;	// OK
-	case 403:	// Not in coke
+	case 403:	// Not an administrator
 		fprintf(stderr, "You are not an admin\n");
 		return RV_PERMISSIONS;
 	case 404:	// Unknown user

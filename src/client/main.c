@@ -345,7 +345,6 @@ int main(int argc, char *argv[])
 				break;
 			}
 			printf("%i - %s %3i %s\n", gaItems[i].ID, status, gaItems[i].Price, gaItems[i].Desc);
-			
 		}
 
 		printf("\nMay your pink fish bing into the distance.\n");
@@ -386,19 +385,20 @@ int main(int argc, char *argv[])
 			// gsTextArgs[1]: Username
 			// gsTextArgs[2]: Ammount
 			// gsTextArgs[3]: Reason
+			 char	*tmp = NULL;
+			long int balance = strtol(gsTextArgs[2]+(gsTextArgs[2][0] == '='), &tmp, 10);
+			if(!tmp || *tmp != '\0') {
+				fprintf(stderr, "dispense acct: Value must be a decimal number of cents\n");
+				return RV_ARGUMENTS;
+			}
 			
 			if( gsTextArgs[2][0] == '=' ) {
 				// Set balance
-				if( gsTextArgs[2][1] != '0' && atoi(gsTextArgs[2]+1) == 0 ) {
-					fprintf(stderr, "Error: Invalid balance to be set\n");
-					exit(1);
-				}
-				
-				ret = Dispense_SetBalance(sock, gsTextArgs[1], atoi(gsTextArgs[2]+1), gsTextArgs[3]);
+				ret = Dispense_SetBalance(sock, gsTextArgs[1], balance, gsTextArgs[3]);
 			}
 			else {
 				// Alter balance
-				ret = Dispense_AlterBalance(sock, gsTextArgs[1], atoi(gsTextArgs[2]), gsTextArgs[3]);
+				ret = Dispense_AlterBalance(sock, gsTextArgs[1], balance, gsTextArgs[3]);
 			}
 		}
 		// On error, quit
@@ -435,8 +435,14 @@ int main(int argc, char *argv[])
 		// Authenticate
 		ret = Authenticate(sock);
 		if(ret)	return ret;
-		
-		ret = Dispense_Give(sock, gsTextArgs[1], atoi(gsTextArgs[2]), gsTextArgs[3]);
+
+		char	*tmp = NULL;
+		int amt = strtol(gsTextArgs[2], &tmp, 10);
+		if( !tmp || *tmp != '\0' ) {
+			fprintf(stderr, "dispense give: Balance is invalid, must be decimal number of cents");
+			return RV_ARGUMENTS;
+		}
+		ret = Dispense_Give(sock, gsTextArgs[1], amt, gsTextArgs[3]);
 
 		close(sock);
 	

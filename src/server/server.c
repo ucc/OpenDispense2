@@ -1104,7 +1104,7 @@ void Server_Cmd_ADD(tClient *Client, char *Args)
 	if( !(Bank_GetFlags(Client->UID) & USER_FLAG_ADMIN) )
 	{
 		if( Bank_GetFlags(uid) & USER_FLAG_INTERNAL ) {
-			sendf(Client->Socket, "404 Invalid user\n");
+			sendf(Client->Socket, "403 Admin only\n");
 			return ;
 		}
 		// TODO: Maybe disallow changes to disabled?
