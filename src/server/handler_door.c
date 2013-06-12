@@ -19,17 +19,19 @@
 #include <signal.h>
 #include <unistd.h>
 #include <pty.h>
+#include <pthread.h>
+#include <semaphore.h>
+#include <errno.h>
 
-#define DOOR_UNLOCKED_DELAY	5	// Time in seconds before the door re-locks
+#define DOOR_UNLOCKED_DELAY	10	// Time in seconds before the door re-locks
 
 // === IMPORTS ===
 
 // === PROTOTYPES ===
+void*	Door_Lock(void* Unused);
  int	Door_InitHandler();
  int	Door_CanDispense(int User, int Item);
  int	Door_DoDispense(int User, int Item);
- int	writes(int fd, const char *str);
-char	*ReadStatus(int FD);
 
 // === GLOBALS ===
 tHandler	gDoor_Handler = {
@@ -39,10 +41,54 @@ tHandler	gDoor_Handler = {
 	Door_DoDispense
 };
 char	*gsDoor_SerialPort;	// Set from config in main.c
+sem_t	gDoor_UnlockSemaphore;
+pthread_t	gDoor_LockThread;
 
-// == CODE ===
+// === CODE ===
+void* Door_Lock(void* Unused __attribute__((unused)))
+{
+	while(1)
+	{
+		sem_wait(&gDoor_UnlockSemaphore);
+
+		int door_serial_handle = InitSerial(gsDoor_SerialPort, 9600);
+		if(door_serial_handle < 0)
+		{
+			fprintf(stderr, "Unable to open door serial '%s'\n", gsDoor_SerialPort);
+			perror("Opening door port");
+		}
+
+		// Disable local echo
+		{
+			struct termios	info;
+			tcgetattr(door_serial_handle, &info);
+			info.c_cflag &= ~CLOCAL;
+			tcsetattr(door_serial_handle, TCSANOW, &info);
+		}
+
+		if(write(door_serial_handle, "\xff\x01\x01", 3) != 3)	// Relay ON
+		{
+			fprintf(stderr, "Failed to write Relay ON (unlock) command, errstr: %s", strerror(errno));
+		}
+
+		sleep(DOOR_UNLOCKED_DELAY);
+
+		if(write(door_serial_handle, "\xff\x01\x00", 3) != 3)	// Relay OFF
+		{
+			fprintf(stderr, "Failed to write Relay OFF (lock) command, errstr: %s", strerror(errno));
+		}
+
+		close(door_serial_handle);
+	}
+}
+
 int Door_InitHandler(void)
 {
+	// Initialize semaphore, triggers door lock release if semaphore is greater than 0
+	sem_init(&gDoor_UnlockSemaphore, 0, 0);	
+	
+	pthread_create(&gDoor_LockThread, NULL, &Door_Lock, NULL);
+
 	return 0;
 }
 
@@ -75,9 +121,7 @@ int Door_CanDispense(int User, int Item)
  * \brief Actually do a dispense from the coke machine
  */
 int Door_DoDispense(int User, int Item)
-{
-	 int	door_serial_handle;
-	
+{	
 	#if DEBUG
 	printf("Door_DoDispense: (User=%i,Item=%i)\n", User, Item);
 	#endif
@@ -94,77 +138,16 @@ int Door_DoDispense(int User, int Item)
 		return 1;
 	}
 	
-	door_serial_handle = InitSerial(gsDoor_SerialPort, 115200);
-	if(door_serial_handle < 0) {
-		fprintf(stderr, "Unable to open door serial '%s'\n", gsDoor_SerialPort);
-		perror("Opening door port");
+
+	if(sem_post(&gDoor_UnlockSemaphore))
+	{
+		perror("Failed to post \"Unlock Door\" semaphore, sem_post returned");
 		return -1;
 	}
 
-	// Disable local echo
-	{
-		struct termios	info;
-		tcgetattr(door_serial_handle, &info);
-		info.c_cflag &= ~CLOCAL;
-		tcsetattr(door_serial_handle, TCSANOW, &info);
-	}
-
-//	flush(door_serial_handle);
-
-	writes(door_serial_handle, "4;");
-
-#if 0
-	char *status = ReadStatus(door_serial_handle);
-	if( !status )	return -1;
-	if( strcmp(status, "Opening door") != 0 ) {
-		fprintf(stderr, "Unknown/unexpected door status '%s'\n", status);
-		return -1;
-	}
-#endif
-	// Read and discard anything in the buffer
-	{
-		char tmpbuf[32];
-		read(door_serial_handle, tmpbuf, sizeof(tmpbuf));
-	}
-
-	close(door_serial_handle);
-	
 	#if DEBUG
 	printf("Door_DoDispense: User %i opened door\n", User);
 	#endif
 
 	return 0;
-}
-
-int writes(int fd, const char *str)
-{
-	 int	len = strlen(str);
-	
-	if( len != write(fd, str, len) )
-	{
-		return 1;
-	}
-	return 0;
-}
-
-char *ReadStatus(int FD)
-{
-	char	tmpbuf[32];
-	 int	len;
-	len = read(FD, tmpbuf, sizeof(tmpbuf)-1);
-	tmpbuf[len] = 0;
-	char *msg = strchr(tmpbuf, ',');
-	if( !msg ) {
-		fprintf(stderr, "Door returned malformed data (no ',')\n");
-		return NULL;
-	}
-	msg ++;
-	char *end = strchr(tmpbuf, ';');
-	if( !end ) {
-		fprintf(stderr, "Door returned malformed data (no ';')\n");
-		return NULL;
-	}
-	*end = '\0';
-
-	return strdup(msg);
 }
