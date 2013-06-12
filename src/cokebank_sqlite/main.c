@@ -121,7 +121,7 @@ int Bank_Initialise(const char *Argument)
 /*
  * Move Money
  */
-int Bank_Transfer(int SourceUser, int DestUser, int Ammount, const char *Reason)
+int Bank_Transfer(int SourceUser, int DestUser, int Ammount, const char *Reason __attribute__((unused)))
 {
 	char	*query;
 	 int	rv;
@@ -499,6 +499,7 @@ void Bank_DelIterator(tAcctIterator *It)
 int Bank_GetUserAuth(const char *Salt, const char *Username, const char *Password)
 {
 	Salt = Password = Username;	// Shut up GCC
+	Password = Salt;
 	// DEBUG HACKS!
 	#if 0
 	return Bank_GetAcctByName(Username);
