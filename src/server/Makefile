@@ -22,6 +22,10 @@ all: $(BIN)
 clean:
 	$(RM) $(BIN) $(OBJ) $(DEPFILES)
 
+install: $(BIN)
+	mkdir -p $(INSTALLDIR)
+	cp $(BIN) $(INSTALLDIR)
+
 $(BIN): $(OBJ)
 	$(CC) -o $(BIN) $(OBJ) $(LINKFLAGS)
 
