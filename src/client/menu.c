@@ -251,6 +251,10 @@ int ShowNCursesUI(void)
 	return ret;
 }
 
+#define COKE_LABEL	"Coke Machine"
+#define NCOKESLOTS	7	// slots 0 -- 6
+#define EPS_LABEL	"Electronic Payment System"
+
 /**
  * \brief Show item \a Index at (\a Col, \a Row)
  * \return Dispense index of item
@@ -265,7 +269,6 @@ int ShowItemAt(int Row, int Col, int Width, int Index, int bHilighted)
 	switch(giUIMode)
 	{
 	// Standard UI
-	// - This assumes that 
 	case UI_MODE_STANDARD:
 		// Bounds check
 		// Index = -1, request limit
@@ -275,25 +278,25 @@ int ShowItemAt(int Row, int Col, int Width, int Index, int bHilighted)
 		if( Index == 0 )
 		{
 			price = 0;
-			name = "Coke Machine";
+			name = COKE_LABEL;
 			Index = -1;	// -1 indicates a label
 			break;
 		}
 		Index --;
 		// Drinks 0 - 6
-		if( Index <= 6 )
+		if( Index < NCOKESLOTS )
 		{
 			name = gaItems[Index].Desc;
 			price = gaItems[Index].Price;
 			status = gaItems[Index].Status;
 			break;
 		}
-		Index -= 7;
+		Index -= NCOKESLOTS;
 		// EPS label
 		if( Index == 0 )
 		{
 			price = 0;
-			name = "Electronic Payment System";
+			name = EPS_LABEL;
 			Index = -1;	// -1 indicates a label
 			break;
 		}
@@ -303,6 +306,9 @@ int ShowItemAt(int Row, int Col, int Width, int Index, int bHilighted)
 		price = gaItems[Index].Price;
 		status = gaItems[Index].Status;
 		break;
+	case UI_MODE_BASIC:
+	case UI_MODE_DRINKSONLY:
+	case UI_MODE_ALL:
 	default:
 		return -1;
 	}
