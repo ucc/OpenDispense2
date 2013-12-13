@@ -96,8 +96,12 @@ extern int	DispenseDonate(int ActualUser, int User, int Ammount, const char *Rea
 extern int	DispenseUpdateItem(int User, tItem *Item, const char *NewName, int NewPrice);
 
 // --- Logging ---
+// to syslog
 extern void	Log_Error(const char *Format, ...);
 extern void	Log_Info(const char *Format, ...);
+// To stdout
+#define Debug_Notice(msg, v...)	fprintf(stderr, "%08llun: "msg"\n", (unsigned long long)time(NULL) ,##v)
+#define Debug_Debug(msg, v...)	fprintf(stderr, "%08llud: "msg"\n", (unsigned long long)time(NULL) ,##v)
 
 // --- Config Database ---
 extern void	Config_ParseFile(const char *Filename);

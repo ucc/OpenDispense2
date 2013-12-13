@@ -107,9 +107,9 @@ int Coke_DoDispense(int UNUSED(User), int Item)
 	if( time(NULL) - gtCoke_LastDispenseTime < ciCoke_MinPeriod )
 	{
 		 int	delay = ciCoke_MinPeriod - (time(NULL) - gtCoke_LastDispenseTime);
-		printf("Wait %i seconds?\n", delay);
+		Debug_Debug("Waiting for %i seconds (rate limit)", delay);
 		sleep( delay );
-		printf("wait done\n");
+		Debug_Debug("wait done");
 	}
 	gtCoke_LastDispenseTime = time(NULL);
 
@@ -133,8 +133,11 @@ int Coke_int_ConnectToPLC(void)
 			return 1;
 		}
 	}
-	printf("Connecting to coke PLC machine on '%s'\n", gsCoke_ModbusAddress);
-	fprintf(stderr, "Connecting to coke PLC machine on '%s'\n", gsCoke_ModbusAddress);
+	else {
+		// Preven resource leaks
+		modbus_close(gCoke_Modbus);
+	}
+	Debug_Notice("Connecting to coke PLC machine on '%s'\n", gsCoke_ModbusAddress);
 	
 	if( modbus_connect(gCoke_Modbus) )
 	{
@@ -227,7 +230,8 @@ int Coke_int_DropSlot(int Slot)
 	if( res == 0 )
 	{
 		// Oops!, no drink
-		printf("Drink dispense failed, bit lowered too quickly\n");
+		Log_Error("Drink dispense failed, bit lowered too quickly");
+		Debug_Notice("Drink dispense failed, bit lowered too quickly");
 		return 1;
 	}
 	
@@ -255,6 +259,7 @@ int _WriteBit(int BitNum, uint8_t Value)
 		return -1;
 	if( modbus_write_bit( gCoke_Modbus, BitNum, Value != 0 ) >= 0 )
 		return 0;
+	// Error case
 	if( Coke_int_ConnectToPLC() )
 		return -1;
 	if( modbus_write_bit( gCoke_Modbus, BitNum, Value != 0 ) >= 0 )

@@ -28,9 +28,6 @@
 
 #define PIDFILE	"/var/run/dispsrv.pid"
 
-#define Debug_Notice(msg, v...)	printf("%08llun: "msg"\n", (unsigned long long)time(NULL) ,##v)
-#define Debug_Debug(msg, v...)	printf("%08llud: "msg"\n", (unsigned long long)time(NULL) ,##v)
-
 // Statistics
 #define MAX_CONNECTION_QUEUE	5
 #define INPUT_BUFFER_SIZE	256

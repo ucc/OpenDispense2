@@ -223,6 +223,7 @@ void Items_ReadFromFile(void)
 		free(gaItems);
 		gaItems = NULL;
 	}
+	fclose(fp);
 	
 	// Replace with new
 	giNumItems = numItems;
