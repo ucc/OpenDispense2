@@ -231,7 +231,9 @@ int InitSerial(const char *File, int BaudRate)
 	case 1200:	baud = B1200;	break;
 	case 9600:	baud = B9600;	break;
 	case 115200:	baud = B115200;	break;
-	default:	close(fd);	return -1;
+	default:
+		fprintf(stderr, "ERROR: Invalid baud rate to InitSerial (%i)\n", BaudRate);
+		exit(1);
 	}
 	
 	info.c_lflag = 0;	// Non-Canoical, No Echo
