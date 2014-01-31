@@ -8,7 +8,6 @@
  * COPYING for full details.
  */
 #define	DEBUG	1
-#define	USE_POPEN	0
 
 #include "common.h"
 #include <stdio.h>
@@ -22,6 +21,7 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include <errno.h>
+#include <stdbool.h>
 
 #define DOOR_UNLOCKED_DELAY	10	// Time in seconds before the door re-locks
 
@@ -43,6 +43,7 @@ tHandler	gDoor_Handler = {
 char	*gsDoor_SerialPort;	// Set from config in main.c
 sem_t	gDoor_UnlockSemaphore;
 pthread_t	gDoor_LockThread;
+bool	gbDoor_LockThreadStarted;
 
 // === CODE ===
 void* Door_Lock(void* Unused __attribute__((unused)))
@@ -84,10 +85,7 @@ void* Door_Lock(void* Unused __attribute__((unused)))
 
 int Door_InitHandler(void)
 {
-	// Initialize semaphore, triggers door lock release if semaphore is greater than 0
-	sem_init(&gDoor_UnlockSemaphore, 0, 0);	
-	
-	pthread_create(&gDoor_LockThread, NULL, &Door_Lock, NULL);
+	// Thread started later
 
 	return 0;
 }
@@ -125,7 +123,7 @@ int Door_DoDispense(int User, int Item)
 	#if DEBUG
 	printf("Door_DoDispense: (User=%i,Item=%i)\n", User, Item);
 	#endif
-	
+
 	// Sanity please
 	if( Item != 0 )	return -1;
 	
@@ -138,6 +136,14 @@ int Door_DoDispense(int User, int Item)
 		return 1;
 	}
 	
+	// Door thread spun up here because program is forked after thread created
+	if( !gbDoor_LockThreadStarted )
+	{
+		// Initialize semaphore, triggers door lock release if semaphore is greater than 0
+		sem_init(&gDoor_UnlockSemaphore, 0, 0);	
+
+		pthread_create(&gDoor_LockThread, NULL, &Door_Lock, NULL);
+	}
 
 	if(sem_post(&gDoor_UnlockSemaphore))
 	{
