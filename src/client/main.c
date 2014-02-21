@@ -197,7 +197,7 @@ int subcommand_finger(void)
 //
 int subcommand_acct(void)
 {
-	int ret;
+	int ret = 0;
 
 	// Connect to server
 	int sock = OpenConnection(gsDispenseServer, giDispensePort);
