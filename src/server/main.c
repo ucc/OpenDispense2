@@ -9,6 +9,7 @@
  */
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include <string.h>
 #include <signal.h>
 #include "common.h"
@@ -30,6 +31,7 @@ extern int	giServer_Port;
 extern const char	*gsItemListFile;
 extern const char	*gsCoke_ModbusAddress;
 extern const char	*gsDoor_SerialPort;
+extern bool	gbSyslogEnabled;
 
 // === PROTOTYPES ===
 void	*Periodic_Thread(void *Unused);
@@ -128,6 +130,7 @@ int main(int argc, char *argv[])
 	gsItemListFile       = Config_GetValue("items_file", 0);
 
 	gbNoCostMode         = (Config_GetValue_Bool("test_mode", 0) == 1);
+	gbSyslogEnabled      = (Config_GetValue_Bool("disable_syslog", 0) == 0);
 
 	signal(SIGINT, sigint_handler);
 	signal(SIGTERM, sigint_handler);
