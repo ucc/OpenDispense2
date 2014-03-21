@@ -236,6 +236,7 @@ int subcommand_acct(void)
 		
 		if( gsTextArgs[2][0] == '=' ) {
 			// Set balance
+			ret = Dispense_ShowUser(sock, gsTextArgs[1]);
 			ret = Dispense_SetBalance(sock, gsTextArgs[1], balance, gsTextArgs[3]);
 		}
 		else {
