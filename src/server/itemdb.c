@@ -34,7 +34,11 @@ char	*trim(char *__str);
 tItem	*gaItems = NULL;
 time_t	gItems_LastUpdated;
 tHandler	gPseudo_Handler = {.Name="pseudo"};
-tHandler	*gaHandlers[] = {&gPseudo_Handler, &gCoke_Handler, &gSnack_Handler, &gDoor_Handler};
+tHandler	gMembership_Handler = {.Name="membership"};
+tHandler	*gaHandlers[] = {
+	&gPseudo_Handler, &gMembership_Handler,
+	&gCoke_Handler, &gSnack_Handler, &gDoor_Handler
+	};
  int	giNumHandlers = sizeof(gaHandlers)/sizeof(gaHandlers[0]);
 char	*gsItemListFile = DEFAULT_ITEM_FILE;
 #if USE_INOTIFY
@@ -45,8 +49,7 @@ regex_t	gItemFile_Regex;
 // === CODE ===
 void Init_Handlers()
 {
-	 int	i;
-	for( i = 0; i < giNumHandlers; i ++ )
+	for( int i = 0; i < giNumHandlers; i ++ )
 	{
 		if( gaHandlers[i]->Init )
 			gaHandlers[i]->Init(0, NULL);	// TODO: Arguments
