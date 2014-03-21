@@ -61,7 +61,9 @@ Open the UCC door.
 .RI "acct " "user" " [+-]" "amount" " '" "reason" "'"
 Alter a user's balance by
 .I amount
-cents, leaving a reason for the coke logs.
+cents, leaving a reason for the coke logs. Implemented as a transfer of
+.I amount
+cents from '>additions' to the user.
 
 .TP
 .RI "refund " "user item_id" " [" "price" "]"
@@ -77,6 +79,9 @@ Update a slot's contents (name and price).
 .TP
 .RI "acct " "user" " =" "amount" " '" reason "'"
 Set a user's balance to a number of cents.
+
+This function will use the '>countersum' account as the source/sink for money to make the users
+balance as requested
 
 .TP
 .RI "user add " "username"
