@@ -203,9 +203,9 @@ int DispenseAdd(int ActualUser, int User, int Ammount, const char *ReasonGiven)
 	char	*dstName, *byName;
 	
 #if DISPENSE_ADD_BELOW_MIN
-	ret = _Transfer( Bank_GetAcctByName(COKEBANK_DEBT_ACCT,1), User, Ammount, ReasonGiven );
+	ret = _Transfer( Bank_GetAcctByName(COKEBANK_ADDSRC_ACCT,1), User, Ammount, ReasonGiven );
 #else
-	ret = Bank_Transfer( Bank_GetAcctByName(COKEBANK_DEBT_ACCT,1), User, Ammount, ReasonGiven );
+	ret = Bank_Transfer( Bank_GetAcctByName(COKEBANK_ADDSRC_ACCT,1), User, Ammount, ReasonGiven );
 #endif
 	if(ret)	return 2;
 	
@@ -222,7 +222,7 @@ int DispenseAdd(int ActualUser, int User, int Ammount, const char *ReasonGiven)
 	return 0;
 }
 
-int DispenseSet(int ActualUser, int User, int Balance, const char *ReasonGiven)
+int DispenseSet(int ActualUser, int User, int Balance, const char *ReasonGiven, int *OrigBalance)
 {
 	 int	curBal = Bank_GetBalance(User);
 	char	*byName, *dstName;
@@ -232,10 +232,11 @@ int DispenseSet(int ActualUser, int User, int Balance, const char *ReasonGiven)
 	byName = Bank_GetAcctName(ActualUser);
 	dstName = Bank_GetAcctName(User);
 	
-	Log_Info("set balance of %s to %i by %s [balance %i] - %s",
-		dstName, Balance, byName, Bank_GetBalance(User), ReasonGiven
+	Log_Info("set balance of %s to %i by %s [was %i, balance %i] - %s",
+		dstName, Balance, byName, curBal, Bank_GetBalance(User), ReasonGiven
 		);
 	
+	*OrigBalance = curBal;
 	free(byName);
 	free(dstName);
 	

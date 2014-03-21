@@ -1165,17 +1165,15 @@ void Server_Cmd_SET(tClient *Client, char *Args)
 		return ;
 	}
 
+	int origBalance, rv;
 	// Do give
-	switch( DispenseSet(Client->UID, uid, iAmmount, reason) )
+	switch( rv = DispenseSet(Client->UID, uid, iAmmount, reason, &origBalance) )
 	{
 	case 0:
-		sendf(Client->Socket, "200 Add OK\n");
-		return ;
-	case 2:
-		sendf(Client->Socket, "402 Poor Guy\n");
+		sendf(Client->Socket, "200 Add OK (%i)\n", origBalance);
 		return ;
 	default:
-		sendf(Client->Socket, "500 Unknown error\n");
+		sendf(Client->Socket, "500 Unknown error (%i)\n", rv);
 		return ;
 	}
 }
