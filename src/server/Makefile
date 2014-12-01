@@ -11,7 +11,7 @@ BIN := ../../dispsrv
 OBJ := $(OBJ:%=obj/%)
 DEPFILES := $(OBJ:%=%.d)
 
-LINKFLAGS := -g ../../cokebank.so -lutil -lident -lmodbus -Wl,-rpath,. -Wl,-rpath,$(INSTALLDIR)
+LINKFLAGS := -g ../../cokebank.so -lutil -lident -lmodbus -lsqlite3 -lpthread -Wl,-rpath,. -Wl,-rpath,$(INSTALLDIR)
 CPPFLAGS := 
 CFLAGS := -Wall -Wextra -Werror -g -std=gnu99
 
