@@ -16,6 +16,7 @@
 #include <unistd.h>	// close/getuid
 #include <limits.h>	// INT_MIN/INT_MAX
 #include "common.h"
+#include "../common/doregex.h"
 
 #define	USE_NCURSES_INTERFACE	0
 #define DEBUG_TRACE_SERVER	0
@@ -981,33 +982,4 @@ char *trim(char *string)
 	}
 	
 	return string;
-}
-
-int RunRegex(regex_t *regex, const char *string, int nMatches, regmatch_t *matches, const char *errorMessage)
-{
-	 int	ret;
-	
-	ret = regexec(regex, string, nMatches, matches, 0);
-	if( ret && errorMessage ) {
-		size_t  len = regerror(ret, regex, NULL, 0);
-		char    errorStr[len];
-		regerror(ret, regex, errorStr, len);
-		printf("string = '%s'\n", string);
-		fprintf(stderr, "%s\n%s", errorMessage, errorStr);
-		exit(-1);
-	}
-	
-	return ret;
-}
-
-void CompileRegex(regex_t *regex, const char *pattern, int flags)
-{
-	 int	ret = regcomp(regex, pattern, flags);
-	if( ret ) {
-		size_t	len = regerror(ret, regex, NULL, 0);
-		char    errorStr[len];
-		regerror(ret, regex, errorStr, len);
-		fprintf(stderr, "Regex compilation failed - %s\n", errorStr);
-		exit(-1);
-	}
 }

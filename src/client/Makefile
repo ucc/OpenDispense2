@@ -8,6 +8,7 @@ LDFLAGS := -g -lncurses
 
 BIN := ../../dispense
 OBJ := main.o protocol.o menu.o
+OBJ += doregex.o
 
 DEPFILES := $(OBJ:%.o=%.d)
 
@@ -28,6 +29,10 @@ $(BIN): $(OBJ)
 #	chmod u+s $(BIN)
 
 %.o: %.c
+	$(CC) -c $< -o $@ $(CFLAGS) $(CPPFLAGS)
+	$(CC) -M -MT $@ -o $*.d $< $(CPPFLAGS)
+
+%.o: ../common/%.c
 	$(CC) -c $< -o $@ $(CFLAGS) $(CPPFLAGS)
 	$(CC) -M -MT $@ -o $*.d $< $(CPPFLAGS)
 
