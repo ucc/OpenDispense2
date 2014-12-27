@@ -21,6 +21,7 @@
 #include <syslog.h>
 #include <pthread.h>
 #include "../cokebank.h"
+#include "../common/config.h"
 
 // === IMPORTS ===
 extern void	Init_Handlers(void);

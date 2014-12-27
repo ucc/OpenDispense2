@@ -29,10 +29,16 @@ install: $(BIN)
 $(BIN): $(OBJ)
 	$(CC) -o $(BIN) $(OBJ) $(LINKFLAGS)
 
-obj/%.o: %.c
+obj/%.o: %.c 
 	@mkdir -p $(dir $@)
 	$(CC) -c $< -o $@ $(CFLAGS) $(CPPFLAGS)
 	@cpp $< -MM -MF $@.d
 	
+
+obj/%.o: ../common/%.c 
+	@mkdir -p $(dir $@)
+	$(CC) -c $< -o $@ $(CFLAGS) $(CPPFLAGS)
+	@cpp $< -MM -MF $@.d
+
 -include $(DEPFILES)
 
