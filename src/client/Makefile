@@ -8,7 +8,7 @@ LDFLAGS := -g -lncurses
 
 BIN := ../../dispense
 OBJ := main.o protocol.o menu.o
-OBJ += doregex.o
+OBJ += doregex.o config.o
 
 DEPFILES := $(OBJ:%.o=%.d)
 
