@@ -14,7 +14,7 @@
 // === CODE ===
 int RunRegex(regex_t *regex, const char *string, int nMatches, regmatch_t *matches, const char *errorMessage)
 {
-	 int	ret;
+	int	ret = -1;
 	
 	ret = regexec(regex, string, nMatches, matches, 0);
 	if( ret == REG_NOMATCH ) {
@@ -34,7 +34,9 @@ int RunRegex(regex_t *regex, const char *string, int nMatches, regmatch_t *match
 
 void CompileRegex(regex_t *regex, const char *pattern, int flags)
 {
-	 int	ret = regcomp(regex, pattern, flags);
+	int	ret = -1;
+	
+	ret = regcomp(regex, pattern, flags);
 	if( ret ) {
 		size_t	len = regerror(ret, regex, NULL, 0);
 		char    errorStr[len];
