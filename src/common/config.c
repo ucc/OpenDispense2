@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "config.h"
+#include "doregex.h"
 #include <regex.h>
 #include <string.h>
 #include <ctype.h>

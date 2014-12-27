@@ -9,10 +9,6 @@
 #ifndef _CONFIG_H_
 #define _CONFIG_H_
 
-#include <regex.h>
-extern void	CompileRegex(regex_t *Regex, const char *Pattern, int Flags);
-extern int	RunRegex(regex_t *regex, const char *string, int nMatches, regmatch_t *matches, const char *errorMessage);
-
 // === HELPER MACROS ===
 #define _EXPSTR(x)      #x
 #define EXPSTR(x)       _EXPSTR(x)
