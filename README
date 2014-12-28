@@ -10,6 +10,9 @@ Required packages
 - libncurses-dev
 - libssl-dev
 - build-essentials (gcc and GNU Make)
-- libmodbus (used for communicating with the coke machine)
+- libmodbus-dev (used for communicating with the coke machine)
+- libsqlite3-dev
+- libident-dev
+
 
 Run `make -C src/`

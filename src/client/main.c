@@ -16,6 +16,8 @@
 #include <unistd.h>	// close/getuid
 #include <limits.h>	// INT_MIN/INT_MAX
 #include "common.h"
+#include "../common/doregex.h"
+#include "../common/config.h"
 
 #define	USE_NCURSES_INTERFACE	0
 #define DEBUG_TRACE_SERVER	0
@@ -37,8 +39,12 @@ char	*trim(char *string);
 void	CompileRegex(regex_t *regex, const char *pattern, int flags);
 
 // === GLOBALS ===
-char	*gsDispenseServer = "merlo.ucc.gu.uwa.edu.au";
+const	char	*gsConfigFile = "/etc/opendispense/client.conf";
+
+const	char	*gsDispenseServer = "merlo.ucc.gu.uwa.edu.au";
  int	giDispensePort = 11020;
+ int	giDispenseServerSet = 0; // True if set by command line
+ int	giDispensePortSet = 0; // True if set by command line
 
 tItem	*gaItems;
  int	giNumItems;
@@ -143,11 +149,19 @@ void ShowUsage(void)
 			"        Show help text\n"
 			"    -G\n"
 			"        Use simple textual interface (instead of ncurses)\n"
+			"    -D\n"
+			"        Drinks only in user interface\n"
 			"    -n\n"
 			"        Dry run - Do not actually do dispenses\n"
 			"    -m <min balance>\n"
 			"    -M <max balance>\n"
 			"        Set the Maximum/Minimum balances shown in `dispense acct`\n"
+			"    -f <configfile>\n"
+			"        Set the config file path (default: `/etc/opendispense/client.conf'\n"
+			"    -H <host>\n"
+			"        Set a different dispense host\n"
+			"    -P <port>\n"
+			"        Set a different dispense port\n"
 			"Definitions:\n"
 			"    <itemid>\n"
 			"        Item ID of the form <type>:<num> where <type> is a non-empty string of alpha-numeric characters, and <num> is a non-negative integer\n"
@@ -603,6 +617,18 @@ int main(int argc, char *argv[])
 	if( ret )
 		return ret;
 
+	// Load config file
+	Config_ParseFile(gsConfigFile);
+
+	// Parse config values
+	if (!giDispenseServerSet) {
+		gsDispenseServer	= Config_GetValue("dispense_server",0);
+	}
+	if (!giDispensePortSet) {
+		giDispensePort		= Config_GetValue_Int("dispense_port",0);
+	}
+
+
 	// Sub-commands
 	if( strcmp(gsTextArgs[0], "finger") == 0 ) {
 		return subcommand_finger();
@@ -864,6 +890,15 @@ int ParseArguments(int argc, char *argv[])
 				giMaximumBalance = atoi(argv[++i]);
 				break;
 			
+			case 'f':	// Override Config File
+				if( i + 1 >= argc ) {
+					fprintf(stderr, "%s: -f takes an argument\n", argv[0]);
+					ShowUsage();
+					return RV_ARGUMENTS;
+				}
+				gsConfigFile = argv[++i];
+				break;
+			
 			case 'u':	// Override User
 				if( i + 1 >= argc ) {
 					fprintf(stderr, "%s: -u takes an argument\n", argv[0]);
@@ -880,6 +915,7 @@ int ParseArguments(int argc, char *argv[])
 					return RV_ARGUMENTS;
 				}
 				gsDispenseServer = argv[++i];
+				giDispenseServerSet = 1;
 				break;
 			case 'P':	// Override remote port
 				if( i + 1 >= argc ) {
@@ -888,6 +924,7 @@ int ParseArguments(int argc, char *argv[])
 					return RV_ARGUMENTS;
 				}
 				giDispensePort = atoi(argv[++i]);
+				giDispensePortSet = 1;
 				break;
 			
 			// Set slot name/price
@@ -981,33 +1018,4 @@ char *trim(char *string)
 	}
 	
 	return string;
-}
-
-int RunRegex(regex_t *regex, const char *string, int nMatches, regmatch_t *matches, const char *errorMessage)
-{
-	 int	ret;
-	
-	ret = regexec(regex, string, nMatches, matches, 0);
-	if( ret && errorMessage ) {
-		size_t  len = regerror(ret, regex, NULL, 0);
-		char    errorStr[len];
-		regerror(ret, regex, errorStr, len);
-		printf("string = '%s'\n", string);
-		fprintf(stderr, "%s\n%s", errorMessage, errorStr);
-		exit(-1);
-	}
-	
-	return ret;
-}
-
-void CompileRegex(regex_t *regex, const char *pattern, int flags)
-{
-	 int	ret = regcomp(regex, pattern, flags);
-	if( ret ) {
-		size_t	len = regerror(ret, regex, NULL, 0);
-		char    errorStr[len];
-		regerror(ret, regex, errorStr, len);
-		fprintf(stderr, "Regex compilation failed - %s\n", errorStr);
-		exit(-1);
-	}
 }

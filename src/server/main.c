@@ -21,6 +21,7 @@
 #include <syslog.h>
 #include <pthread.h>
 #include "../cokebank.h"
+#include "../common/config.h"
 
 // === IMPORTS ===
 extern void	Init_Handlers(void);
@@ -185,38 +186,6 @@ void AddPeriodicFunction(void (*Fcn)(void))
 	}
 	
 	fprintf(stderr, "Error: No space for %p in periodic list\n", Fcn);
-}
-
-int RunRegex(regex_t *regex, const char *string, int nMatches, regmatch_t *matches, const char *errorMessage)
-{
-	 int	ret;
-	
-	ret = regexec(regex, string, nMatches, matches, 0);
-	if( ret == REG_NOMATCH ) {
-		return -1;
-	}
-	if( ret ) {
-		size_t  len = regerror(ret, regex, NULL, 0);
-		char    errorStr[len];
-		regerror(ret, regex, errorStr, len);
-		printf("string = '%s'\n", string);
-		fprintf(stderr, "%s\n%s", errorMessage, errorStr);
-		exit(-1);
-	}
-	
-	return ret;
-}
-
-void CompileRegex(regex_t *regex, const char *pattern, int flags)
-{
-	 int	ret = regcomp(regex, pattern, flags);
-	if( ret ) {
-		size_t	len = regerror(ret, regex, NULL, 0);
-		char    errorStr[len];
-		regerror(ret, regex, errorStr, len);
-		fprintf(stderr, "Regex compilation failed - %s\n%s\n", errorStr, pattern);
-		exit(-1);
-	}
 }
 
 // Serial helper

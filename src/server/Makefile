@@ -3,9 +3,10 @@
 
 INSTALLDIR := /usr/local/opendispense2
 
-OBJ := main.o server.o logging.o config.o
+OBJ := main.o server.o logging.o 
 OBJ += dispense.o itemdb.o
 OBJ += handler_coke.o handler_snack.o handler_door.o
+OBJ += config.o doregex.o
 BIN := ../../dispsrv
 
 OBJ := $(OBJ:%=obj/%)
@@ -29,10 +30,16 @@ install: $(BIN)
 $(BIN): $(OBJ)
 	$(CC) -o $(BIN) $(OBJ) $(LINKFLAGS)
 
-obj/%.o: %.c
+obj/%.o: %.c 
 	@mkdir -p $(dir $@)
 	$(CC) -c $< -o $@ $(CFLAGS) $(CPPFLAGS)
 	@cpp $< -MM -MF $@.d
 	
+
+obj/%.o: ../common/%.c 
+	@mkdir -p $(dir $@)
+	$(CC) -c $< -o $@ $(CFLAGS) $(CPPFLAGS)
+	@cpp $< -MM -MF $@.d
+
 -include $(DEPFILES)
 

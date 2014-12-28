@@ -11,6 +11,7 @@
  * - Remember, the coke machine echoes your text back to you!
  */
 #include "common.h"
+#include "../common/config.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>

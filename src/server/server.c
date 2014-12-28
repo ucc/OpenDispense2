@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "common.h"
+#include "../common/config.h"
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
