@@ -31,7 +31,7 @@ extern int	gbServer_RunInBackground;
 extern int	giServer_Port;
 extern const char	*gsItemListFile;
 extern const char	*gsCoke_ModbusAddress;
-extern int	gsCoke_ModbusPort;
+extern int	giCoke_ModbusPort;
 extern const char	*gsDoor_SerialPort;
 extern bool	gbSyslogEnabled;
 
@@ -134,7 +134,7 @@ int main(int argc, char *argv[])
 	gbSyslogEnabled      = (Config_GetValue_Bool("disable_syslog", 0) == 0);
 
 	gsCoke_ModbusAddress = Config_GetValue("coke_modbus_address", 0);
-	gsCoke_ModbusPort    = Config_GetValue_Int("coke_modbus_port", 0);
+	giCoke_ModbusPort    = Config_GetValue_Int("coke_modbus_port", 0);
 
 	signal(SIGINT, sigint_handler);
 	signal(SIGTERM, sigint_handler);

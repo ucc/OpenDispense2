@@ -49,7 +49,7 @@ tHandler	gCoke_Handler = {
 	Coke_DoDispense
 };
 const char	*gsCoke_ModbusAddress = "130.95.13.73";
- int		gsCoke_ModbusPort = 502;
+ int		giCoke_ModbusPort = 502;
 modbus_t	*gCoke_Modbus;
 time_t	gtCoke_LastDispenseTime;
 time_t	gtCoke_LastReconnectTime;
@@ -127,7 +127,7 @@ int Coke_int_ConnectToPLC(void)
 
 	if( !gCoke_Modbus )
 	{
-		gCoke_Modbus = modbus_new_tcp(gsCoke_ModbusAddress, gsCoke_ModbusPort);
+		gCoke_Modbus = modbus_new_tcp(gsCoke_ModbusAddress, giCoke_ModbusPort);
 		if( !gCoke_Modbus )
 		{
 			perror("coke - modbus_new_tcp");
