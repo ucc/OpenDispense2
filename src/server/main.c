@@ -31,6 +31,7 @@ extern int	gbServer_RunInBackground;
 extern int	giServer_Port;
 extern const char	*gsItemListFile;
 extern const char	*gsCoke_ModbusAddress;
+extern int	gsCoke_ModbusPort;
 extern const char	*gsDoor_SerialPort;
 extern bool	gbSyslogEnabled;
 
@@ -126,12 +127,14 @@ int main(int argc, char *argv[])
 	gbServer_RunInBackground = Config_GetValue_Bool("daemonise", 0);
 	gsCokebankPath       = Config_GetValue("cokebank_database", 0);
 	gsDoor_SerialPort    = Config_GetValue("door_serial_port", 0);
-	gsCoke_ModbusAddress = Config_GetValue("coke_modbus_address", 0);
 	giServer_Port        = Config_GetValue_Int("server_port", 0);
 	gsItemListFile       = Config_GetValue("items_file", 0);
 
 	gbNoCostMode         = (Config_GetValue_Bool("test_mode", 0) == 1);
 	gbSyslogEnabled      = (Config_GetValue_Bool("disable_syslog", 0) == 0);
+
+	gsCoke_ModbusAddress = Config_GetValue("coke_modbus_address", 0);
+	gsCoke_ModbusPort    = Config_GetValue_Int("coke_modbus_port", 0);
 
 	signal(SIGINT, sigint_handler);
 	signal(SIGTERM, sigint_handler);
