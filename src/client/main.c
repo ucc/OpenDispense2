@@ -855,7 +855,7 @@ int ParseArguments(int argc, char *argv[])
 			case 'h':
 			case '?':
 				ShowUsage();
-				return 0;
+				exit(0);
 					
 			case 'c':
 				if( i > 2 && strcmp(argv[i-1], "type") == 0 )
@@ -950,7 +950,7 @@ int ParseArguments(int argc, char *argv[])
 			case '-':
 				if( strcmp(argv[i], "--help") == 0 ) {
 					ShowUsage();
-					return 0;
+					exit(0);
 				}
 				else if( strcmp(argv[i], "--dry-run") == 0 ) {
 					gbDryRun = 1;
