@@ -5,8 +5,10 @@
 set -o errexit
 set -o nounset
 CLIENT_PATH=/usr/local/bin/dispense
-SETPERMS="true"
-#SETPERMS="chown root:root $CLIENT_PATH; chmod u+s $CLIENT_PATH"
+EXTRA="true"
+EXTRA=$EXTRA";mkdir -p /etc/opendispense/"
+EXTRA=$EXTRA";cp ~tpg/gitclones/opendispense2/client.cfg /etc/opendispense/client.cfg"
+#EXTRA="chown root:root $CLIENT_PATH; chmod u+s $CLIENT_PATH"
 MAKEMAN="make -C ~tpg/gitclones/opendispense2/docs/"
 
 cd ~/gitclones/opendispense2
@@ -26,15 +28,15 @@ cp ~/gitclones/opendispense2/dispense /away/wheel/tpg/dispense_64bit
 cp /usr/share/man/man1/dispense.1.gz /away/wheel/tpg/dispense.1.gz
 
 # Copy 32-bit
-$SSH root@mussel "cp ~tpg/gitclones/opendispense2_32bit/dispense $CLIENT_PATH; $SETPERMS; $MAKEMAN"
-$SSH root@mooneye "cp ~tpg/gitclones/opendispense2_32bit/dispense $CLIENT_PATH; $SETPERMS; $MAKEMAN"
+$SSH root@mussel "cp ~tpg/gitclones/opendispense2_32bit/dispense $CLIENT_PATH; $EXTRA; $MAKEMAN"
+$SSH root@mooneye "cp ~tpg/gitclones/opendispense2_32bit/dispense $CLIENT_PATH; $EXTRA; $MAKEMAN"
 
 # Copy 64-bit
-$SSH root@motsugo "cp ~tpg/gitclones/opendispense2/dispense $CLIENT_PATH; $SETPERMS; $MAKEMAN"
-$SSH root@mantis "cp ~tpg/gitclones/opendispense2/dispense $CLIENT_PATH; $SETPERMS; $MAKEMAN"
-#$SSH root@martello "cp ~tpg/gitclones/opendispense2/dispense $CLIENT_PATH; $SETPERMS; $MAKEMAN"
-$SSH root@merlo "cp ~tpg/gitclones/opendispense2/dispense $CLIENT_PATH; $SETPERMS; $MAKEMAN"
+$SSH root@motsugo "cp ~tpg/gitclones/opendispense2/dispense $CLIENT_PATH; $EXTRA; $MAKEMAN"
+#$SSH root@mantis "cp ~tpg/gitclones/opendispense2/dispense $CLIENT_PATH; $EXTRA; $MAKEMAN"
+#$SSH root@martello "cp ~tpg/gitclones/opendispense2/dispense $CLIENT_PATH; $EXTRA; $MAKEMAN"
+$SSH root@merlo "cp ~tpg/gitclones/opendispense2/dispense $CLIENT_PATH; $EXTRA; $MAKEMAN"
 
 # Copy Away version
-$SSH root@meersau "cp ~tpg/dispense_32bit $CLIENT_PATH; $SETPERMS; cp ~tpg/dispense.1.gz /usr/share/man/man1/dispense.1.gz"
+$SSH root@meersau "cp ~tpg/dispense_32bit $CLIENT_PATH; cp ~tpg/dispense.1.gz /usr/share/man/man1/dispense.1.gz"
 
