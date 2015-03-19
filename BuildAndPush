@@ -1,0 +1,40 @@
+#!/bin/bash
+#
+#
+# A hacky script to freshly compile and distribute the dispense client
+set -o errexit
+set -o nounset
+CLIENT_PATH=/usr/local/bin/dispense
+SETPERMS="true"
+#SETPERMS="chown root:root $CLIENT_PATH; chmod u+s $CLIENT_PATH"
+MAKEMAN="make -C ~tpg/gitclones/opendispense2/docs/"
+
+cd ~/gitclones/opendispense2
+git pull github master
+make -C src/ clean all
+
+#ssh-add
+ssh-add -l ~/.ssh/wh > /dev/null || ssh-add ~/.ssh/wh
+SSH='ssh -i '$HOME'/.ssh/wh'
+
+# Build 32-bit version
+ssh tpg@mussel 'cd ~/gitclones/opendispense2_32bit; git pull; make -C src/client clean all'
+
+# Store the client and manpages for /away hosts
+cp ~/gitclones/opendispense2_32bit/dispense /away/wheel/tpg/dispense_32bit
+cp ~/gitclones/opendispense2/dispense /away/wheel/tpg/dispense_64bit
+cp /usr/share/man/man1/dispense.1.gz /away/wheel/tpg/dispense.1.gz
+
+# Copy 32-bit
+$SSH root@mussel "cp ~tpg/gitclones/opendispense2_32bit/dispense $CLIENT_PATH; $SETPERMS; $MAKEMAN"
+$SSH root@mooneye "cp ~tpg/gitclones/opendispense2_32bit/dispense $CLIENT_PATH; $SETPERMS; $MAKEMAN"
+
+# Copy 64-bit
+$SSH root@motsugo "cp ~tpg/gitclones/opendispense2/dispense $CLIENT_PATH; $SETPERMS; $MAKEMAN"
+$SSH root@mantis "cp ~tpg/gitclones/opendispense2/dispense $CLIENT_PATH; $SETPERMS; $MAKEMAN"
+#$SSH root@martello "cp ~tpg/gitclones/opendispense2/dispense $CLIENT_PATH; $SETPERMS; $MAKEMAN"
+$SSH root@merlo "cp ~tpg/gitclones/opendispense2/dispense $CLIENT_PATH; $SETPERMS; $MAKEMAN"
+
+# Copy Away version
+$SSH root@meersau "cp ~tpg/dispense_32bit $CLIENT_PATH; $SETPERMS; cp ~tpg/dispense.1.gz /usr/share/man/man1/dispense.1.gz"
+
