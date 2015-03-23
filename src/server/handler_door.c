@@ -100,7 +100,7 @@ int Door_CanDispense(int User, int Item)
 	// Sanity please
 	if( Item != 0 )	return -1;
 	
-	if( !(Bank_GetFlags(User) & USER_FLAG_DOORGROUP) )
+	if( !(Bank_GetFlags(User) & (USER_FLAG_DOORGROUP|USER_FLAG_ADMIN)) )
 	{
 		#if DEBUG
 		printf("Door_CanDispense: User %i not in door\n", User);
@@ -128,7 +128,7 @@ int Door_DoDispense(int User, int Item)
 	if( Item != 0 )	return -1;
 	
 	// Check if user is in door
-	if( !(Bank_GetFlags(User) & USER_FLAG_DOORGROUP) )
+	if( !(Bank_GetFlags(User) & (USER_FLAG_DOORGROUP|USER_FLAG_ADMIN)) )
 	{
 		#if DEBUG
 		printf("Door_CanDispense: User %i not in door\n", User);
