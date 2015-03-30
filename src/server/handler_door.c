@@ -48,6 +48,7 @@ bool	gbDoor_LockThreadStarted;
 // === CODE ===
 void* Door_Lock(void* Unused __attribute__((unused)))
 {
+	gbDoor_LockThreadStarted = true;
 	while(1)
 	{
 		sem_wait(&gDoor_UnlockSemaphore);
