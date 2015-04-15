@@ -9,6 +9,8 @@
 #ifndef _COMMON_H_
 #define _COMMON_H_
 
+#include <stdbool.h>	// Because C
+
 #include <regex.h>
 #include "../cokebank.h"
 
@@ -69,7 +71,7 @@ extern int	giNumItems;
 extern tHandler	*gaHandlers[];
 extern int	giNumHandlers;
 extern int	giDebugLevel;
-extern int	gbNoCostMode;
+extern bool	gbNoCostMode;
 
 // === FUNCTIONS ===
 extern void	Items_UpdateFile(void);

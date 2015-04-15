@@ -38,7 +38,7 @@ struct sConfigKey
 };
 
 // === PROTOTYPES ===
-void	Config_ParseFile(const char *Filename);
+//int	Config_ParseFile(const char *Filename);
 void	Config_AddValue(const char *Key, const char *Value);
 void	Config_int_AddValueToKey(tConfigKey *Key, const char *Value);
 tConfigKey	*Config_int_GetKey(const char *KeyName, int bCreate);
@@ -49,9 +49,8 @@ const char	*Config_GetValue(const char *KeyName, int Index);
 tConfigKey	*gConfig;
 
 // === CODE ===
-void Config_ParseFile(const char *Filename)
+int Config_ParseFile(const char *Filename)
 {
-	FILE	*fp;
 	char	line[MAX_LINE_LEN];
 	regex_t	regexp_option;
 	regex_t	regexp_empty;
@@ -59,11 +58,11 @@ void Config_ParseFile(const char *Filename)
 	CompileRegex(&regexp_option, "^\\s*([^ \t]+)\\s+(.+)$", REG_EXTENDED);	//
 	CompileRegex(&regexp_empty, "^\\s*$", REG_EXTENDED);	//
 	
-	fp = fopen(Filename, "r");
+	FILE *fp = fopen(Filename, "r");
 	if(!fp) {
 		fprintf(stderr, "Unable to open config file '%s'\n", Filename);
 		perror("Config_ParseFile");
-		exit(-1);
+		return 1;
 	}
 	
 	while( fgets(line, sizeof(line), fp) )
@@ -104,6 +103,8 @@ void Config_ParseFile(const char *Filename)
 	fclose(fp);
 	regfree(&regexp_option);
 	regfree(&regexp_empty);
+
+	return 0;
 }
 
 void Config_AddValue(const char *Key, const char *Value)
@@ -191,12 +192,11 @@ int Config_GetValueCount(const char *KeyName)
 	return key->ValueCount;
 }
 
-const char *Config_GetValue(const char *KeyName, int Index)
+const tConfigValue *Config_int_GetValue(const char *KeyName, int Index)
 {
-	tConfigKey	*key;
 	tConfigValue	*val;	
 
-	key = Config_int_GetKey(KeyName, 0);
+	tConfigKey *key = Config_int_GetKey(KeyName, 0);
 	if(!key) {
 		fprintf(stderr, "Unknown key '%s'\n", KeyName);
 		exit(1);
@@ -208,15 +208,25 @@ const char *Config_GetValue(const char *KeyName, int Index)
 	for( val = key->FirstValue; Index && val; val = val->Next, Index -- );
 
 	ASSERT(val != NULL);
-	
+	return val;
+}
+
+const char *Config_GetValue_Idx(const char *KeyName, int Index)
+{
+	const tConfigValue* val = Config_int_GetValue(KeyName, Index);
+	if( !val )	return NULL;
 	return val->Data;
 }
 
-int Config_GetValue_Bool(const char *KeyName, int Index)
+bool Config_GetValue_Str(const char *KeyName, const char** Value)
 {
-	const char *val = Config_GetValue(KeyName, Index);
-	if(!val)	return -1;
-	
+	const tConfigValue* val = Config_int_GetValue(KeyName, 0);
+	if(!val)	return false;
+	*Value = val->Data;
+	return true;
+}
+bool str_to_bool(const char *val)
+{
 	if( atoi(val) == 1 )	return 1;
 	if( val[0] == '0' && val[1] == '\0' )	return 0;
 	
@@ -225,19 +235,32 @@ int Config_GetValue_Bool(const char *KeyName, int Index)
 	
 	if( strcasecmp(val, "yes") == 0 )	return 1;
 	if( strcasecmp(val, "no") == 0 )	return 0;
+
+	// INVALID, TODO: Error message
+	return 0;
+}
+bool Config_GetValue_Bool(const char *KeyName, bool* Value)
+{
+	const tConfigValue* val = Config_int_GetValue(KeyName, 0);
+	if(!val)	return false;
 	
-	return -1;
+	*Value = str_to_bool(val->Data);
+	
+	return true;
 }
 
-int Config_GetValue_Int(const char *KeyName, int Index)
+bool Config_GetValue_Int(const char *KeyName, int* Value)
 {
-	 int	tmp;
-	const char *val = Config_GetValue(KeyName, Index);
-	if(!val)	return -1;
+	const tConfigValue* val = Config_int_GetValue(KeyName, 0);
+	if(!val)	return false;
 	
-	if( (tmp = atoi(val)) )	return tmp;
-	if( val[0] == '0' && val[1] == '\0' )	return 0;
+	char* end;
+	 int	value = strtol(val->Data, &end, 0);
+	if( *end != '\0' ) {
+		return false;
+	}
+	*Value = value;
 	
-	return -1;
+	return true;
 }
 

@@ -618,14 +618,17 @@ int main(int argc, char *argv[])
 		return ret;
 
 	// Load config file
-	Config_ParseFile(gsConfigFile);
+	// - Don't check return value, leads to defaults being used
+	if( Config_ParseFile(gsConfigFile) ) {
+		fprintf(stderr, "NOTICE: Loading of config file '%s' failed, using defaults\n", gsConfigFile);
+	}
 
 	// Parse config values
-	if (!giDispenseServerSet) {
-		gsDispenseServer	= Config_GetValue("dispense_server",0);
+	if( !giDispenseServerSet ) {
+		Config_GetValue_Str("dispense_server", &gsDispenseServer);
 	}
 	if (!giDispensePortSet) {
-		giDispensePort		= Config_GetValue_Int("dispense_port",0);
+		Config_GetValue_Int("dispense_port", &giDispensePort);
 	}
 
 
@@ -844,11 +847,25 @@ int main(int argc, char *argv[])
 
 int ParseArguments(int argc, char *argv[])
 {
+	bool	rest_free = false;
 	for( int i = 1; i < argc; i ++ )
 	{
 		char	*arg = argv[i];
 		
-		if( arg[0] == '-' )
+		// If it doesn't start with a '-', or -- has been seen
+		// XXX: Hack - If parsing "user type", don't parse - options 
+		bool hack_usertype = (i > 2 && strcmp(argv[i-2], "user") == 0 && strcmp(argv[i-1], "type") == 0);
+		if( rest_free || arg[0] != '-' || hack_usertype )
+		{
+			if( giTextArgc == MAX_TXT_ARGS )
+			{
+				fprintf(stderr, "ERROR: Too many arguments\n");
+				return RV_ARGUMENTS;
+			}
+		
+			gsTextArgs[giTextArgc++] = argv[i];
+		}
+		else if( arg[1] != '-' )
 		{			
 			switch(arg[1])
 			{
@@ -858,8 +875,6 @@ int ParseArguments(int argc, char *argv[])
 				exit(0);
 					
 			case 'c':
-				if( i > 2 && strcmp(argv[i-1], "type") == 0 )
-					goto _default;
 				if( i + 1 >= argc ) {
 					fprintf(stderr, "%s: -c takes an argument\n", argv[0]);
 					ShowUsage();
@@ -947,54 +962,47 @@ int ParseArguments(int argc, char *argv[])
 			case 'n':	// Dry Run / read-only
 				gbDryRun = 1;
 				break;
-			case '-':
-				if( strcmp(argv[i], "--help") == 0 ) {
-					ShowUsage();
-					exit(0);
-				}
-				else if( strcmp(argv[i], "--dry-run") == 0 ) {
-					gbDryRun = 1;
-				}
-				else if( strcmp(argv[i], "--drinks-only") == 0 ) {
-					giUIMode = UI_MODE_DRINKSONLY;
-				}
-				else if( strcmp(argv[i], "--can-select-all") == 0 ) {
-					gbDisallowSelectWithoutBalance = 0;
-				}
-				else {
-					fprintf(stderr, "%s: Unknown switch '%s'\n", argv[0], argv[i]);
-					ShowUsage();
-					return RV_ARGUMENTS;
-				}
-				break;
-			default: _default:
-				// The first argument is not allowed to begin with 'i'
-				// (catches most bad flags)
-				if( giTextArgc == 0 ) {
-					fprintf(stderr, "%s: Unknown switch '%s'\n", argv[0], argv[i]);
-					ShowUsage();
-					return RV_ARGUMENTS;
-				}
-				if( giTextArgc == MAX_TXT_ARGS )
-				{
-					fprintf(stderr, "ERROR: Too many arguments\n");
-					return RV_ARGUMENTS;
-				}
-				gsTextArgs[giTextArgc++] = argv[i];
-				break;
+			default:
+				fprintf(stderr, "%s: Unknown switch '%s'\n", argv[0], argv[i]);
+				ShowUsage();
+				return RV_ARGUMENTS;
 			}
 
 			continue;
 		}
-
-		if( giTextArgc == MAX_TXT_ARGS )
+		else
 		{
-			fprintf(stderr, "ERROR: Too many arguments\n");
-			return RV_ARGUMENTS;
+			// '--' : Terminate argument processing (remainder is free)
+			if( arg[2] == '\0' ) {
+				rest_free = true;
+			}
+			else if( strcmp(arg, "--help") == 0 ) {
+				ShowUsage();
+				exit(0);
+			}
+			else if( strcmp(arg, "--dry-run") == 0 ) {
+				gbDryRun = 1;
+			}
+			else if( strcmp(arg, "--drinks-only") == 0 ) {
+				giUIMode = UI_MODE_DRINKSONLY;
+			}
+			else if( strcmp(arg, "--can-select-all") == 0 ) {
+				gbDisallowSelectWithoutBalance = 0;
+			}
+			else if( strcmp(arg, "--configfile") == 0 ) {
+				if( i + 1 >= argc ) {
+					fprintf(stderr, "%s: %s takes an argument\n", argv[0], arg);
+					ShowUsage();
+					return RV_ARGUMENTS;
+				}
+				gsConfigFile = argv[++i];
+			}
+			else {
+				fprintf(stderr, "%s: Unknown switch '%s'\n", argv[0], arg);
+				ShowUsage();
+				return RV_ARGUMENTS;
+			}
 		}
-	
-		gsTextArgs[giTextArgc++] = argv[i];
-	
 	}
 	return 0;
 }
@@ -1004,18 +1012,13 @@ int ParseArguments(int argc, char *argv[])
 // ---------------
 char *trim(char *string)
 {
-	 int	i;
-	
+	// Increment pointer while it points to a space
 	while( isspace(*string) )
 		string ++;
 	
-	for( i = strlen(string); i--; )
-	{
-		if( isspace(string[i]) )
-			string[i] = '\0';
-		else
-			break;
-	}
+	// And repalce trailing spaces with NUL bytes
+	for( int i = strlen(string); i-- && isspace(string[i]); )
+		string[i] = '\0';
 	
 	return string;
 }

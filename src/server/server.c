@@ -148,7 +148,7 @@ void Server_Start(void)
 	gaServer_TrustedHosts = malloc(giServer_NumTrustedHosts * sizeof(*gaServer_TrustedHosts));
 	for( int i = 0; i < giServer_NumTrustedHosts; i ++ )
 	{
-		const char	*addr = Config_GetValue("trusted_host", i);
+		const char	*addr = Config_GetValue_Idx("trusted_host", i);
 		
 		if( inet_aton(addr, &gaServer_TrustedHosts[i]) == 0 ) {
 			fprintf(stderr, "Invalid IP address '%s'\n", addr);

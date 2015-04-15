@@ -27,7 +27,7 @@
 extern void	Init_Handlers(void);
 extern void	Load_Itemlist(void);
 extern void	Server_Start(void);
-extern int	gbServer_RunInBackground;
+extern bool	gbServer_RunInBackground;
 extern int	giServer_Port;
 extern const char	*gsItemListFile;
 extern const char	*gsCoke_ModbusAddress;
@@ -40,7 +40,7 @@ void	*Periodic_Thread(void *Unused);
 
 // === GLOBALS ===
  int	giDebugLevel = 0;
- int	gbNoCostMode = 0;
+bool	gbNoCostMode = 0;
 const char	*gsCokebankPath = "cokebank.db";
 // - Functions called every 20s (or so)
 #define ciMaxPeriodics	10
@@ -74,8 +74,16 @@ int main(int argc, char *argv[])
 	for( i = 1; i < argc; i++ )
 	{
 		char	*arg = argv[i];
-		if( arg[0] == '-' && arg[1] != '-')
+		if( arg[0] != '-' )
 		{
+			// No free arguments please
+			PrintUsage(argv[0]);
+			return -1;
+		}
+		else if( arg[1] != '-' )
+		{
+			// Single character arguments
+			// - TODO: Process in a loop
 			switch(arg[1])
 			{
 			case 'f':
@@ -94,8 +102,9 @@ int main(int argc, char *argv[])
 				return -1;
 			}
 		}
-		else if( arg[0] == '-' && arg[1] == '-' )
+		else
 		{
+			// Long arguments
 			if( strcmp(arg, "--configfile") == 0 ) {
 				if( i + 1 >= argc )	return -1;
 				config_file = argv[++i];
@@ -113,28 +122,35 @@ int main(int argc, char *argv[])
 				return -1;
 			}
 		}
-		else
-		{
-			// Usage Error
-			PrintUsage(argv[0]);
+	}
+
+	if( Config_ParseFile( config_file ) ) {
+		fprintf(stderr, "NOTICE: Loading of config file '%s' failed, using defaults\n", config_file);
+	}
+
+	// Parse config values
+	{
+		bool rv = true;
+		#define REQ_CFG(variable, type, name)	rv = Config_GetValue_##type(name, &variable) && rv
+		#define OPT_CFG(variable, type, name)	     Config_GetValue_##type(name, &variable)
+		OPT_CFG(gbServer_RunInBackground, Bool, "daemonise");
+		OPT_CFG(giServer_Port, Int, "server_port");
+		
+		REQ_CFG(gsCokebankPath, Str, "cokebank_database");
+		REQ_CFG(gsItemListFile, Str, "items_file");
+
+		OPT_CFG(gsDoor_SerialPort, Str, "door_serial_port");
+		REQ_CFG(gsCoke_ModbusAddress, Str, "coke_modbus_address");
+		OPT_CFG(giCoke_ModbusPort,    Int,    "coke_modbus_port");
+		
+		OPT_CFG(gbNoCostMode,    Bool, "test_mode");
+		OPT_CFG(gbSyslogEnabled, Bool, "disable_syslog");
+		
+		if( !rv ) {
+			fprintf(stderr, "ERROR: Some required configuration items were missing\n");
 			return -1;
 		}
 	}
-
-	Config_ParseFile( config_file );
-
-	// Parse config values
-	gbServer_RunInBackground = Config_GetValue_Bool("daemonise", 0);
-	gsCokebankPath       = Config_GetValue("cokebank_database", 0);
-	gsDoor_SerialPort    = Config_GetValue("door_serial_port", 0);
-	giServer_Port        = Config_GetValue_Int("server_port", 0);
-	gsItemListFile       = Config_GetValue("items_file", 0);
-
-	gbNoCostMode         = (Config_GetValue_Bool("test_mode", 0) == 1);
-	gbSyslogEnabled      = (Config_GetValue_Bool("disable_syslog", 0) == 0);
-
-	gsCoke_ModbusAddress = Config_GetValue("coke_modbus_address", 0);
-	giCoke_ModbusPort    = Config_GetValue_Int("coke_modbus_port", 0);
 
 	// - Cleanly tear down the server on SIGINT/SIGTERM
 	signal(SIGINT, sigint_handler);

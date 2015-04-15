@@ -9,6 +9,8 @@
 #ifndef _CONFIG_H_
 #define _CONFIG_H_
 
+#include <stdbool.h>	// Because C
+
 // === HELPER MACROS ===
 #define _EXPSTR(x)      #x
 #define EXPSTR(x)       _EXPSTR(x)
@@ -18,11 +20,15 @@
 
 
 // --- Config Database ---
-extern void	Config_ParseFile(const char *Filename);
+extern int	Config_ParseFile(const char *Filename);
+
 extern void	Config_AddValue(const char *Key, const char *Value);
+
 extern int	Config_GetValueCount(const char *KeyName);
-extern const char	*Config_GetValue(const char *KeyName, int Index);
-extern int	Config_GetValue_Bool(const char *KeyName, int Index);
-extern int	Config_GetValue_Int(const char *KeyName, int Index);
+extern const char	*Config_GetValue_Idx(const char *KeyName, int Index);
+
+extern bool	Config_GetValue_Str(const char *KeyName, const char** ValPtr);
+extern bool	Config_GetValue_Bool(const char *KeyName, bool* ValPtr);
+extern bool	Config_GetValue_Int(const char *KeyName, int* ValPtr);
 
 #endif
