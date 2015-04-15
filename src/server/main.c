@@ -136,8 +136,11 @@ int main(int argc, char *argv[])
 	gsCoke_ModbusAddress = Config_GetValue("coke_modbus_address", 0);
 	giCoke_ModbusPort    = Config_GetValue_Int("coke_modbus_port", 0);
 
+	// - Cleanly tear down the server on SIGINT/SIGTERM
 	signal(SIGINT, sigint_handler);
 	signal(SIGTERM, sigint_handler);
+	// - ignore SIGPIPE to prevent a crashing client from bringing the server down too
+	signal(SIGPIPE, SIG_IGN);
 	
 	openlog("odispense2", 0, LOG_LOCAL4);
 	
