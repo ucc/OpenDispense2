@@ -53,7 +53,7 @@ const char	*gsCoke_ModbusAddress = "130.95.13.73";
 modbus_t	*gCoke_Modbus;
 time_t	gtCoke_LastDispenseTime;
 time_t	gtCoke_LastReconnectTime;
- int	gbCoke_DummyMode = 1;
+bool	gbCoke_DummyMode = 1;
  int	giCoke_NextCokeSlot = 0;
 
 // == CODE ===
@@ -61,11 +61,7 @@ int Coke_InitHandler()
 {
 	// Configuable dummy/blank mode (all dispenses succeed)
 	// TODO: Find a better way of handling missing/invalid options
-	if( Config_GetValueCount("coke_dummy_mode") > 0 )
-	{
-		gbCoke_DummyMode = Config_GetValue_Bool("coke_dummy_mode", 0);
-		if(gbCoke_DummyMode == -1)	gbCoke_DummyMode = 0;
-	}
+	Config_GetValue_Bool("coke_dummy_mode", &gbCoke_DummyMode);
 
 	// Open modbus
 	if( !gbCoke_DummyMode )
