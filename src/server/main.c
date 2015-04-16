@@ -33,7 +33,6 @@ extern const char	*gsItemListFile;
 extern const char	*gsCoke_ModbusAddress;
 extern int	giCoke_ModbusPort;
 extern const char	*gsDoor_SerialPort;
-extern bool	gbSyslogEnabled;
 
 // === PROTOTYPES ===
 void	*Periodic_Thread(void *Unused);
@@ -144,7 +143,7 @@ int main(int argc, char *argv[])
 		OPT_CFG(giCoke_ModbusPort,    Int,    "coke_modbus_port");
 		
 		OPT_CFG(gbNoCostMode,    Bool, "test_mode");
-		OPT_CFG(gbSyslogEnabled, Bool, "disable_syslog");
+		OPT_CFG(gbSyslogDisabled, Bool, "disable_syslog");
 		
 		if( !rv ) {
 			fprintf(stderr, "ERROR: Some required configuration items were missing\n");

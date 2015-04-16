@@ -11,24 +11,24 @@
 #include <syslog.h>
 
 // === GLOBALS ===
-bool	gbSyslogEnabled = true;
+bool	gbSyslogDisabled = true;
 
 // === CODE ==
 void Log_Error(const char *Format, ...)
 {
 	va_list	args;
 
-	va_start(args, Format);
-	if( gbSyslogEnabled )
+	if( !gbSyslogDisabled )
 	{
+		va_start(args, Format);
 		vsyslog(LOG_WARNING, Format, args);
+		va_end(args);
 	}
-	else
-	{
-		fprintf(stderr, "WARNING: ");
-		vfprintf(stderr, Format, args);
-		fprintf(stderr, "\n");
-	}
+	
+	va_start(args, Format);
+	fprintf(stderr, "WARNING: ");
+	vfprintf(stderr, Format, args);
+	fprintf(stderr, "\n");
 	va_end(args);
 }
 
@@ -36,17 +36,16 @@ void Log_Info(const char *Format, ...)
 {
 	va_list	args;
 	
-	va_start(args, Format);
-	if( gbSyslogEnabled )
+	if( !gbSyslogDisabled )
 	{
+		va_start(args, Format);
 		vsyslog(LOG_INFO, Format, args);
+		va_end(args);
 	}
-	else
-	{
-		fprintf(stderr, "WARNING: ");
-		vfprintf(stderr, Format, args);
-		fprintf(stderr, "\n");
-	}
+	va_start(args, Format);
+	fprintf(stderr, "INFO: ");
+	vfprintf(stderr, Format, args);
+	fprintf(stderr, "\n");
 	va_end(args);
 }
 

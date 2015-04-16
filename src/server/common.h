@@ -73,6 +73,8 @@ extern int	giNumHandlers;
 extern int	giDebugLevel;
 extern bool	gbNoCostMode;
 
+extern bool	gbSyslogDisabled;
+
 // === FUNCTIONS ===
 extern void	Items_UpdateFile(void);
 
