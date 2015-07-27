@@ -80,12 +80,12 @@ int Config_ParseFile(const char *Filename)
 				}
 			}
 			
-			while( i --, isspace(line[i]) )
-				line[i] = 0;
+			// Trim trailing whitespace
+			while( i -- && isspace(line[i]) )
+				line[i] = '\0';
 		}
 		
-				
-		if( regexec(&regexp_empty, line, 1, matches, 0) == 0 )
+		if( line[0] == '\0' )	// regexec(&regexp_empty, line, 1, matches, 0) == 0 )
 			continue ;
 
 		if( RunRegex(&regexp_option, line, 3, matches, "Parsing configuration file") )
