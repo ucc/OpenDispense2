@@ -9,9 +9,11 @@
  * This file is licenced under the 3-clause BSD Licence. See the file
  * COPYING for full details.
  */
+//#define DEBUG_TRACE_SERVER	2
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 #include <netdb.h>	// gethostbyname
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -1176,15 +1178,15 @@ int Dispense_SetItem(int Socket, const char *Type, int ID, int NewPrice, const c
 // ===
 // Helpers
 // ===
+/// Read from the input socket until a newline is seen
 char *ReadLine(int Socket)
 {
 	static char	buf[BUFSIZ];
-	static int	bufPos = 0;
 	static int	bufValid = 0;
-	 int	len;
+	 int	len = 0;
 	char	*newline = NULL;
 	 int	retLen = 0;
-	char	*ret = malloc(10);
+	char	*ret = malloc(32);
 	
 	#if DEBUG_TRACE_SERVER
 	printf("ReadLine: ");
@@ -1193,41 +1195,55 @@ char *ReadLine(int Socket)
 	
 	ret[0] = '\0';
 	
+	// While a newline hasn't been seen
 	while( !newline )
 	{
+		assert(bufValid < BUFSIZ);
+		// If there is data left over from a previous call, use the data from that for the first pass
 		if( bufValid ) {
 			len = bufValid;
+			bufValid = 0;
 		}
 		else {
-			len = recv(Socket, buf+bufPos, BUFSIZ-1-bufPos, 0);
+			// Otherwise read some data
+			len = recv(Socket, buf, BUFSIZ, 0);
 			if( len <= 0 ) {
 				free(ret);
 				return strdup("599 Client Connection Error\n");
 			}
 		}
-		buf[bufPos+len] = '\0';
+		assert(len < BUFSIZ);
+		buf[len] = '\0';
 		
-		newline = strchr( buf+bufPos, '\n' );
+		// Search for newline in buffer
+		newline = strchr( buf, '\n' );
 		if( newline ) {
 			*newline = '\0';
 		}
 		
-		retLen += strlen(buf+bufPos);
+		// Increment return length by amount of data up to newline (or end of read)
+		retLen += strlen(buf);
 		ret = realloc(ret, retLen + 1);
-		strcat( ret, buf+bufPos );
-		
-		if( newline ) {
-			 int	newLen = newline - (buf+bufPos) + 1;
-			bufValid = len - newLen;
-			len = newLen;
-		}
-		if( len + bufPos == BUFSIZ - 1 )	bufPos = 0;
-		else	bufPos += len;
+		assert(ret);	// evil NULL check
+		strcat( ret, buf );	// append buffer data
 	}
 	
 	#if DEBUG_TRACE_SERVER
 	printf("%i '%s'\n", retLen, ret);
 	#endif
+
+	// If the newline wasn't the last character in the buffer. (I.e. there's extra data for the next call)
+	assert(newline - buf + 1 <= len);
+	if( newline - buf + 1 < len ) {
+		int extra_bytes = len - (newline - buf + 1);
+		// Copy `extra_bytes` from end of buffer down to start and set `bufValid` to `extra_bytes`?
+		memmove(&buf[0], newline + 1, extra_bytes);
+		bufValid = extra_bytes;
+		
+		#if DEBUG_TRACE_SERVER > 1
+		printf("- Caching %i bytes '%.*s'\n", bufValid, bufValid, buf);
+		#endif
+	}
 	
 	return ret;
 }
