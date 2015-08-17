@@ -855,7 +855,9 @@ int ParseArguments(int argc, char *argv[])
 		// If it doesn't start with a '-', or -- has been seen
 		// XXX: Hack - If parsing "user type", don't parse - options 
 		bool hack_usertype = (i > 2 && strcmp(argv[i-2], "user") == 0 && strcmp(argv[i-1], "type") == 0);
-		if( rest_free || arg[0] != '-' || hack_usertype )
+		// XXX: Hack - Treat negative numbers as free
+		bool hack_is_int = (arg[0] == '-' && isdigit(arg[1]) != 0);
+		if( rest_free || arg[0] != '-' || hack_usertype || hack_is_int )
 		{
 			if( giTextArgc == MAX_TXT_ARGS )
 			{
