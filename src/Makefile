@@ -1,19 +1,21 @@
 
 .PHONY:	all clean install
 
+SUBMAKE := make --no-print-directory
+
 all:
-	@make -C cokebank_sqlite all
-#	@make -C cokebank_basic all
-	@make -C server all
-	@make -C client all
+	@echo "--- cokebank_sqlite: all" && $(SUBMAKE) -C cokebank_sqlite all
+#	@echo "--- cokebank_basic: all" && $(SUBMAKE) -C cokebank_basic all
+	@echo "--- server: all" && $(SUBMAKE) -C server all
+	@echo "--- client: all" && $(SUBMAKE) -C client all
 
 clean:
-	@make -C cokebank_sqlite clean
-#	@make -C cokebank_basic clean
-	@make -C server clean
-	@make -C client clean
+	@echo "--- cokebank_sqlite: clean" && $(SUBMAKE) -C cokebank_sqlite clean
+#	@echo "--- cokebank_basic: clean" && $(SUBMAKE) -C cokebank_basic clean
+	@echo "--- server: clean" && $(SUBMAKE) -C server clean
+	@echo "--- client: clean" && $(SUBMAKE) -C client clean
 
 install:
-	@make -C server install
-	@make -C client install
+	@echo "--- server: install" && $(SUBMAKE) -C server install
+	@echo "--- client: install" && $(SUBMAKE) -C client install
 

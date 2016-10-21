@@ -1,5 +1,6 @@
 # OpenDispense 2
 #
+V ?= @
 
 INSTALLDIR := /usr/local/opendispense2
 CFLAGS := -Wall -Werror -g -std=gnu99
@@ -9,6 +10,9 @@ LDFLAGS := -g -lncurses
 BIN := ../../dispense
 OBJ := main.o protocol.o menu.o
 OBJ += doregex.o config.o
+
+OBJ := $(patsubst %,.obj/%,$(OBJ))
+
 
 DEPFILES := $(OBJ:%.o=%.d)
 
@@ -24,16 +28,18 @@ install: $(BIN)
 	cp $(BIN) $(INSTALLDIR)
 
 $(BIN): $(OBJ)
-	$(CC) -o $(BIN) $(OBJ) $(LDFLAGS)
-#	chown root $(BIN)
-#	chmod u+s $(BIN)
+	@echo "[CC] -o $@"
+	$V$(CC) -o $(BIN) $(OBJ) $(LDFLAGS)
+#	chown root $(BIN) && chmod u+s $(BIN)
 
-%.o: %.c
-	$(CC) -c $< -o $@ $(CFLAGS) $(CPPFLAGS)
-	$(CC) -M -MT $@ -o $*.d $< $(CPPFLAGS)
+.obj/%.o: %.c
+	@echo "[CC] -c $<"
+	@mkdir -p $(dir $@)
+	$V$(CC) -c $< -o $@ $(CFLAGS) $(CPPFLAGS) -MMD -MF $@.d
 
-%.o: ../common/%.c
-	$(CC) -c $< -o $@ $(CFLAGS) $(CPPFLAGS)
-	$(CC) -M -MT $@ -o $*.d $< $(CPPFLAGS)
+.obj/%.o: ../common/%.c
+	@echo "[CC] -c $<"
+	@mkdir -p $(dir $@)
+	$V$(CC) -c $< -o $@ $(CFLAGS) $(CPPFLAGS) -MMD -MF $@.d
 
 -include $(DEPFILES)

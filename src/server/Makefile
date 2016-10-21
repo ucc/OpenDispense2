@@ -1,5 +1,6 @@
 # OpenDispense 2
 #
+V ?= @
 
 INSTALLDIR := /usr/local/opendispense2
 
@@ -28,18 +29,19 @@ install: $(BIN)
 	cp $(BIN) $(INSTALLDIR)
 
 $(BIN): $(OBJ)
-	$(CC) -o $(BIN) $(OBJ) $(LINKFLAGS)
+	@echo "[CC] -o $@"
+	@$(CC) -o $(BIN) $(OBJ) $(LINKFLAGS)
 
 obj/%.o: %.c 
 	@mkdir -p $(dir $@)
-	$(CC) -c $< -o $@ $(CFLAGS) $(CPPFLAGS)
-	@cpp $< -MM -MF $@.d
+	@echo "[CC] -c $<"
+	$V$(CC) -c $< -o $@ $(CFLAGS) $(CPPFLAGS) -MMD -MF $@.d
 	
 
 obj/%.o: ../common/%.c 
 	@mkdir -p $(dir $@)
-	$(CC) -c $< -o $@ $(CFLAGS) $(CPPFLAGS)
-	@cpp $< -MM -MF $@.d
+	@echo "[CC] -c $<"
+	$V$(CC) -c $< -o $@ $(CFLAGS) $(CPPFLAGS) -MMD -MF $@.d
 
 -include $(DEPFILES)
 
