@@ -45,6 +45,23 @@ int DispenseItem(int ActualUser, int User, tItem *Item)
 	// Get username for debugging
 	username = Bank_GetAcctName(User);
 	
+	// Ordering: Pay, Drop. Worst case requires a refund, other ordering leads to drops when payment fails.
+	
+	// Take away money
+	if( Item->Price )
+	{
+		char	*reason;
+		reason = mkstr("Dispense - %s:%i %s", handler->Name, Item->ID, Item->Name);
+		if( _Transfer( User, salesAcct, Item->Price, reason ) != 0 ) {
+			Log_Error("Dispense failed (%s dispensing %s:%i '%s') - Cokebank error!",
+				username, Item->Handler->Name, Item->ID, Item->Name);
+			free(reason);
+			free( username );
+			return -1;	// -1: Unknown error
+		}
+		free(reason);
+	}
+	
 	// Actually do the dispense
 	if( handler->DoDispense ) {
 		ret = handler->DoDispense( User, Item->ID );
@@ -52,17 +69,8 @@ int DispenseItem(int ActualUser, int User, tItem *Item)
 			Log_Error("Dispense failed (%s dispensing %s:%i '%s')",
 				username, Item->Handler->Name, Item->ID, Item->Name);
 			free( username );
-			return -1;	// 1: Unknown Error again
+			return -1;	// -1: Unknown Error
 		}
-	}
-	
-	// Take away money
-	if( Item->Price )
-	{
-		char	*reason;
-		reason = mkstr("Dispense - %s:%i %s", handler->Name, Item->ID, Item->Name);
-		_Transfer( User, salesAcct, Item->Price, reason );
-		free(reason);
 	}
 	
 	actualUsername = Bank_GetAcctName(ActualUser);
@@ -227,7 +235,8 @@ int DispenseSet(int ActualUser, int User, int Balance, const char *ReasonGiven, 
 	 int	curBal = Bank_GetBalance(User);
 	char	*byName, *dstName;
 	
-	_Transfer( Bank_GetAcctByName(COKEBANK_DEBT_ACCT,1), User, Balance-curBal, ReasonGiven );
+	if( Bank_Transfer( Bank_GetAcctByName(COKEBANK_DEBT_ACCT,1), User, Balance-curBal, ReasonGiven ) )
+		return -1;
 	
 	byName = Bank_GetAcctName(ActualUser);
 	dstName = Bank_GetAcctName(User);
