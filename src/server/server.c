@@ -664,10 +664,10 @@ void Server_Cmd_AUTHCARD(tClient* Client, char *Args)
 	}
 
 	// Check if trusted
-	if( !Client->bTrustedHost )
+	if( Client->UID != 0 )
 	{
 		if(giDebugLevel)
-			Debug(Client, "Untrusted client attempting to AUTHCARD");
+			Debug(Client, "Attempting to use AUTHCARD as non-root");
 		sendf(Client->Socket, "401 Untrusted\n");
 		return ;
 	}
