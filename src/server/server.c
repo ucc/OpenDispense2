@@ -69,6 +69,7 @@ void	Server_Cmd_USER(tClient *Client, char *Args);
 void	Server_Cmd_PASS(tClient *Client, char *Args);
 void	Server_Cmd_AUTOAUTH(tClient *Client, char *Args);
 void	Server_Cmd_AUTHIDENT(tClient *Client, char *Args);
+void	Server_Cmd_AUTHCARD(tClient* Client, char *Args);
 void	Server_Cmd_SETEUSER(tClient *Client, char *Args);
 void	Server_Cmd_ENUMITEMS(tClient *Client, char *Args);
 void	Server_Cmd_ITEMINFO(tClient *Client, char *Args);
@@ -86,6 +87,7 @@ void	Server_Cmd_USERFLAGS(tClient *Client, char *Args);
 void	Server_Cmd_UPDATEITEM(tClient *Client, char *Args);
 void	Server_Cmd_PINCHECK(tClient *Client, char *Args);
 void	Server_Cmd_PINSET(tClient *Client, char *Args);
+void	Server_Cmd_CARDADD(tClient *Client, char *Args);
 // --- Helpers ---
 void	Debug(tClient *Client, const char *Format, ...);
  int	sendf(int Socket, const char *Format, ...);
@@ -102,6 +104,7 @@ const struct sClientCommand {
 	{"PASS", Server_Cmd_PASS},
 	{"AUTOAUTH", Server_Cmd_AUTOAUTH},
 	{"AUTHIDENT", Server_Cmd_AUTHIDENT},
+	{"AUTHCARD", Server_Cmd_AUTHCARD},
 	{"SETEUSER", Server_Cmd_SETEUSER},
 	{"ENUM_ITEMS", Server_Cmd_ENUMITEMS},
 	{"ITEM_INFO", Server_Cmd_ITEMINFO},
@@ -117,7 +120,8 @@ const struct sClientCommand {
 	{"USER_FLAGS", Server_Cmd_USERFLAGS},
 	{"UPDATE_ITEM", Server_Cmd_UPDATEITEM},
 	{"PIN_CHECK", Server_Cmd_PINCHECK},
-	{"PIN_SET", Server_Cmd_PINSET}
+	{"PIN_SET", Server_Cmd_PINSET},
+	{"CARD_ADD", Server_Cmd_CARDADD},
 };
 #define NUM_COMMANDS	((int)(sizeof(gaServer_Commands)/sizeof(gaServer_Commands[0])))
 
@@ -476,6 +480,62 @@ void Server_Cmd_USER(tClient *Client, char *Args)
 	#endif
 }
 
+/// UID: User ID (must be valid)
+/// username: Optional username
+bool authenticate(tClient* Client, int UID, const char* username)
+{
+	Client->UID = UID;
+
+	int flags = Bank_GetFlags(Client->UID);
+	if( flags & USER_FLAG_DISABLED ) {
+		Client->UID = -1;
+		sendf(Client->Socket, "403 Authentication failure: account disabled\n");
+		return false;
+	}
+	// You can't be an internal account
+	if( flags & USER_FLAG_INTERNAL ) {
+		if(giDebugLevel)
+			Debug(Client, "IDENT auth as '%s', not allowed", username);
+		Client->UID = -1;
+		sendf(Client->Socket, "403 Authentication failure: that account is internal\n");
+		return false;
+	}
+
+	// Save username
+	if(Client->Username != username)
+	{
+		if(Client->Username)
+		{
+			free(Client->Username);
+		}
+
+		// Fetch username (if not provided)
+		if( username )
+		{
+			Client->Username = strdup(username);
+		}
+		else
+		{
+			Client->Username = Bank_GetAcctName(UID);
+		}
+	}
+
+	Client->bIsAuthed = 1;
+	
+	if(giDebugLevel)
+		Debug(Client, "Auto authenticated as '%s' (%i)", Client->Username, Client->UID);
+	return true;
+}
+bool require_auth(tClient* Client)
+{
+	// Check authentication
+	if( !Client->bIsAuthed ) {
+		sendf(Client->Socket, "401 Not Authenticated\n");
+		return false;
+	}
+	return true;
+}
+
 /**
  * \brief Authenticate as a user
  * 
@@ -484,7 +544,6 @@ void Server_Cmd_USER(tClient *Client, char *Args)
 void Server_Cmd_PASS(tClient *Client, char *Args)
 {
 	char	*passhash;
-	 int	flags;
 
 	if( Server_int_ParseArgs(0, Args, &passhash, NULL) )
 	{
@@ -493,26 +552,17 @@ void Server_Cmd_PASS(tClient *Client, char *Args)
 	}
 	
 	// Pass on to cokebank
-	Client->UID = Bank_GetUserAuth(Client->Salt, Client->Username, passhash);
-
-	if( Client->UID == -1 ) {
-		sendf(Client->Socket, "401 Auth Failure\n");
+	int uid = Bank_GetUserAuth(Client->Salt, Client->Username, passhash);
+	if( uid < 0 ) {
+		if(giDebugLevel)
+			Debug(Client, "Unknown user '%s'", Client->Username);
+		sendf(Client->Socket, "403 Authentication failure: unknown account\n");
 		return ;
 	}
-
-	flags = Bank_GetFlags(Client->UID);
-	if( flags & USER_FLAG_DISABLED ) {
-		Client->UID = -1;
-		sendf(Client->Socket, "403 Account Disabled\n");
-		return ;
+	if( ! authenticate(Client, uid, Client->Username) )
+	{
+		return;
 	}
-	if( flags & USER_FLAG_INTERNAL ) {
-		Client->UID = -1;
-		sendf(Client->Socket, "403 Internal account\n");
-		return ;
-	}
-	
-	Client->bIsAuthed = 1;
 	sendf(Client->Socket, "200 Auth OK\n");
 }
 
@@ -524,7 +574,6 @@ void Server_Cmd_PASS(tClient *Client, char *Args)
 void Server_Cmd_AUTOAUTH(tClient *Client, char *Args)
 {
 	char	*username;
-	 int	userflags;
 	
 	if( Server_int_ParseArgs(0, Args, &username, NULL) )
 	{
@@ -541,40 +590,17 @@ void Server_Cmd_AUTOAUTH(tClient *Client, char *Args)
 	}
 	
 	// Get UID
-	Client->UID = Bank_GetAcctByName( username, 0 );	
-	if( Client->UID < 0 ) {
+	int uid = Bank_GetAcctByName( username, /*bCreate=*/0 );
+	if( uid < 0 ) {
 		if(giDebugLevel)
 			Debug(Client, "Unknown user '%s'", username);
-		sendf(Client->Socket, "403 Auth Failure\n");
+		sendf(Client->Socket, "403 Authentication failure: unknown account\n");
 		return ;
 	}
-	
-	userflags = Bank_GetFlags(Client->UID);
-	// You can't be an internal account
-	if( userflags & USER_FLAG_INTERNAL ) {
-		if(giDebugLevel)
-			Debug(Client, "Autoauth as '%s', not allowed", username);
-		Client->UID = -1;
-		sendf(Client->Socket, "403 Account is internal\n");
-		return ;
+	if( ! authenticate(Client, uid, username) )
+	{
+		return;
 	}
-
-	// Disabled accounts
-	if( userflags & USER_FLAG_DISABLED ) {
-		Client->UID = -1;
-		sendf(Client->Socket, "403 Account disabled\n");
-		return ;
-	}
-
-	// Save username
-	if(Client->Username)
-		free(Client->Username);
-	Client->Username = strdup(username);
-
-	Client->bIsAuthed = 1;
-	
-	if(giDebugLevel)
-		Debug(Client, "Auto authenticated as '%s' (%i)", username, Client->UID);
 	
 	sendf(Client->Socket, "200 Auth OK\n");
 }
@@ -587,8 +613,7 @@ void Server_Cmd_AUTOAUTH(tClient *Client, char *Args)
 void Server_Cmd_AUTHIDENT(tClient *Client, char *Args)
 {
 	char	*username;
-	 int	userflags;
-	const int ident_timeout = 5;
+	const int IDENT_TIMEOUT = 5;
 
 	if( Args != NULL && strlen(Args) ) {
 		sendf(Client->Socket, "407 AUTHIDENT takes no arguments\n");
@@ -604,54 +629,63 @@ void Server_Cmd_AUTHIDENT(tClient *Client, char *Args)
 	}
 
 	// Get username via IDENT
-	username = ident_id(Client->Socket, ident_timeout);
+	username = ident_id(Client->Socket, IDENT_TIMEOUT);
 	if( !username ) {
 		perror("AUTHIDENT - IDENT timed out");
 		sendf(Client->Socket, "403 Authentication failure: IDENT auth timed out\n");
 		return ;
 	}
 
-	// Get UID
-	Client->UID = Bank_GetAcctByName( username, 0 );
-	if( Client->UID < 0 ) {
+	int uid = Bank_GetAcctByName(username, /*bCreate=*/0);
+	if( uid < 0 ) {
 		if(giDebugLevel)
 			Debug(Client, "Unknown user '%s'", username);
 		sendf(Client->Socket, "403 Authentication failure: unknown account\n");
 		free(username);
 		return ;
 	}
-
-	userflags = Bank_GetFlags(Client->UID);
-	// You can't be an internal account
-	if( userflags & USER_FLAG_INTERNAL ) {
-		if(giDebugLevel)
-			Debug(Client, "IDENT auth as '%s', not allowed", username);
-		Client->UID = -1;
-		sendf(Client->Socket, "403 Authentication failure: that account is internal\n");
+	if( ! authenticate(Client, uid, username) )
+	{
 		free(username);
 		return ;
 	}
-
-	// Disabled accounts
-	if( userflags & USER_FLAG_DISABLED ) {
-		Client->UID = -1;
-		sendf(Client->Socket, "403 Authentication failure: account disabled\n");
-		free(username);
-		return ;
-	}
-
-	// Save username
-	if(Client->Username)
-		free(Client->Username);
-	Client->Username = strdup(username);
-
-	Client->bIsAuthed = 1;
-
-	if(giDebugLevel)
-		Debug(Client, "IDENT authenticated as '%s' (%i)", username, Client->UID);
 	free(username);
 
 	sendf(Client->Socket, "200 Auth OK\n");
+}
+
+void Server_Cmd_AUTHCARD(tClient* Client, char *Args)
+{
+	char* card_id;
+	if( Server_int_ParseArgs(0, Args, &card_id, NULL) )
+	{
+		sendf(Client->Socket, "407 AUTHCARD takes 1 argument\n");
+		return ;
+	}
+
+	// Check if trusted
+	if( !Client->bTrustedHost )
+	{
+		if(giDebugLevel)
+			Debug(Client, "Untrusted client attempting to AUTHCARD");
+		sendf(Client->Socket, "401 Untrusted\n");
+		return ;
+	}
+
+	int uid = Bank_GetAcctByCard(card_id);
+	if( uid < 0 )
+	{
+		if(giDebugLevel)
+			Debug(Client, "Unknown MIFARE '%s'", card_id);
+		sendf(Client->Socket, "403 Authentication failure: unknown MIFARE ID\n");
+		return ;
+	}
+	if( ! authenticate(Client, uid, NULL) )
+	{
+		return ;
+	}
+
+	sendf(Client->Socket, "200 Auth Ok, username=%s\n", Client->Username);
 }
 
 /**
@@ -1462,10 +1496,7 @@ void Server_Cmd_USERFLAGS(tClient *Client, char *Args)
 	}
 	
 	// Check authentication
-	if( !Client->bIsAuthed ) {
-		sendf(Client->Socket, "401 Not Authenticated\n");
-		return ;
-	}
+	if(!require_auth(Client))	return;
 	
 	// Check permissions
 	if( !(Bank_GetFlags(Client->UID) & USER_FLAG_ADMIN) ) {
@@ -1509,11 +1540,8 @@ void Server_Cmd_UPDATEITEM(tClient *Client, char *Args)
 		sendf(Client->Socket, "407 UPDATE_ITEM takes 3 arguments\n");
 		return ;
 	}
-	
-	if( !Client->bIsAuthed ) {
-		sendf(Client->Socket, "401 Not Authenticated\n");
-		return ;
-	}
+
+	if(!require_auth(Client))	return;
 
 	// Check user permissions
 	if( !(Bank_GetFlags(Client->UID) & (USER_FLAG_COKE|USER_FLAG_ADMIN))  ) {
@@ -1560,11 +1588,7 @@ void Server_Cmd_PINCHECK(tClient *Client, char *Args)
 	}
 	pin = atoi(pinstr);
 
-	// Not authenticated? go away!
-	if( !Client->bIsAuthed ) {
-		sendf(Client->Socket, "401 Not Authenticated\n");
-		return ;
-	}
+	if(!require_auth(Client))	return;
 	
 	// Get user
 	int uid = Bank_GetAcctByName(username, 0);
@@ -1590,7 +1614,7 @@ void Server_Cmd_PINCHECK(tClient *Client, char *Args)
 	last_wrong_pin_time = time(NULL);
 	if( !Bank_IsPinValid(uid, pin) )
 	{
-		sendf(Client->Socket, "201 Pin incorrect\n");
+		sendf(Client->Socket, "401 Pin incorrect\n");
 		struct sockaddr_storage	addr;
 		socklen_t len = sizeof(addr);
 		char ipstr[INET6_ADDRSTRLEN];
@@ -1625,10 +1649,7 @@ void Server_Cmd_PINSET(tClient *Client, char *Args)
 	}
 	pin = atoi(pinstr);
 
-	if( !Client->bIsAuthed ) {
-		sendf(Client->Socket, "401 Not Authenticated\n");
-		return ;
-	}
+	if(!require_auth(Client))	return;
 	
 	int uid = Client->EffectiveUID;
 	if(uid == -1)
@@ -1637,6 +1658,23 @@ void Server_Cmd_PINSET(tClient *Client, char *Args)
 	Bank_SetPin(uid, pin);
 	sendf(Client->Socket, "200 Pin updated\n");
 	return ;
+}
+void Server_Cmd_CARDADD(tClient* Client, char* Args)
+{
+	char* card_id;
+	if( Server_int_ParseArgs(0, Args, &card_id, NULL) ) {
+		sendf(Client->Socket, "407 CARD_ADD takes 1 argument\n");
+		return ;
+	}
+
+	if(!require_auth(Client))	return;
+
+	if( Bank_AddAcctCard(Client->UID, card_id) )
+	{
+		sendf(Client->Socket, "408 Card already exists\n");
+		return ;
+	}
+	sendf(Client->Socket, "200 Card added\n");
 }
 
 // --- INTERNAL HELPERS ---

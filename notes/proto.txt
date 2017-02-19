@@ -29,6 +29,7 @@ numbers.
 404	Bad other username
 406	Bad Item ID
 407	Invalid arguments
+408	Already exists
 500	Unknown Dispense Failure
 501	Action Rejected
 
