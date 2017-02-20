@@ -94,6 +94,9 @@ void	Debug(tClient *Client, const char *Format, ...);
  int	Server_int_ParseArgs(int bUseLongArg, char *ArgStr, ...);
  int	Server_int_ParseFlags(tClient *Client, const char *Str, int *Mask, int *Value);
 
+#define CLIENT_DEBUG_LOW(Client, ...)	do { if(giDebugLevel>1) Debug(Client, __VA_ARGS__); } while(0)
+#define CLIENT_DEBUG(Client, ...)	do { if(giDebugLevel) Debug(Client, __VA_ARGS__); } while(0)
+
 // === CONSTANTS ===
 // - Commands
 const struct sClientCommand {
@@ -663,8 +666,8 @@ void Server_Cmd_AUTHCARD(tClient* Client, char *Args)
 		return ;
 	}
 
-	// Check if trusted
-	if( Client->UID != 0 )
+	// Check if trusted (has to be root)
+	if( Client->UID != 1 )
 	{
 		if(giDebugLevel)
 			Debug(Client, "Attempting to use AUTHCARD as non-root");
@@ -672,6 +675,7 @@ void Server_Cmd_AUTHCARD(tClient* Client, char *Args)
 		return ;
 	}
 
+	CLIENT_DEBUG(Client, "MIFARE auth with '%s'", card_id);
 	int uid = Bank_GetAcctByCard(card_id);
 	if( uid < 0 )
 	{
@@ -1651,9 +1655,8 @@ void Server_Cmd_PINSET(tClient *Client, char *Args)
 
 	if(!require_auth(Client))	return;
 	
-	int uid = Client->EffectiveUID;
-	if(uid == -1)
-		uid = Client->UID;
+	int uid = Client->EffectiveUID > 0 ? Client->EffectiveUID : Client->UID;
+	CLIENT_DEBUG(Client, "Setting PIN for UID %i", uid);
 	// Can only pinset yourself (well, the effective user)
 	Bank_SetPin(uid, pin);
 	sendf(Client->Socket, "200 Pin updated\n");
@@ -1669,7 +1672,9 @@ void Server_Cmd_CARDADD(tClient* Client, char* Args)
 
 	if(!require_auth(Client))	return;
 
-	if( Bank_AddAcctCard(Client->UID, card_id) )
+	int uid = Client->EffectiveUID > 0 ? Client->EffectiveUID : Client->UID;
+	CLIENT_DEBUG(Client, "Add card '%s' to UID %i", card_id, uid);
+	if( Bank_AddAcctCard(uid, card_id) )
 	{
 		sendf(Client->Socket, "408 Card already exists\n");
 		return ;
