@@ -41,13 +41,13 @@ TRY_COMMAND() {
 	fi
 }
 
-DISPENSE="../dispense -H localhost -P ${PORT}"
+DISPENSE="../dispense -f /dev/null -H localhost -P ${PORT}"
 
 LD_LIBRARY_PATH=.. ../dispsrv -f ${BASEDIR}cfg_server.conf --dont-daemonise > ${BASEDIR}server.log 2>&1 &
 server_pid=$!
 
 cleanup() {
-	if pidof dispsrv | grep ${server_pid}; then
+	if pidof dispsrv | grep ${server_pid} > /dev/null; then
 		LOG "Killing ${server_pid}"
 		kill ${server_pid}; true
 	else

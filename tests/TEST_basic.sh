@@ -4,14 +4,21 @@ TESTNAME=basic
 
 . _common.sh
 
-# Ensure that the databse doesn't already contain the current user
-# - 1. Protects against running the test against the production database
-# - 2. Allows adding the current user as an admin
-if $DISPENSE acct "$USER"; then
-	FAIL "Database contains '$USER'"
+# (CI runs as root, and root is auto-added by databse creation)
+if [[ "$USER" -ne "root" ]]; then
+	# Ensure that the databse doesn't already contain the current user
+	# - 1. Protects against running the test against the production database
+	# - 2. Allows adding the current user as an admin
+	if $DISPENSE acct "$USER"; then
+		FAIL "Database contains '$USER'"
+	fi
+	# Add the current user as an admin
+	sqlite3 "${BASEDIR}cokebank.db" "INSERT INTO accounts (acct_name,acct_is_admin,acct_uid) VALUES ('${USER}',1,1);"
+else
+	if $DISPENSE acct accmurph; then
+		FAIL "Database contains 'accmurph' (running as root, might be using prodution)"
+	fi
 fi
-# Add the current user as an admin
-sqlite3 "${BASEDIR}cokebank.db" "INSERT INTO accounts (acct_name,acct_is_admin,acct_uid) VALUES ('${USER}',1,1);"
 
 # Try to add a new user
 TRY_COMMAND "$DISPENSE user add unittest_user0"
