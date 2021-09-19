@@ -9,14 +9,14 @@ build:
   # instead of calling g++ directly you can also use some build toolkit like make
   # install the necessary build tools when needed
   before_script:
-    - apt update && apt -y install libncurses-dev libmodbus-dev libsqlite3-dev libident-dev
+    - apt update && apt -y install libncurses-dev libmodbus-dev libsqlite3-dev libident-dev netcat
   script:
     - make -C src/
   artifacts:
     paths:
       - dispense
       - cokebank_sqlite.so
-      - dispsrc
+      - dispsrv
       # depending on your build setup it's most likely a good idea to cache outputs to reduce the build time
       # cache:
       #   paths:

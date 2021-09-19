@@ -46,10 +46,15 @@ server_pid=$!
 
 cleanup() {
 	LOG "Killing ${server_pid}"
-	kill ${server_pid}
+	kill ${server_pid}; true
 }
 trap cleanup EXIT
 
 LOG "Server running on PID ${server_pid}"
 sleep 1
-echo "" | nc localhost ${PORT}
+# - Make sure that the server started
+if ! (echo "" | nc localhost ${PORT}); then
+	LOG "Server not responding on ${PORT}"
+	LOG "Server log contents:"
+	cat ${BASEDIR}server.log
+fi
