@@ -9,7 +9,7 @@ build:
   # instead of calling g++ directly you can also use some build toolkit like make
   # install the necessary build tools when needed
   before_script:
-    - apt update && apt -y install libncurses-dev libmodbus-dev libsqlite3-dev libident-dev netcat
+    - apt update && apt -y install libncurses-dev libmodbus-dev libsqlite3-dev libident-dev
   script:
     - make -C src/
   artifacts:
@@ -25,5 +25,7 @@ build:
 # run tests using the binary built before
 test:
   stage: test
+  before_script:
+    - apt update && apt -y install libncurses libmodbus libsqlite3 libident netcat
   script:
     - cd tests && ./TEST_basic.sh

@@ -1,6 +1,7 @@
 #
 # NOTE: Not a script, to be included by scripts
 #
+USER=$(id -un)
 BASEDIR=rundir/${TESTNAME}/
 PORT=22222
 
@@ -34,6 +35,7 @@ FAIL() {
 }
 TRY_COMMAND() {
 	cmd="$*"
+	echo ">> $cmd"
 	if ! $cmd ; then
 		FAIL "Command \`$cmd\` failed"
 	fi
@@ -45,8 +47,12 @@ LD_LIBRARY_PATH=.. ../dispsrv -f ${BASEDIR}cfg_server.conf --dont-daemonise > ${
 server_pid=$!
 
 cleanup() {
-	LOG "Killing ${server_pid}"
-	kill ${server_pid}; true
+	if pidof dispsrv | grep ${server_pid}; then
+		LOG "Killing ${server_pid}"
+		kill ${server_pid}; true
+	else
+		LOG "Server already terminated"
+	fi
 }
 trap cleanup EXIT
 
@@ -57,4 +63,5 @@ if ! (echo "" | nc localhost ${PORT}); then
 	LOG "Server not responding on ${PORT}"
 	LOG "Server log contents:"
 	cat ${BASEDIR}server.log
+	exit 1
 fi
