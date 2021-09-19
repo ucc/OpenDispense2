@@ -5,7 +5,7 @@ TESTNAME=basic
 . _common.sh
 
 # (CI runs as root, and root is auto-added by databse creation)
-if [[ "$USER" -ne "root" ]]; then
+if [[ "x$USER" != "xroot" ]]; then
 	# Ensure that the databse doesn't already contain the current user
 	# - 1. Protects against running the test against the production database
 	# - 2. Allows adding the current user as an admin
