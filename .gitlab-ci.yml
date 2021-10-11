@@ -27,7 +27,7 @@ test:
   stage: test
   before_script:
     # Install the -dev versions to avoid needing to find the actual library names
-    - apt update && apt -y install libncurses-dev libmodbus-dev libsqlite3-dev libident netcat sqlite3
+    - apt update && apt -y install libncurses-dev libmodbus-dev libsqlite3-dev libident netcat sqlite3 oidentd
     - useradd testuser && chown -R testuser .
   script:
     - cd tests && su -c './TEST_basic.sh' testuser
