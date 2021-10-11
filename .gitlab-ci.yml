@@ -30,4 +30,4 @@ test:
     - apt update && apt -y install libncurses-dev libmodbus-dev libsqlite3-dev libident netcat sqlite3
     - useradd testuser && chown -R testuser .
   script:
-    - cd tests && su -l -c './TEST_basic.sh' testuser
+    - cd tests && su -c './TEST_basic.sh' testuser
