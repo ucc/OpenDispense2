@@ -9,7 +9,8 @@ build:
   # instead of calling g++ directly you can also use some build toolkit like make
   # install the necessary build tools when needed
   before_script:
-    - apt update && apt -y install libncurses-dev libmodbus-dev libsqlite3-dev libident-dev
+    - apt update
+    - apt -y install libncurses-dev libmodbus-dev libsqlite3-dev libident-dev
   script:
     - make -C src/
   artifacts:
@@ -31,5 +32,11 @@ test:
     - useradd testuser && chown -R testuser .
     # SETUID on the client, so it can use AUTOAUTH (ident doesn't work on the container)
     - chmod u+s dispense
+    - ls -l dispense
   script:
     - cd tests && su -c './TEST_basic.sh' testuser
+  after_script:
+    - cat tests/rundir/basic/server.log
+  artifacts:
+    paths:
+      - tests/rundir/basic/server.log

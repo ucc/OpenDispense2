@@ -44,7 +44,7 @@ TRY_COMMAND() {
 
 DISPENSE="../dispense -f /dev/null -H localhost -P ${PORT}"
 
-LD_LIBRARY_PATH=.. ../dispsrv -f ${BASEDIR}cfg_server.conf --dont-daemonise > ${BASEDIR}server.log 2>&1 &
+LD_LIBRARY_PATH=.. ../dispsrv -f ${BASEDIR}cfg_server.conf --dont-daemonise -d 2 > ${BASEDIR}server.log 2>&1 &
 server_pid=$!
 
 cleanup() {
