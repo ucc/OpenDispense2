@@ -3,7 +3,10 @@
 V ?= @
 
 INSTALLDIR := /usr/local/opendispense2
-CFLAGS := -Wall -Werror -g -std=gnu99
+CFLAGS := -Wall -g -std=gnu99
+ifndef CI
+CFLAGS += -Werror
+endif
 LDFLAGS := -g -lncurses
 # -lssl
 
