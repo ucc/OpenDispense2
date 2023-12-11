@@ -42,7 +42,7 @@ int ShowNCursesUI(void)
 	 int	currentItem;
 	 int	ret = -2;	// -2: Used for marking "no return yet"
 	
-	char	balance_str[5+1+2+1];	// If $9999.99 is too little, something's wrong
+	char	balance_str[9+1+2+1];	// 9 digits is the max (according to a gcc awarning)
 	char	*username;
 	struct passwd *pwd;
 	 
