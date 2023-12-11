@@ -33,6 +33,8 @@ test:
     # SETUID on the client, so it can use AUTOAUTH (ident doesn't work on the container)
     - chmod u+s dispense
     - ls -l dispense
+    # Spawn oidentd
+    - /usr/sbin/oidentd
   script:
     - cd tests && su -c './TEST_basic.sh' testuser
   after_script:
