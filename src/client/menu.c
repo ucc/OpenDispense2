@@ -42,7 +42,7 @@ int ShowNCursesUI(void)
 	 int	currentItem;
 	 int	ret = -2;	// -2: Used for marking "no return yet"
 	
-	char	balance_str[9+1+2+1];	// 9 digits is the max (according to a gcc awarning)
+	char	balance_str[5+1+2+1];	//  If $9999.99 is too little, something's wrong
 	char	*username;
 	struct passwd *pwd;
 	 
@@ -86,7 +86,15 @@ int ShowNCursesUI(void)
 		username = pwd->pw_name;
 	}
 	// Get balance
-	snprintf(balance_str, sizeof(balance_str), "$%i.%02i", giUserBalance/100, abs(giUserBalance)%100);
+	if( giUserBalance >= 1000000 ) {
+		snprintf(balance_str, sizeof(balance_str), ">$9,999");
+	}
+	else if( giUserBalance <= -1000000 ) {
+		snprintf(balance_str, sizeof(balance_str), "<-$9,999");
+	}
+	else {
+		snprintf(balance_str, sizeof(balance_str), "$%i.%02i", giUserBalance/100, abs(giUserBalance)%100);
+	}
 	
 	// Enter curses mode
 	initscr();
