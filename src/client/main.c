@@ -688,14 +688,21 @@ int main(int argc, char *argv[])
 		// Door (hard coded)
 		if( strcmp(gsItemPattern, "door") == 0 )
 		{
-			// Connect, Authenticate, dispense and close
-			sock = OpenConnection(gsDispenseServer, giDispensePort);
-			if( sock < 0 )	return RV_SOCKET_ERROR;
-			ret = Authenticate(sock);
-			if(ret)	return ret;
-			ret = DispenseItem(sock, "door", 0);
-			close(sock);
-			return ret;
+            //confirmation
+            printf("Confirm to unlock the door? Y/N\n");
+            char userInput[2] = {'N'};
+            fgets(userInput, 2, stdin);
+            if(userInput[0] == 'Y'||userInput[0] == 'y')
+            {
+                // Connect, Authenticate, dispense and close
+                sock = OpenConnection(gsDispenseServer, giDispensePort);
+                if( sock < 0 )	return RV_SOCKET_ERROR;
+                ret = Authenticate(sock);
+                if(ret)	return ret;
+                ret = DispenseItem(sock, "door", 0);
+                close(sock);
+                return ret;
+            }
 		}
 		// Item id (<type>:<num>)
 		else if( RunRegex(&gUserItemIdentRegex, gsItemPattern, 3, matches, NULL) == 0 )
