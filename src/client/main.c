@@ -88,7 +88,7 @@ void ShowUsage(void)
 			"    dispense give <user> <amount> \"<reason>\"\n"
 			"        Give money to another user\n"
 			);
-	
+
 	if( giTextArgc == 0 || strcmp(gsTextArgs[0], "donate") == 0 )
 		printf(
 			"    dispense donate <amount> \"<reason>\"\n"
@@ -222,9 +222,9 @@ int subcommand_acct(void)
 		close(sock);
 		return ret;
 	}
-		
+
 	// gsTextArgs[1]: Username
-	
+
 	// Alter account?
 	if( giTextArgc != 2 )
 	{
@@ -233,11 +233,11 @@ int subcommand_acct(void)
 			ShowUsage();
 			return RV_ARGUMENTS;
 		}
-		
+
 		// Authentication required
 		ret = Authenticate(sock);
 		if(ret)	return ret;
-		
+
 		// gsTextArgs[1]: Username
 		// gsTextArgs[2]: Ammount
 		// gsTextArgs[3]: Reason
@@ -247,7 +247,7 @@ int subcommand_acct(void)
 			fprintf(stderr, "dispense acct: Value must be a decimal number of cents\n");
 			return RV_ARGUMENTS;
 		}
-		
+
 		if( gsTextArgs[2][0] == '=' ) {
 			// Set balance
 			ret = Dispense_ShowUser(sock, gsTextArgs[1]);
@@ -263,10 +263,10 @@ int subcommand_acct(void)
 		close(sock);
 		return ret;
 	}
-	
+
 	// Show user information
 	ret = Dispense_ShowUser(sock, gsTextArgs[1]);
-	
+
 	close(sock);
 	return ret;
 }
@@ -280,21 +280,21 @@ int subcommand_acct(void)
 int subcommand_give(int argc, char *args[])
 {
 	int ret;
-	
+
 	if( argc != 3 ) {
 		fprintf(stderr, "`dispense give` takes three arguments\n");
 		ShowUsage();
 		return RV_ARGUMENTS;
 	}
-	
+
 	const char *dst_acct = args[0];
 	const char *amt_str = args[1];
 	const char *message = args[2];
-	
+
 	// Connect to server
 	int sock = OpenConnection(gsDispenseServer, giDispensePort);
 	if( sock < 0 )	return RV_SOCKET_ERROR;
-	
+
 	// Authenticate
 	ret = Authenticate(sock);
 	if(ret)	return ret;
@@ -318,22 +318,22 @@ int subcommand_give(int argc, char *args[])
 int subcommand_user(int argc, char *args[])
 {
 	 int	ret;
-	
+
 	// Check argument count
 	if( argc == 0 ) {
 		fprintf(stderr, "Error: `dispense user` requires arguments\n");
 		ShowUsage();
 		return RV_ARGUMENTS;
 	}
-	
+
 	// Connect to server
 	int sock = OpenConnection(gsDispenseServer, giDispensePort);
 	if( sock < 0 )	return RV_SOCKET_ERROR;
-	
+
 	// Attempt authentication
 	ret = Authenticate(sock);
 	if(ret)	return ret;
-	
+
 	// Add new user?
 	if( strcmp(args[0], "add") == 0 )
 	{
@@ -342,7 +342,7 @@ int subcommand_user(int argc, char *args[])
 			ShowUsage();
 			return RV_ARGUMENTS;
 		}
-		
+
 		ret = Dispense_AddUser(sock, args[1]);
 	}
 	// Update a user
@@ -353,7 +353,7 @@ int subcommand_user(int argc, char *args[])
 			ShowUsage();
 			return RV_ARGUMENTS;
 		}
-		
+
 		ret = Dispense_SetUserType(sock, args[1], args[2], (argc == 3 ? "" : args[3]));
 	}
 	else
@@ -373,25 +373,25 @@ int subcommand_user(int argc, char *args[])
 int subcommand_donate(int argc, char *args[])
 {
 	 int	ret;
-	
+
 	// Check argument count
 	if( argc != 2 ) {
 		fprintf(stderr, "Error: `dispense donate` requires two arguments\n");
 		ShowUsage();
 		return RV_ARGUMENTS;
 	}
-	
+
 	// Connect to server
 	int sock = OpenConnection(gsDispenseServer, giDispensePort);
 	if( sock < 0 )	return RV_SOCKET_ERROR;
-	
+
 	// Attempt authentication
 	ret = Authenticate(sock);
 	if(ret)	return ret;
-	
+
 	// Do donation
 	ret = Dispense_Donate(sock, atoi(args[0]), args[1]);
-			
+
 	close(sock);
 
 	return ret;
@@ -416,7 +416,7 @@ int subcommand_refund(int argc, char *args[])
 
 	// Connect to server
 	int sock = OpenConnection(gsDispenseServer, giDispensePort);
-	if(sock < 0)	return RV_SOCKET_ERROR;	
+	if(sock < 0)	return RV_SOCKET_ERROR;
 
 	// Attempt authentication
 	ret = Authenticate(sock);
@@ -468,7 +468,7 @@ int subcommand_iteminfo(int argc, char *args[])
 
 	int sock = OpenConnection(gsDispenseServer, giDispensePort);
 	if( sock < 0 )	return RV_SOCKET_ERROR;
-	
+
 	ret = Dispense_ItemInfo(sock, type, id);
 	close(sock);
 	return ret;
@@ -481,7 +481,7 @@ int subcommand_iteminfo(int argc, char *args[])
 int subcommand_slot(int argc, char *args[])
 {
 	 int	ret;
-	
+
 	// Check arguments
 	if( argc != 3 ) {
 		fprintf(stderr, "Error: `dispense slot` takes three arguments\n");
@@ -491,7 +491,7 @@ int subcommand_slot(int argc, char *args[])
 	char *slot_id = args[0];
 	char *price_str = args[1];
 	char *newname = args[2];
-	
+
 	// Parse arguments
 	regmatch_t matches[3];
 	if( RunRegex(&gUserItemIdentRegex, slot_id, 3, matches, NULL) != 0 ) {
@@ -509,7 +509,7 @@ int subcommand_slot(int argc, char *args[])
 		fprintf(stderr, "Error: Invalid price passed (must be >= 0)\n");
 		return RV_ARGUMENTS;
 	}
-	
+
 	// -- Sanity
 	for( char *pos = newname; *pos; pos ++ )
 	{
@@ -518,17 +518,17 @@ int subcommand_slot(int argc, char *args[])
 			return RV_ARGUMENTS;
 		}
 	}
-	
+
 	// Connect & Authenticate
 	int sock = OpenConnection(gsDispenseServer, giDispensePort);
 	if( sock < 0 )	return RV_SOCKET_ERROR;
-	
+
 	ret = Authenticate(sock);
 	if(ret)	return ret;
-	
+
 	// Update the slot
 	ret = Dispense_SetItem(sock, item_type, item_id, price, newname);
-	
+
 	close(sock);
 	return ret;
 }
@@ -540,7 +540,7 @@ int subcommand_slot(int argc, char *args[])
 int subcommand_pincheck(int argc, char *args[])
 {
 	 int	ret;
-	
+
 	if( argc < 1 || argc > 2 ) {
 		fprintf(stderr, "Error: `dispense pincheck` takes one/two arguments\n");
 		ShowUsage();
@@ -549,18 +549,18 @@ int subcommand_pincheck(int argc, char *args[])
 
 	struct passwd	*pwd = getpwuid( getuid() );
 	gsUserName = strdup(pwd->pw_name);
-	
+
 	const char *pin = args[0];
 	const char *user = (argc > 1 ? args[1] : gsUserName);
-	
+
 	int sock = OpenConnection(gsDispenseServer, giDispensePort);
 	if( sock < 0 )	return RV_SOCKET_ERROR;
-	
+
 	ret = Authenticate(sock);
 	if(ret)	return ret;
-	
+
 	ret = DispenseCheckPin(sock, user, pin);
-	
+
 	close(sock);
 	return ret;
 }
@@ -572,15 +572,15 @@ int subcommand_pincheck(int argc, char *args[])
 int subcommand_pinset(int argc, char *args[])
 {
 	 int 	ret;
-	
+
 	if( argc != 1 ) {
 		fprintf(stderr, "Error: `dispense pinset` takes one argument\n");
 		ShowUsage();
 		return RV_ARGUMENTS;
 	}
-	
+
 	const char *pin = args[0];
-	
+
 	int sock = OpenConnection(gsDispenseServer, giDispensePort);
 	if( sock < 0 )	return RV_SOCKET_ERROR;
 
@@ -588,7 +588,7 @@ int subcommand_pinset(int argc, char *args[])
 	if(ret)	return ret;
 
 	ret = DispenseSetPin(sock, pin);
-	
+
 	close(sock);
 	return ret;
 }
@@ -597,7 +597,7 @@ int main(int argc, char *argv[])
 {
 	 int	i, ret = 0;
 	char	buffer[BUFSIZ];
-	
+
 	gsTextArgs[0] = "";
 
 	// -- Create regular expressions
@@ -667,7 +667,7 @@ int main(int argc, char *argv[])
 		// Item name / pattern
 		gsItemPattern = gsTextArgs[0];
 	}
-	
+
 	// Connect to server
 	int sock = OpenConnection(gsDispenseServer, giDispensePort);
 	if( sock < 0 )	return RV_SOCKET_ERROR;
@@ -678,10 +678,10 @@ int main(int argc, char *argv[])
 
 	// Get items
 	PopulateItemList(sock);
-	
+
 	// Disconnect from server
 	close(sock);
-	
+
 	if( gsItemPattern && gsItemPattern[0] )
 	{
 		regmatch_t matches[3];
@@ -689,9 +689,13 @@ int main(int argc, char *argv[])
 		if( strcmp(gsItemPattern, "door") == 0 )
 		{
             //confirmation
-            printf("Confirm to unlock the door? Y/N\n");
             char userInput[2] = {'N'};
-            fgets(userInput, 2, stdin);
+            if(isatty(STDIN_FILENO) == 1){
+                printf("Confirm to unlock the door? Y/N\n");
+                fgets(userInput, 2, stdin);
+            } else {
+                userInput[0] = 'Y';
+            }
             if(userInput[0] == 'Y'||userInput[0] == 'y')
             {
                 // Connect, Authenticate, dispense and close
@@ -709,19 +713,19 @@ int main(int argc, char *argv[])
 		{
 			char	*ident;
 			 int	id;
-			
+
 			// Get and finish ident
 			ident = gsItemPattern + matches[1].rm_so;
 			gsItemPattern[matches[1].rm_eo] = '\0';
 			// Get ID
 			id = atoi( gsItemPattern + matches[2].rm_so );
-			
+
 			// Connect, Authenticate, dispense and close
 			sock = OpenConnection(gsDispenseServer, giDispensePort);
 			if( sock < 0 )	return RV_SOCKET_ERROR;
-			
+
 			Dispense_ItemInfo(sock, ident, id);
-			
+
 			ret = Authenticate(sock);
 			if(ret)	return ret;
 			ret = DispenseItem(sock, ident, id);
@@ -752,13 +756,13 @@ int main(int argc, char *argv[])
 				// Check if the prefix matched
 				if( gsItemPattern[j] != '\0' )
 					continue;
-				
+
 				// Prefect match
 				if( gaItems[i].Desc[j] == '\0' ) {
 					best = i;
 					break;
 				}
-				
+
 				// Only one match allowed
 				if( best == -1 ) {
 					best = i;
@@ -770,14 +774,14 @@ int main(int argc, char *argv[])
 					return RV_BAD_ITEM;
 				}
 			}
-			
+
 			// Was a match found?
 			if( best == -1 )
 			{
 				fprintf(stderr, "No item matches the passed string\n");
 				return RV_BAD_ITEM;
 			}
-			
+
 			i = best;
 		}
 	}
@@ -792,7 +796,7 @@ int main(int argc, char *argv[])
 			// Add a separator
 			if( i && strcmp(gaItems[i].Type, gaItems[i-1].Type) != 0 )
 				printf("   ---\n");
-			
+
 			printf("%2i %s:%i\t%3i %s\n", i, gaItems[i].Type, gaItems[i].ID,
 				gaItems[i].Price, gaItems[i].Desc);
 		}
@@ -800,17 +804,17 @@ int main(int argc, char *argv[])
 		for(;;)
 		{
 			char	*buf;
-			
+
 			i = -1;
-			
+
 			fgets(buffer, BUFSIZ, stdin);
-			
+
 			buf = trim(buffer);
-			
+
 			if( buf[0] == 'q' )	break;
-			
+
 			i = atoi(buf);
-			
+
 			if( i != 0 || buf[0] == '0' )
 			{
 				if( i < 0 || i >= giNumItems ) {
@@ -821,8 +825,8 @@ int main(int argc, char *argv[])
 			}
 		}
 	}
-	
-	
+
+
 	// Check for a valid item ID
 	if( i >= 0 )
 	{
@@ -830,13 +834,13 @@ int main(int argc, char *argv[])
 		// Connect, Authenticate, dispense and close
 		sock = OpenConnection(gsDispenseServer, giDispensePort);
 		if( sock < 0 )	return RV_SOCKET_ERROR;
-			
+
 		ret = Dispense_ItemInfo(sock, gaItems[i].Type, gaItems[i].ID);
 		if(ret)	return ret;
-		
+
 		ret = Authenticate(sock);
 		if(ret)	return ret;
-		
+
 		for( j = 0; j < giDispenseCount; j ++ ) {
 			ret = DispenseItem(sock, gaItems[i].Type, gaItems[i].ID);
 			if( ret )	break;
@@ -858,9 +862,9 @@ int ParseArguments(int argc, char *argv[])
 	for( int i = 1; i < argc; i ++ )
 	{
 		char	*arg = argv[i];
-		
+
 		// If it doesn't start with a '-', or -- has been seen
-		// XXX: Hack - If parsing "user type", don't parse - options 
+		// XXX: Hack - If parsing "user type", don't parse - options
 		bool hack_usertype = (i > 2 && strcmp(argv[i-2], "user") == 0 && strcmp(argv[i-1], "type") == 0);
 		// XXX: Hack - Treat negative numbers as free
 		bool hack_is_int = (arg[0] == '-' && isdigit(arg[1]) != 0);
@@ -871,18 +875,18 @@ int ParseArguments(int argc, char *argv[])
 				fprintf(stderr, "ERROR: Too many arguments\n");
 				return RV_ARGUMENTS;
 			}
-		
+
 			gsTextArgs[giTextArgc++] = argv[i];
 		}
 		else if( arg[1] != '-' )
-		{			
+		{
 			switch(arg[1])
 			{
 			case 'h':
 			case '?':
 				ShowUsage();
 				exit(0);
-					
+
 			case 'c':
 				if( i + 1 >= argc ) {
 					fprintf(stderr, "%s: -c takes an argument\n", argv[0]);
@@ -894,9 +898,9 @@ int ParseArguments(int argc, char *argv[])
 					fprintf(stderr, "Sorry, only 1-20 can be passed to -c (safety)\n");
 					return -1;
 				}
-				
+
 				break ;
-	
+
 			case 'm':	// Minimum balance
 				if( i + 1 >= argc ) {
 					fprintf(stderr, "%s: -m takes an argument\n", argv[0]);
@@ -913,7 +917,7 @@ int ParseArguments(int argc, char *argv[])
 				}
 				giMaximumBalance = atoi(argv[++i]);
 				break;
-			
+
 			case 'f':	// Override Config File
 				if( i + 1 >= argc ) {
 					fprintf(stderr, "%s: -f takes an argument\n", argv[0]);
@@ -922,7 +926,7 @@ int ParseArguments(int argc, char *argv[])
 				}
 				gsConfigFile = argv[++i];
 				break;
-			
+
 			case 'u':	// Override User
 				if( i + 1 >= argc ) {
 					fprintf(stderr, "%s: -u takes an argument\n", argv[0]);
@@ -931,7 +935,7 @@ int ParseArguments(int argc, char *argv[])
 				}
 				gsEffectiveUser = argv[++i];
 				break;
-			
+
 			case 'H':	// Override remote host
 				if( i + 1 >= argc ) {
 					fprintf(stderr, "%s: -H takes an argument\n", argv[0]);
@@ -950,7 +954,7 @@ int ParseArguments(int argc, char *argv[])
 				giDispensePort = atoi(argv[++i]);
 				giDispensePortSet = 1;
 				break;
-			
+
 			// Set slot name/price
 			case 's':
 				if( giTextArgc != 0 ) {
@@ -961,7 +965,7 @@ int ParseArguments(int argc, char *argv[])
 				gsTextArgs[0] = "slot";	// HACK!!
 				giTextArgc ++;
 				break;
-			
+
 			case 'G':	// Don't use GUI
 				giUIMode = UI_MODE_BASIC;
 				break;
@@ -1024,10 +1028,10 @@ char *trim(char *string)
 	// Increment pointer while it points to a space
 	while( isspace(*string) )
 		string ++;
-	
+
 	// And repalce trailing spaces with NUL bytes
 	for( int i = strlen(string); i-- && isspace(string[i]); )
 		string[i] = '\0';
-	
+
 	return string;
 }
