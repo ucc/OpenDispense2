@@ -340,7 +340,6 @@ int ShowItemAt(int Row, int Col, int Width, int Index, int bHilighted)
 					printw("->  ");
 				}
 				else if( price > giUserBalance ) {
-					attrset(A_BOLD);
 					color_set( COLOURPAIR_CANTBUY, NULL );
 					printw("    ");
 				}
@@ -350,7 +349,6 @@ int ShowItemAt(int Row, int Col, int Width, int Index, int bHilighted)
 				}
 				break;
 			case ITEM_STATUS_SOLDOUT:
-				attrset(A_BOLD);
 				color_set( COLOURPAIR_CANTBUY, NULL );
 				printw("SLD ");
 				break;
