@@ -372,7 +372,7 @@ int ShowItemAt(int Row, int Col, int Width, int Index, int bHilighted)
 	
 	// If the item isn't available for sale, return -1 (so it's skipped)
 	if( status == ITEM_STATUS_SOLDOUT || (price > giUserBalance && gbDisallowSelectWithoutBalance) )
-		Index = -2;
+		Index = -1;
 	
 	return Index;
 }
