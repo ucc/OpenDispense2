@@ -272,7 +272,7 @@ int ShowItemAt(int Row, int Col, int Width, int Index, int bHilighted)
 {
 	char	*name = NULL;
 	 int	price = 0;
-	 int	status = -1;
+	 int	status = ITEM_STATUS_ERROR;
 	
 	switch(giUIMode)
 	{
@@ -333,7 +333,7 @@ int ShowItemAt(int Row, int Col, int Width, int Index, int bHilighted)
 			// Show hilight and status
 			switch( status )
 			{
-			case 0:
+			case ITEM_STATUS_AVAILABLE:
 				if( bHilighted ) {
 					color_set( COLOURPAIR_SELECTED, NULL );
 					printw("->  ");
@@ -348,14 +348,14 @@ int ShowItemAt(int Row, int Col, int Width, int Index, int bHilighted)
 					printw("    ");
 				}
 				break;
-			case 1:
+			case ITEM_STATUS_SOLDOUT:
 				attrset(A_BOLD);
 				color_set( COLOURPAIR_CANTBUY, NULL );
 				printw("SLD ");
 				break;
 			
 			default:
-			case -1:
+			case ITEM_STATUS_ERROR:
 				color_set( COLOURPAIR_CANTBUY, NULL );
 				printw("ERR ");
 				break;
@@ -373,8 +373,8 @@ int ShowItemAt(int Row, int Col, int Width, int Index, int bHilighted)
 		}
 	}
 	
-	// If the item isn't availiable for sale, return -1 (so it's skipped)
-	if( status > 0 || (price > giUserBalance && gbDisallowSelectWithoutBalance) )
+	// If the item isn't available for sale, return -1 (so it's skipped)
+	if( status == ITEM_STATUS_SOLDOUT || (price > giUserBalance && gbDisallowSelectWithoutBalance) )
 		Index = -2;
 	
 	return Index;

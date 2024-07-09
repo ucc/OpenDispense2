@@ -191,8 +191,8 @@ int subcommand_finger(void)
 		const char *status;
 		switch(gaItems[i].Status)
 		{
-		case 0:	status = "Avail";	break;
-		case 1:	status = "Sold ";	break;
+		case ITEM_STATUS_AVAILABLE:	status = "Avail";	break;
+		case ITEM_STATUS_SOLDOUT:	status = "Sold ";	break;
 		default:
 			status = "Error";
 			break;
