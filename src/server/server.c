@@ -773,7 +773,8 @@ void Server_int_SendItem(tClient *Client, tItem *Item)
 		}
 	}
 	
-	if( !gbNoCostMode && Item->Price == 0 )
+	// door costs 0 to dispense, which is not an error; other items must have a price
+	if( !gbNoCostMode && Item->Price == 0 && (strcmp(Item->Handler->Name, "door") != 0) )
 		status = "error";
 	// KNOWN HACK: Naming a slot 'dead' disables it
 	if( strcmp(Item->Name, "dead") == 0 )
