@@ -316,8 +316,6 @@ int ShowItemAt(int Row, int Col, int Width, int Index, int bHilighted)
 		status = gaItems[Index].Status;
 		break;
 	case UI_MODE_BASIC:
-	case UI_MODE_DRINKSONLY:
-	case UI_MODE_ALL:
 	default:
 		return -1;
 	}

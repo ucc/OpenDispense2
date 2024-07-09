@@ -30,8 +30,6 @@ enum eUI_Modes
 {
 	UI_MODE_BASIC,	// Non-NCurses
 	UI_MODE_STANDARD,
-	UI_MODE_DRINKSONLY,
-	UI_MODE_ALL,
 	NUM_UI_MODES
 };
 
