@@ -99,7 +99,10 @@ int ShowNCursesUI(void)
 	initscr();
 	start_color();
 	use_default_colors();
-	init_pair(COLOURPAIR_CANTBUY,  COLOR_BLACK,  -1);	// Not avaliable
+	init_pair(COLOURPAIR_CANTBUY,  8,  -1);	// Not available; colour 8 is "bright black" ie grey
+						// Previously this was COLOR_BLACK + the bold attribute, but
+						// that is not rendered the same way by all terminals
+						// ncurses does not have names for bright colours
 	init_pair(COLOURPAIR_SELECTED, COLOR_GREEN,  -1);	// Selected
 	cbreak(); noecho();
 	
