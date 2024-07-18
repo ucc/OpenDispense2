@@ -17,17 +17,19 @@
 typedef struct sItem {
 	char	*Type;
 	 int	ID;
-	 int	Status;	// 0: Availiable, 1: Sold out, -1: Error
+	 int	Status;	// 0: Available, 1: Sold out, -1: Error
 	char	*Desc;
 	 int	Price;
 }	tItem;
+
+#define ITEM_STATUS_AVAILABLE 0
+#define ITEM_STATUS_SOLDOUT 1
+#define ITEM_STATUS_ERROR -1
 
 enum eUI_Modes
 {
 	UI_MODE_BASIC,	// Non-NCurses
 	UI_MODE_STANDARD,
-	UI_MODE_DRINKSONLY,
-	UI_MODE_ALL,
 	NUM_UI_MODES
 };
 

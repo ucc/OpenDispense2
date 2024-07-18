@@ -393,11 +393,11 @@ int ReadItemInfo(int Socket, tItem *Dest)
 	Dest->ID = atoi( buf + matches[4].rm_so );
 	
 	if( strcmp(statusStr, "avail") == 0 )
-		Dest->Status = 0;
+		Dest->Status = ITEM_STATUS_AVAILABLE;
 	else if( strcmp(statusStr, "sold") == 0 )
-		Dest->Status = 1;
+		Dest->Status = ITEM_STATUS_SOLDOUT;
 	else if( strcmp(statusStr, "error") == 0 )
-		Dest->Status = -1;
+		Dest->Status = ITEM_STATUS_ERROR;
 	else {
 		fprintf(stderr, "Unknown response from dispense server (status '%s')\n",
 			statusStr);

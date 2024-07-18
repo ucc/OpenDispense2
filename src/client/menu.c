@@ -15,7 +15,6 @@
 #include "common.h"
 
 // === CONSTANTS ===
-#define COLOURPAIR_DEFAULT	0
 #define COLOURPAIR_CANTBUY	1
 #define COLOURPAIR_SELECTED	2
 
@@ -100,8 +99,10 @@ int ShowNCursesUI(void)
 	initscr();
 	start_color();
 	use_default_colors();
-	init_pair(COLOURPAIR_DEFAULT,  -1,  -1);	// Not avaliable
-	init_pair(COLOURPAIR_CANTBUY,  COLOR_BLACK,  -1);	// Not avaliable
+	init_pair(COLOURPAIR_CANTBUY,  8,  -1);	// Not available; colour 8 is "bright black" ie grey
+						// Previously this was COLOR_BLACK + the bold attribute, but
+						// that is not rendered the same way by all terminals
+						// ncurses does not have names for bright colours
 	init_pair(COLOURPAIR_SELECTED, COLOR_GREEN,  -1);	// Selected
 	cbreak(); noecho();
 	
@@ -272,7 +273,7 @@ int ShowItemAt(int Row, int Col, int Width, int Index, int bHilighted)
 {
 	char	*name = NULL;
 	 int	price = 0;
-	 int	status = -1;
+	 int	status = ITEM_STATUS_ERROR;
 	
 	switch(giUIMode)
 	{
@@ -315,8 +316,6 @@ int ShowItemAt(int Row, int Col, int Width, int Index, int bHilighted)
 		status = gaItems[Index].Status;
 		break;
 	case UI_MODE_BASIC:
-	case UI_MODE_DRINKSONLY:
-	case UI_MODE_ALL:
 	default:
 		return -1;
 	}
@@ -333,13 +332,12 @@ int ShowItemAt(int Row, int Col, int Width, int Index, int bHilighted)
 			// Show hilight and status
 			switch( status )
 			{
-			case 0:
+			case ITEM_STATUS_AVAILABLE:
 				if( bHilighted ) {
 					color_set( COLOURPAIR_SELECTED, NULL );
 					printw("->  ");
 				}
 				else if( price > giUserBalance ) {
-					attrset(A_BOLD);
 					color_set( COLOURPAIR_CANTBUY, NULL );
 					printw("    ");
 				}
@@ -348,14 +346,13 @@ int ShowItemAt(int Row, int Col, int Width, int Index, int bHilighted)
 					printw("    ");
 				}
 				break;
-			case 1:
-				attrset(A_BOLD);
+			case ITEM_STATUS_SOLDOUT:
 				color_set( COLOURPAIR_CANTBUY, NULL );
 				printw("SLD ");
 				break;
 			
 			default:
-			case -1:
+			case ITEM_STATUS_ERROR:
 				color_set( COLOURPAIR_CANTBUY, NULL );
 				printw("ERR ");
 				break;
@@ -373,9 +370,9 @@ int ShowItemAt(int Row, int Col, int Width, int Index, int bHilighted)
 		}
 	}
 	
-	// If the item isn't availiable for sale, return -1 (so it's skipped)
-	if( status > 0 || (price > giUserBalance && gbDisallowSelectWithoutBalance) )
-		Index = -2;
+	// If the item isn't available for sale, return -1 (so it's skipped)
+	if( status == ITEM_STATUS_SOLDOUT || (price > giUserBalance && gbDisallowSelectWithoutBalance) )
+		Index = -1;
 	
 	return Index;
 }

@@ -149,8 +149,6 @@ void ShowUsage(void)
 			"        Show help text\n"
 			"    -G\n"
 			"        Use simple textual interface (instead of ncurses)\n"
-			"    -D\n"
-			"        Drinks only in user interface\n"
 			"    -n\n"
 			"        Dry run - Do not actually do dispenses\n"
 			"    -m <min balance>\n"
@@ -191,8 +189,8 @@ int subcommand_finger(void)
 		const char *status;
 		switch(gaItems[i].Status)
 		{
-		case 0:	status = "Avail";	break;
-		case 1:	status = "Sold ";	break;
+		case ITEM_STATUS_AVAILABLE:	status = "Avail";	break;
+		case ITEM_STATUS_SOLDOUT:	status = "Sold ";	break;
 		default:
 			status = "Error";
 			break;
@@ -969,9 +967,6 @@ int ParseArguments(int argc, char *argv[])
 			case 'G':	// Don't use GUI
 				giUIMode = UI_MODE_BASIC;
 				break;
-			case 'D':	// Drinks only
-				giUIMode = UI_MODE_DRINKSONLY;
-				break;
 			case 'n':	// Dry Run / read-only
 				gbDryRun = 1;
 				break;
@@ -995,9 +990,6 @@ int ParseArguments(int argc, char *argv[])
 			}
 			else if( strcmp(arg, "--dry-run") == 0 ) {
 				gbDryRun = 1;
-			}
-			else if( strcmp(arg, "--drinks-only") == 0 ) {
-				giUIMode = UI_MODE_DRINKSONLY;
 			}
 			else if( strcmp(arg, "--can-select-all") == 0 ) {
 				gbDisallowSelectWithoutBalance = 0;
