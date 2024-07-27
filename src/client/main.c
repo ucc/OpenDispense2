@@ -705,6 +705,9 @@ int main(int argc, char *argv[])
                 close(sock);
                 return ret;
             }
+			else{
+				return RV_SUCCESS;
+			}
 		}
 		// Item id (<type>:<num>)
 		else if( RunRegex(&gUserItemIdentRegex, gsItemPattern, 3, matches, NULL) == 0 )
